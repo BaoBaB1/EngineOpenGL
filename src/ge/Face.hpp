@@ -13,6 +13,8 @@ struct Face {
   Face& operator=(const Face& other);
   Face(Face&& other) noexcept;
   Face& operator=(Face&& other) noexcept;
+  const uint32_t& operator[](GLuint idx) const { return data[idx]; }
+  uint32_t& operator[](GLuint idx) { return data[idx]; }
   void resize(int size);
   ~Face();
   

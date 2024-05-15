@@ -16,6 +16,11 @@ bool BoundingBox::is_empty() const
   return m_min == glm::vec3(g_fmin, g_fmin, g_fmin) && m_max == glm::vec3(g_fmax, g_fmax, g_fmax);
 }
 
+std::optional<RayHit> BoundingBox::hit(const Ray& ray) const
+{
+  return ray.intersect_aabb(*this);
+}
+
 bool BoundingBox::contains(const glm::vec3& point) const
 {
   return (point.x >= m_min.x && point.x <= m_max.x) &&

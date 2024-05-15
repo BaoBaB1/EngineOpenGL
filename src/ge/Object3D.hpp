@@ -9,13 +9,14 @@
 #include "ge/IDrawable.hpp"
 #include "ge/Mesh.hpp"
 #include "ge/BoundingBox.hpp"
+#include "ge/IRayHittable.hpp"
 #include "core/Material.hpp"
 #include <unordered_map>
 #include <optional>
 #include <list>
 #include <map>
 
-class Object3D : public IDrawable
+class Object3D : public IDrawable, public IRayHittable
 {
 public:
   enum ShadingMode
@@ -33,6 +34,7 @@ public:
 public:
   virtual void apply_shading(ShadingMode mode);
   virtual void set_color(const glm::vec4& color);
+  std::optional<RayHit> hit(const Ray& ray) const override;
   glm::vec3 center() const;
   void set_texture(const std::shared_ptr<Texture2D>& tex, TextureType type, size_t mesh_idx);
   void set_shading_mode(ShadingMode mode) { m_shading_mode = mode; }

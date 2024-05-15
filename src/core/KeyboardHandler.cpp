@@ -5,8 +5,12 @@ KeyboardHandler::KeyboardHandler(MainWindow* window) : UserInputHandler(window, 
 {
   auto key_callback = [](GLFWwindow* window, int key, int scancode, int action, int mods)
     {
+      // this must point to MainWindow instance
+      void* old_ptr = glfwGetWindowUserPointer(window);
+      assert(old_ptr);
       glfwSetWindowUserPointer(window, m_ptrs[HandlerType::KEYBOARD]);
       static_cast<KeyboardHandler*>(glfwGetWindowUserPointer(window))->key_callback(key, scancode, action, mods);
+      glfwSetWindowUserPointer(window, old_ptr);
     };
   for (InputKey key : KeyboardHandler::registered_keys)
   {

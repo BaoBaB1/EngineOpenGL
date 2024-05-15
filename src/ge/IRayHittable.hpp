@@ -1,0 +1,9 @@
+#pragma once
+
+#include "Ray.hpp"
+
+class IRayHittable
+{
+public:
+	virtual std::optional<RayHit> hit(const Ray& ray) const = 0;
+};

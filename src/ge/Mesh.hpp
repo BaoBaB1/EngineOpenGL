@@ -28,6 +28,8 @@ public:
   const BoundingBox& bbox() const { return m_bbox; }
   std::optional<Material> material() { return m_material; }
   const std::optional<Material> material() const { return m_material; }
+  Vertex& get_vertex(size_t idx) { return m_vertices[idx]; }
+  const Vertex& get_vertex(size_t idx) const { return m_vertices[idx]; }
   size_t append_vertex(const Vertex& vertex);
   size_t append_face(const Face& face);
   size_t append_face(Face&& face);

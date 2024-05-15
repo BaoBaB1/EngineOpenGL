@@ -1,14 +1,13 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 
-#include <cassert>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <sstream>
+#include <glm/gtx/norm.hpp>
 
 #include "SceneRenderer.hpp"
 #include "Ui.hpp"
@@ -32,6 +31,10 @@
 #include "ge/BezierCurve.hpp"
 #include "ge/Skybox.hpp"
 
+#include <cassert>
+
+#define DEBUG_RAY 0
+
 static void setup_opengl();
 static void get_desktop_resolution(int& horizontal, int& vertical);
 
@@ -47,11 +50,13 @@ SceneRenderer::SceneRenderer()
   m_window = std::make_unique<MainWindow>(w, h, "MainWindow");
   m_gpu_buffers = std::make_unique<GPUBuffers>();
   m_ui = std::make_unique<Ui>(*this, m_window.get());
+  m_camera.set_screen_size({ w, h });
   m_camera.set_position(glm::vec3(-4.f, 2.f, 3.f));
   m_camera.look_at(glm::vec3(2.f, 0.5f, 0.5f));
-  m_projection_mat = glm::mat4(1.f);
-  m_projection_mat = glm::perspective(glm::radians(45.f), (float)m_window->width() / m_window->height(), 0.1f, 100.f);
 
+  MouseInputHandler* mouse_input_handler = static_cast<MouseInputHandler*>(m_window->get_input_handler(UserInputHandler::MOUSE_INPUT));
+  mouse_input_handler->on_button_click += new InstanceListener(this, &::SceneRenderer::handle_mouse_click);
+  m_window->on_window_size_change += new InstanceListener(this, &::SceneRenderer::handle_window_size_change);
   ShaderStorage::init();
 
   auto main_scene_fbo = FrameBufferObject();
@@ -116,7 +121,7 @@ void SceneRenderer::render()
   vao->link_attrib(1, 3, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 3));   // normal
   vao->link_attrib(2, 4, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 6));   // color
   vao->link_attrib(3, 2, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 10));  // texture
-  m_gpu_buffers->bind_all();
+  m_gpu_buffers->unbind_all();
   
   while (!glfwWindowShouldClose(gl_window))
   {
@@ -124,13 +129,7 @@ void SceneRenderer::render()
     new_frame_update();
     handle_input();
     glPolygonMode(GL_FRONT_AND_BACK, m_polygon_mode);
-
-    picking_fbo.bind();
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-    render_picking_fbo();
-    picking_fbo.unbind();
-
+    
     // render to a custom framebuffer
     main_fbo.bind();
     glClearColor(0.07f, 0.13f, 0.17f, 1.0f);
@@ -160,7 +159,7 @@ void SceneRenderer::render_scene()
   shader->bind();
   shader->set_vec3("viewPos", m_camera.position());
   shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
-  shader->set_matrix4f("projectionMatrix", m_projection_mat);
+  shader->set_matrix4f("projectionMatrix", m_camera.get_projection_matrix());
   shader->set_int("defaultTexture", 0);
   shader->set_int("ambientTex", 1);
   shader->set_int("diffuseTex", 2);
@@ -277,52 +276,12 @@ void SceneRenderer::render_scene()
   shader->unbind();
 }
 
-void SceneRenderer::render_picking_fbo()
-{
-  glEnable(GL_DEPTH_TEST);
-  Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::PICKING);
-  shader->bind();
-  shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
-  shader->set_matrix4f("projectionMatrix", m_projection_mat);
-  const VertexLayout vlayout = shader->vertex_layout();
-  m_gpu_buffers->bind_all();
-  for (size_t i = 0; i < m_drawables.size(); i++)
-  {
-    const auto& drawable = m_drawables[i];
-    shader->set_matrix4f("modelMatrix", drawable->model_matrix());
-    shader->set_uint("objectIndex", i + 1);
-    const size_t mesh_count = drawable->mesh_count();
-    for (size_t j = 0; j < mesh_count; j++)
-    {
-      const Mesh& mesh = drawable->get_mesh(j);
-      auto& vbo = m_gpu_buffers->vbo;
-      const std::vector<Vertex>& vertices = mesh.vertices();
-      vbo->set_data(vertices.data(), sizeof(Vertex) * vertices.size());
-      const auto& render_config = drawable->get_render_config();
-      if (render_config.use_indices)
-      {
-        const std::vector<GLuint>& indices = mesh.faces_as_indices();
-        auto& ebo = m_gpu_buffers->ebo;
-        ebo->set_data(indices.data(), sizeof(GLuint) * indices.size());
-        glDrawElements(render_config.mode, (GLsizei)(indices.size()), GL_UNSIGNED_INT, nullptr);
-      }
-      else
-      {
-        glDrawArrays(render_config.mode, 0, (GLsizei)vertices.size());
-      }
-    }
-  }
-  m_gpu_buffers->unbind_all();
-  shader->unbind();
-  glDisable(GL_DEPTH_TEST);
-}
-
 void SceneRenderer::render_selected_objects()
 {
   Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::OUTLINING);
   shader->bind();
   shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
-  shader->set_matrix4f("projectionMatrix", m_projection_mat);
+  shader->set_matrix4f("projectionMatrix", m_camera.get_projection_matrix());
   const VertexLayout vlayout = shader->vertex_layout();
 
   //glDisable(GL_DEPTH_TEST);
@@ -371,7 +330,7 @@ void SceneRenderer::render_lines()
   Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::LINES);
   shader->bind();
   shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
-  shader->set_matrix4f("projectionMatrix", m_projection_mat);
+  shader->set_matrix4f("projectionMatrix", m_camera.get_projection_matrix());
   shader->set_vec3("lineColor", glm::vec3(0.f, 1.f, 0.f));
   const VertexLayout vlayout = shader->vertex_layout();
   auto& vbo = m_gpu_buffers->vbo;
@@ -409,7 +368,7 @@ void SceneRenderer::render_normals()
   Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::NORMALS);
   shader->bind();
   shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
-  shader->set_matrix4f("projectionMatrix", m_projection_mat);
+  shader->set_matrix4f("projectionMatrix", m_camera.get_projection_matrix());
   shader->set_vec3("normalColor", glm::vec3(0, 1, 1));
   const VertexLayout vlayout = shader->vertex_layout();
   m_gpu_buffers->bind_all();
@@ -424,7 +383,7 @@ void SceneRenderer::render_normals()
       {
         const Mesh& mesh = pobj->get_mesh(i);
         vbo->set_data(mesh.vertices().data(), sizeof(Vertex) * mesh.vertices().size());
-        glDrawArrays(GL_POINTS, 0, mesh.vertices().size());
+        glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(mesh.vertices().size()));
       }
     }
   }
@@ -438,7 +397,7 @@ void SceneRenderer::render_skybox(const Skybox& skybox)
   Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::SKYBOX);
   shader->bind();
   shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
-  shader->set_matrix4f("projectionMatrix", m_projection_mat);
+  shader->set_matrix4f("projectionMatrix", m_camera.get_projection_matrix());
   glActiveTexture(GL_TEXTURE0);
   m_skybox_vao->bind();
   m_skybox_vbo->bind();
@@ -449,6 +408,73 @@ void SceneRenderer::render_skybox(const Skybox& skybox)
   m_skybox_vao->unbind();
   shader->unbind();
   glDepthFunc(GL_LESS);
+}
+
+void SceneRenderer::handle_mouse_click(int button, int x, int y)
+{
+  if (button == GLFW_MOUSE_BUTTON_LEFT)
+  {
+    y = static_cast<int>(m_camera.get_screen_size().y) - y;
+    Ray ray = m_camera.cast_ray(x, y);
+    std::pair<Object3D*, float> hit_info = { nullptr, INFINITY };
+#if DEBUG_RAY
+    std::vector<Polyline> rays;
+#endif
+    for (const auto& d : m_drawables)
+    {
+      const glm::mat4 inv_model_mat = glm::inverse(d->model_matrix());
+      Ray ray_local = Ray(inv_model_mat * glm::vec4(ray.get_origin(), 1), inv_model_mat * glm::vec4(ray.get_direction(), 0));
+      if (auto hit = d->hit(ray_local))
+      {
+        const glm::vec3 ray_hit_pos_world = d->model_matrix() * glm::vec4(hit->position, 1);
+#if DEBUG_RAY
+        Polyline poly;
+        poly.add(ray.get_origin());
+        poly.add(ray_hit_pos_world);
+        //auto dist = glm::distance(ray.get_origin(), glm::vec3(d->model_matrix() * glm::vec4(hit->position, 1)));
+        //std::cout << "dist " << d->name() << " " << dist << '\n';
+        rays.push_back(poly);
+#endif
+        // calculate distance in world space and find closest object. my guess is that we cannot use rayhit->distance here, because it's in local space,
+        // therefore, if ray instersects multiple objects, the object that is further may have less distance value than the object that is closer.
+        const float hit_distance_world = glm::distance2(ray.get_origin(), ray_hit_pos_world);
+        if (hit_info.second > hit_distance_world)
+        {
+          hit_info.second = hit_distance_world;
+          hit_info.first = d.get();
+        }
+      }
+    }
+    if (hit_info.first)
+    {
+      select_object(hit_info.first, false);
+    }
+#if DEBUG_RAY
+    for (auto& r : rays)
+    {
+      scene.m_drawables.push_back(std::make_unique<Polyline>(r));
+    }
+#endif
+  }
+}
+
+void SceneRenderer::handle_window_size_change(int width, int height)
+{
+  // to avoid crash when window is completely minimized
+  if (width == 0 || height == 0)
+    return;
+  m_window->set_width(width);
+  m_window->set_height(height);
+  m_camera.set_screen_size({ width, height });
+  for (auto& [name, fbo] : m_fbos)
+  {
+    fbo.bind();
+    // resize texture and render buffer
+    fbo.attach_texture(width, height, fbo.texture()->internal_fmt(), fbo.texture()->format(), fbo.texture()->pixel_data_type());
+    fbo.attach_renderbuffer(width, height, fbo.rb_internal_format(), fbo.rb_attachment());
+    fbo.unbind();
+  }
+  glViewport(0, 0, width, height);
 }
 
 void SceneRenderer::create_scene()
@@ -517,24 +543,24 @@ void SceneRenderer::create_scene()
   m_drawables.push_back(std::move(bc2));
 }
 
-void SceneRenderer::select_object(int index, bool click_from_menu_item)
+void SceneRenderer::select_object(Object3D* obj, bool click_from_menu_item)
 {
   // do not select object that is behind imgui's menu, but select it when we are clicking on obj name inside menu itself
   ImGuiIO& io = ImGui::GetIO();
   if (!click_from_menu_item && io.WantCaptureMouse)
     return;
-  if (m_drawables[index]->is_selected())
+  if (obj->is_selected())
     return;
   // for now support only single object selection
   assert(m_selected_objects.size() == 0 || m_selected_objects.size() == 1);
-  std::cout << m_drawables[index]->name() << " selected\n";
+  std::cout << m_drawables[0]->name() << " selected\n";
   if (m_selected_objects.size())
   {
-    m_drawables[m_selected_objects.back()]->select(false);
+    m_selected_objects.back()->select(false);
     m_selected_objects.pop_back();
   }
-  m_selected_objects.push_back(index);
-  m_drawables[index]->select(true);
+  m_selected_objects.push_back(obj);
+  obj->select(true);
 }
 
 void SceneRenderer::new_frame_update()
@@ -550,15 +576,14 @@ void SceneRenderer::new_frame_update()
   glfwGetCursorPos(m_window->gl_window(), &x, &y);
   // update virtual cursor pos to avoid camera jumps after cursor goes out of window or window regains focus,
   // because once cursor goes out of glfw window cursor callback is no longer triggered
-  auto& h = m_window->input_handlers()[1];
-  assert(h->type() == UserInputHandler::CURSOR_POSITION);
-  static_cast<CursorPositionHandler*>(h.get())->update_current_pos(x, y);
+  UserInputHandler* h = m_window->get_input_handler(UserInputHandler::CURSOR_POSITION);
+  static_cast<CursorPositionHandler*>(h)->update_current_pos(x, y);
 }
 
 void SceneRenderer::handle_input()
 {
   // handle pressed key every frame for smooth movement because glfw calls callback not every frame
-  KeyboardHandler* kh = static_cast<KeyboardHandler*>(m_window->input_handlers()[0].get());
+  KeyboardHandler* kh = static_cast<KeyboardHandler*>(m_window->get_input_handler(UserInputHandler::KEYBOARD));
   assert(kh->type() == UserInputHandler::KEYBOARD);
   if (kh->disabled())
     return;
@@ -581,11 +606,11 @@ void SceneRenderer::handle_input()
   }
   if (kh->get_keystate(InputKey::ESC) == KeyboardHandler::PRESSED)
   {
-    for (int idx : m_selected_objects)
+    assert(m_selected_objects.empty() || m_selected_objects.size() == 1);
+    for (Object3D* obj : m_selected_objects)
     {
-      assert(m_selected_objects.size() == 1);
       m_selected_objects.pop_back();
-      m_drawables[idx]->select(false);
+      obj->select(false);
     }
   }
   if (kh->get_keystate(InputKey::SPACE) == KeyboardHandler::PRESSED)

@@ -8,8 +8,12 @@ CursorPositionHandler::CursorPositionHandler(MainWindow* window) : UserInputHand
 {
   auto callback = [](GLFWwindow* window, double xpos, double ypos)
     {
+      // this must point to MainWindow instance
+      void* old_ptr = glfwGetWindowUserPointer(window);
+      assert(old_ptr);
       glfwSetWindowUserPointer(window, m_ptrs[HandlerType::CURSOR_POSITION]);
       static_cast<CursorPositionHandler*>(glfwGetWindowUserPointer(window))->callback(xpos, ypos);
+      glfwSetWindowUserPointer(window, old_ptr);
     };
   glfwSetCursorPosCallback(m_window->gl_window(), callback);
   glfwGetCursorPos(m_window->gl_window(), &m_cur_pos[0], &m_cur_pos[1]);
@@ -36,7 +40,7 @@ void CursorPositionHandler::callback(double xpos, double ypos)
     if (diff_x != 0.0 || diff_y != 0.0)
     {
       auto& scene = SceneRenderer::instance();
-      scene.m_camera.add_to_yaw_and_pitch(diff_x, diff_y);
+      scene.get_camera().add_to_yaw_and_pitch(diff_x, diff_y);
     }
   }
 }

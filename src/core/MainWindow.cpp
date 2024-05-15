@@ -29,14 +29,22 @@ MainWindow::MainWindow(int width, int height, const char* title) :
   }
   glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
   glfwSetCursorPos(m_window, m_width / 2., m_height / 2.);
-  m_input_handlers.push_back(std::make_unique<KeyboardHandler>(this));
-  m_input_handlers.push_back(std::make_unique<CursorPositionHandler>(this));
-  m_input_handlers.push_back(std::make_unique<MouseInputHandler>(this));
+  m_input_handlers[UserInputHandler::HandlerType::KEYBOARD] = std::make_unique<KeyboardHandler>(this);
+  m_input_handlers[UserInputHandler::HandlerType::CURSOR_POSITION] = std::make_unique<CursorPositionHandler>(this);
+  m_input_handlers[UserInputHandler::HandlerType::MOUSE_INPUT] = std::make_unique<MouseInputHandler>(this);
   glfwMakeContextCurrent(m_window);
   // disable vsync
   glfwSwapInterval(0);
   glfwSetWindowSizeLimits(m_window, 1600, 900, GLFW_DONT_CARE, GLFW_DONT_CARE);
   glfwSetWindowFocusCallback(m_window, window_focus_callback);
+
+  glfwSetWindowUserPointer(m_window, this);
+  auto window_size_change_callback = [](GLFWwindow* window, int width, int height)
+    {
+      static_cast<MainWindow*>(glfwGetWindowUserPointer(window))->on_window_size_change.notify(width, height);
+    };
+  glfwSetWindowSizeCallback(m_window, window_size_change_callback);
+
   gladLoadGL();
   glViewport(0, 0, m_width, m_height);
 }
@@ -49,7 +57,7 @@ void MainWindow::notify(IObserver* observer, bool enable)
 void MainWindow::notify_all(bool enable)
 {
   for (const auto& phandler : m_input_handlers)
-    phandler->notify(enable);
+    phandler.second->notify(enable);
 }
 
 MainWindow::~MainWindow()
