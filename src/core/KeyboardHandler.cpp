@@ -1,5 +1,3 @@
-#include <stdexcept>
-
 #include "MainWindow.hpp"
 #include "KeyboardHandler.hpp"
 

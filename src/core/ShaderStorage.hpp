@@ -19,9 +19,9 @@ namespace GlobalState
       LAST_ITEM
     };
     static void init();
-    static Shader& get(ShaderType type) { return m_shaders[type]; }
+    static Shader& get(ShaderType type) { return shaders[type]; }
     static Shader* get(unsigned int id);
   private:
-    static std::map<ShaderType, Shader> m_shaders;
+    static std::map<ShaderType, Shader> shaders;
   };
 }

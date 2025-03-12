@@ -34,14 +34,13 @@ void MouseInputHandler::left_btn_click_callback(GLFWwindow* window, int button, 
       const auto& picking_fbo = scene.m_fbos["picking"];
       picking_fbo.bind();
       glBindTexture(GL_TEXTURE_2D, picking_fbo.texture()->id());
-      float id[4] = {};
+      uint32_t id = 0;
       glReadBuffer(GL_COLOR_ATTACHMENT0);
-      glReadPixels(x, y, 1, 1, GL_RGBA, GL_FLOAT, &id);
-      if (id[0] != 0)
+      glReadPixels(x, y, 1, 1, GL_RED_INTEGER, GL_UNSIGNED_INT, &id);
+      if (id != 0)
       {
-        std::cout << "Pixel " << x << ',' << y << " object id = " << id[0] << '\n';
-        int index = (int)id[0] - 1;
-        scene.select_object(index);
+        std::cout << "Pixel " << x << ',' << y << " object id = " << id << '\n';
+        scene.select_object(id - 1);
       }
       glReadBuffer(0);
       picking_fbo.unbind();
@@ -63,7 +62,7 @@ void MouseInputHandler::window_size_change_callback(GLFWwindow* window, int widt
   {
     fbo.bind();
     // resize texture and render buffer
-    fbo.attach_texture(width, height, fbo.texture()->internal_fmt(), fbo.texture()->format(), fbo.texture()->type());
+    fbo.attach_texture(width, height, fbo.texture()->internal_fmt(), fbo.texture()->format(), fbo.texture()->pixel_data_type());
     fbo.attach_renderbuffer(width, height, fbo.rb_internal_format(), fbo.rb_attachment());
     fbo.unbind();
   }

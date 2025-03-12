@@ -5,7 +5,7 @@ ElementBufferObject::ElementBufferObject()
   glGenBuffers(1, id_ref());
 }
 
-void ElementBufferObject::set_data(void* indices, size_t size_in_bytes)
+void ElementBufferObject::set_data(const void* indices, size_t size_in_bytes)
 {
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, size_in_bytes, indices, GL_STATIC_DRAW);
 }

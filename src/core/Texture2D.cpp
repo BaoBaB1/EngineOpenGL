@@ -11,15 +11,19 @@ Texture2D::Texture2D(const std::string& filename)
   resize(filename);
 }
 
-void Texture2D::resize(int w, int h, GLint internalformat, GLint format, GLint type)
+Texture2D::Texture2D(const std::filesystem::path& file) : Texture2D(file.string())
+{
+}
+
+void Texture2D::resize(int w, int h, GLint internalformat, GLint format, GLint pixel_data_type)
 {
   m_height = h;
   m_width = w;
   m_internal_fmt = internalformat;
   m_fmt = format;
-  m_type = type;
+  m_pixel_data_type = pixel_data_type;
   bind();
-  glTexImage2D(GL_TEXTURE_2D, 0, internalformat, w, h, 0, format, type, nullptr);
+  glTexImage2D(GL_TEXTURE_2D, 0, internalformat, w, h, 0, format, m_pixel_data_type, nullptr);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, /*GL_NEAREST*/GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, /*GL_NEAREST*/GL_LINEAR);
   unbind();
@@ -28,7 +32,7 @@ void Texture2D::resize(int w, int h, GLint internalformat, GLint format, GLint t
 void Texture2D::resize(const std::string& filename)
 {
   m_internal_fmt = m_fmt = GL_RGB;
-  m_type = GL_UNSIGNED_BYTE;
+  m_pixel_data_type = GL_UNSIGNED_BYTE;
   m_disabled = false;
   bind();
   auto data = Texture::load(filename);

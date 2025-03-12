@@ -23,66 +23,53 @@ void BezierCurve::set_control_points(const std::vector<Vertex>& c_points)
     throw std::exception("Unsupported Bezier curve type");
     break;
   }
-  m_control_points = c_points;
-}
 
-void BezierCurve::render(GPUBuffers* buffers)
-{
-  auto& mesh = m_meshes[0];
-  if (!mesh.vertices().size())
+  Mesh& mesh = m_meshes[0];
+  m_control_points = c_points;
+  mesh.vertices().clear();
+  mesh.faces().clear();
+
+  constexpr float step = 0.005f;
+  std::vector<Vertex>& vertices = mesh.vertices();
+  vertices.reserve(static_cast<size_t>(1. / step));
+
+  if (m_type == BezierCurve::Type::Quadratic)
   {
-    const float step = 0.005f;
-    std::vector<Vertex>& vertices = mesh.vertices();
-    vertices.reserve(static_cast<size_t>(1. / step));
-    switch (m_type)
+    // B(t) = (1-t)^2 * P0 + 2t(1-t) * P1 + t^2 * P2 , where 
+    // P0 - start point 
+    // P1 - control point
+    // P2 - end point
+    // 0 <= t <= 1
+    for (float t = 0.0; t <= 1.0; t += step)
     {
-    case BezierCurve::Type::Quadratic:
-    {
-      // B(t) = (1-t)^2 * P0 + 2t(1-t) * P1 + t^2 * P2 , where 
-      // P0 - start point 
-      // P1 - control point
-      // P2 - end point
-      // 0 <= t <= 1
-      for (float t = 0.0; t <= 1.0; t += step)
-      {
-        Vertex res = ((1 - t) * (1 - t) * m_start_pnt) +
-          (2 * t * (1 - t) * m_control_points[0]) +
-          (t * t * m_end_pnt);
-        res.color = m_color;
-        vertices.push_back(res);
-      }
-    }
-    break;
-    case BezierCurve::Type::Cubic:
-    {
-      // B(t) = ( (1-t)^3 * P0 ) + ( 3(1-t)^2 * t * P1 ) + ( 3(1-t) * t^2 * P2 ) + (t^3 * P3), where 
-      // P0 - start point 
-      // P1 - control point
-      // P2 - control point
-      // P3 - end point
-      // 0 <= t <= 1
-      const Vertex& P0 = m_start_pnt;
-      const Vertex& P1 = m_control_points[0];
-      const Vertex& P2 = m_control_points[1];
-      const Vertex& P3 = m_end_pnt;
-      for (float t = 0.0; t <= 1.0; t += step)
-      {
-        Vertex res =
-          (std::pow((1 - t), 3) * P0) +
-          (3 * std::pow((1 - t), 2) * t * P1) +
-          (3 * (1 - t) * t * t * P2) +
-          (std::pow(t, 3) * P3);
-        res.color = m_color;
-        vertices.push_back(res);
-      }
-    }
-    break;
-    default:
-      return;
+      Vertex res = ((1 - t) * (1 - t) * m_start_pnt) +
+        (2 * t * (1 - t) * m_control_points[0]) +
+        (t * t * m_end_pnt);
+      res.color = m_color;
+      vertices.push_back(res);
     }
   }
-  RenderConfig cfg;
-  cfg.mode = GL_LINE_STRIP;
-  cfg.use_indices = false;
-  Object3D::render(buffers, cfg);
+  else
+  {
+    // B(t) = ( (1-t)^3 * P0 ) + ( 3(1-t)^2 * t * P1 ) + ( 3(1-t) * t^2 * P2 ) + (t^3 * P3), where 
+    // P0 - start point 
+    // P1 - control point
+    // P2 - control point
+    // P3 - end point
+    // 0 <= t <= 1
+    const Vertex& P0 = m_start_pnt;
+    const Vertex& P1 = m_control_points[0];
+    const Vertex& P2 = m_control_points[1];
+    const Vertex& P3 = m_end_pnt;
+    for (float t = 0.0; t <= 1.0; t += step)
+    {
+      Vertex res =
+        (std::pow((1 - t), 3) * P0) +
+        (3 * std::pow((1 - t), 2) * t * P1) +
+        (3 * (1 - t) * t * t * P2) +
+        (std::pow(t, 3) * P3);
+      res.color = m_color;
+      vertices.push_back(res);
+    }
+  }
 }

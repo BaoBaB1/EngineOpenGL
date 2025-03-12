@@ -24,12 +24,13 @@
 #include "CursorPositionHandler.hpp"
 #include "MouseInputHandler.hpp"
 #include "ShaderStorage.hpp"
-#include "./ge/Cube.hpp"
-#include "./ge/Icosahedron.hpp"
-#include "./ge/Polyline.hpp"
-#include "./ge/Pyramid.hpp"
-#include "./ge/BezierCurve.hpp"
-#include "./ge/Skybox.hpp"
+#include "GPUBuffers.hpp"
+#include "ge/Cube.hpp"
+#include "ge/Icosahedron.hpp"
+#include "ge/Polyline.hpp"
+#include "ge/Pyramid.hpp"
+#include "ge/BezierCurve.hpp"
+#include "ge/Skybox.hpp"
 
 static void setup_opengl();
 static void get_desktop_resolution(int& horizontal, int& vertical);
@@ -62,7 +63,7 @@ SceneRenderer::SceneRenderer()
 
   auto picking_fbo = FrameBufferObject();
   picking_fbo.bind();
-  picking_fbo.attach_texture(w, h, GL_RGBA32F, GL_RGBA, GL_FLOAT);
+  picking_fbo.attach_texture(w, h, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT);
   picking_fbo.attach_renderbuffer(w, h, GL_DEPTH_COMPONENT, GL_DEPTH_ATTACHMENT);
   picking_fbo.unbind();
   m_fbos["picking"] = std::move(picking_fbo);
@@ -100,9 +101,6 @@ void SceneRenderer::render()
   };
   Skybox skybox(Cubemap(std::move(skybox_faces)));
 
-  Shader& picking_shader = ShaderStorage::get(ShaderStorage::PICKING);
-  Shader& main_shader = ShaderStorage::get(ShaderStorage::MAIN);
-  Shader& skybox_shader = ShaderStorage::get(ShaderStorage::SKYBOX);
   Shader& fbo_default_shader = ShaderStorage::get(ShaderStorage::FBO_DEFAULT);
 
   while (!glfwWindowShouldClose(gl_window))
@@ -116,8 +114,7 @@ void SceneRenderer::render()
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
-    picking_shader.bind();
-    render_scene(picking_shader, /*assignIndices*/true);
+    render_picking_fbo();
     picking_fbo.unbind();
 
     // render to a custom framebuffer
@@ -125,17 +122,11 @@ void SceneRenderer::render()
     glClearColor(0.07f, 0.13f, 0.17f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
-    main_shader.bind();
     // render scene before gui to make sure that imgui window always will be on top of drawn entities
-    render_scene(main_shader);
-    // render skybox
-    glDepthFunc(GL_LEQUAL);
-    skybox_shader.bind();
-    skybox_shader.set_matrix4f("viewMatrix", m_camera.view_matrix());
-    skybox_shader.set_matrix4f("projectionMatrix", m_projection_mat);
-    skybox.render(m_gpu_buffers.get());
-    skybox_shader.unbind();
-    glDepthFunc(GL_LESS);
+    render_skybox(skybox);
+    render_scene();
+    render_selected_objects();
+    render_lines();
     m_ui->render();
     main_fbo.unbind();
 
@@ -143,93 +134,307 @@ void SceneRenderer::render()
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glDisable(GL_DEPTH_TEST);
     fbo_default_shader.bind();
-    screen_quad.render(m_gpu_buffers.get());
+    screen_quad.render(m_gpu_buffers.get(), fbo_default_shader);
+    fbo_default_shader.unbind();
 
     glfwSwapBuffers(gl_window);
   }
 }
 
-void SceneRenderer::render_scene(Shader& shader, bool assignIndices)
+void SceneRenderer::render_scene()
 {
-  shader.set_vec3("viewPos", m_camera.position());
-  shader.set_matrix4f("viewMatrix", m_camera.view_matrix());
-  shader.set_matrix4f("projectionMatrix", m_projection_mat);
-  for (int i = 0; i < (int)m_drawables.size(); i++)
+  Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::MAIN);
+  shader->bind();
+  shader->set_vec3("viewPos", m_camera.position());
+  shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
+  shader->set_matrix4f("projectionMatrix", m_projection_mat);
+  shader->set_int("defaultTexture", 0);
+  shader->set_int("ambientTex", 1);
+  shader->set_int("diffuseTex", 2);
+  shader->set_int("specularTex", 3);
+  const VertexLayout vlayout = shader->vertex_layout();
+  m_gpu_buffers->bind_all();
+  for (const auto& pobj : m_drawables)
   {
-    Object3D* pobj = m_drawables[i].get();
-    IDrawable* pdrawable = static_cast<IDrawable*>(pobj);
-    shader.set_matrix4f("modelMatrix", pobj->model_matrix());
-    shader.set_bool("applyTexture", pobj->has_active_texture());
-    shader.set_bool("applyShading", pobj->m_shading_mode != Object3D::ShadingMode::NO_SHADING && !pobj->is_light_source());
+    shader->set_matrix4f("modelMatrix", pobj->model_matrix());
+    shader->set_bool("applyShading", pobj->m_shading_mode != Object3D::ShadingMode::NO_SHADING && !pobj->is_light_source());
+
     if (pobj->is_rotating())
     {
       pobj->rotate(pobj->m_rotation_angle, pobj->m_rotation_axis);
     }
+    if (pobj->is_selected() && pobj->has_surface())
+    {
+      // enable writing to the stencil buffer and disable it in the end of current iteration
+      glStencilFunc(GL_ALWAYS, 1, 0xFF);
+      glStencilMask(0xFF);
+    }
     if (pobj->is_light_source())
     {
       // center in world space
-      shader.set_vec3("lightPos", pobj->center() + glm::vec3(pobj->m_model_mat[3]));
-      shader.set_vec3("lightColor", glm::vec3(1.f));
+      shader->set_vec3("lightPos", pobj->center() + glm::vec3(pobj->m_model_mat[3]));
+      shader->set_vec3("lightColor", glm::vec3(1.f));
     }
-    if (assignIndices)
-    {
-      shader.set_uint("objectIndex", i + 1);
-    }
-    // setup shader for drawing lines
-    if (pobj->is_bbox_visible() || pobj->is_normals_visible())
-    {
-      Shader& sh = ShaderStorage::get(ShaderStorage::ShaderType::LINES);
-      sh.bind();
-      sh.set_matrix4f("viewMatrix", m_camera.view_matrix());
-      sh.set_matrix4f("projectionMatrix", m_projection_mat);
-      sh.set_matrix4f("modelMatrix", pobj->model_matrix());
-      sh.unbind();
-      shader.bind();
-    }
-    // !assignIndices is a temp workaround to avoid crash when selecting same object twice,
-    // because render outlining color to the picking FBO will overwrite assigned object index before
-    // TODO: fix this
-    // TODO: outlining for objects without surface (e.g. polylines)
-    if (pobj->is_selected() && pobj->has_surface() && !assignIndices)
-    {
-      // first pass, fill stencil buffer
-      glStencilFunc(GL_ALWAYS, 1, 0xFF);
-      // enable writing to stencil buffer
-      glStencilMask(0xFF);
-      pdrawable->render(m_gpu_buffers.get());
 
-      // second pass, discard fragments
-      glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-      // disable writing to stencil buffer
-      glStencilMask(0x00);
-      glEnable(GL_DEPTH_TEST);
-      // apply smooth shading to correctly draw outlining by moving all vertices along normal direction
-      auto shading_mode = pobj->shading_mode();
-      bool visible_normals = pobj->is_normals_visible();
-      if (shading_mode != Object3D::ShadingMode::SMOOTH_SHADING)
-        pobj->apply_shading(Object3D::ShadingMode::SMOOTH_SHADING);
-      pobj->visible_normals(false);
+    const size_t mesh_count = pobj->mesh_count();
+    for (size_t i = 0; i < mesh_count; i++)
+    {
+      const Mesh& mesh = pobj->get_mesh(i);
 
-      Shader& outlining_shader = ShaderStorage::get(ShaderStorage::OUTLINING);
-      outlining_shader.bind();
-      outlining_shader.set_matrix4f("viewMatrix", m_camera.view_matrix());
-      outlining_shader.set_matrix4f("projectionMatrix", m_projection_mat);
-      outlining_shader.set_matrix4f("modelMatrix", pobj->model_matrix());
-      pdrawable->render(m_gpu_buffers.get());
+      // bind textures
+      if (auto tex = mesh.get_texture(TextureType::UNKNOWN))
+      {
+        shader->set_bool("hasDefaultTexture", true);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, tex->id());
+      }
+      else
+      {
+        shader->set_bool("hasDefaultTexture", false);
+      }
+      if (auto tex = mesh.get_texture(TextureType::AMBIENT))
+      {
+        shader->set_bool("hasAmbientTex", true);
+        glActiveTexture(GL_TEXTURE0 + 1);
+        glBindTexture(GL_TEXTURE_2D, tex->id());
+      }
+      else
+      {
+        shader->set_bool("hasAmbientTex", false);
+      }
+      if (auto tex = mesh.get_texture(TextureType::DIFFUSE))
+      {
+        shader->set_bool("hasDiffuseTex", true);
+        glActiveTexture(GL_TEXTURE0 + 2);
+        glBindTexture(GL_TEXTURE_2D, tex->id());
+      }
+      else
+      {
+        shader->set_bool("hasDiffuseTex", false);
+      }
+      if (auto tex = mesh.get_texture(TextureType::SPECULAR))
+      {
+        shader->set_bool("hasSpecularTex", true);
+        glActiveTexture(GL_TEXTURE0 + 3);
+        glBindTexture(GL_TEXTURE_2D, tex->id());
+      }
+      else
+      {
+        shader->set_bool("hasSpecularTex", false);
+      }
 
+      auto& vao = m_gpu_buffers->vao;
+      auto& vbo = m_gpu_buffers->vbo;
+      const std::vector<Vertex>& vertices = mesh.vertices();
+      vbo->set_data(vertices.data(), sizeof(Vertex) * vertices.size());
+      vao->link_attrib(vlayout.position, 3, GL_FLOAT, sizeof(Vertex), nullptr);                     // position
+      vao->link_attrib(vlayout.normal, 3, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 3));  // normal
+      vao->link_attrib(vlayout.color, 4, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 6));   // color
+      vao->link_attrib(vlayout.uv, 2, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 10));     // texture 
+
+      const auto mat = mesh.material();
+      shader->set_bool("hasMaterial", bool(mat));
+      if (mat)
+      {
+        shader->set_vec3("material.ambient", mat->ambient);
+        shader->set_vec3("material.diffuse", mat->diffuse);
+        shader->set_vec3("material.specular", mat->specular);
+        shader->set_float("material.shininess", mat->shininess);
+        shader->set_float("material.alpha", mat->alpha);
+      }
+
+      const auto& render_config = pobj->get_render_config();
+      if (render_config.use_indices)
+      {
+        const std::vector<GLuint>& indices = mesh.faces_as_indices();
+        auto& ebo = m_gpu_buffers->ebo;
+        ebo->set_data(indices.data(), sizeof(GLuint) * indices.size());
+        glDrawElements(render_config.mode, (GLsizei)(indices.size()), GL_UNSIGNED_INT, nullptr);
+      }
+      else
+      {
+        glDrawArrays(render_config.mode, 0, (GLsizei)vertices.size());
+      }
+      // disable stencil buffer writing
       glStencilFunc(GL_ALWAYS, 0, 0xFF);
-      glStencilMask(0xFF);
-
-      // activate previous shader and set variables
-      shader.bind();
-      pobj->apply_shading(shading_mode);
-      pobj->visible_normals(visible_normals);
-    }
-    else
-    {
-      pdrawable->render(m_gpu_buffers.get());
+      glStencilMask(0x00);
+      for (int i = 0; i < 4; i++)
+      {
+        glActiveTexture(GL_TEXTURE0 + i);
+        glBindTexture(GL_TEXTURE_2D, 0);
+      }
     }
   }
+  m_gpu_buffers->unbind_all();
+  shader->unbind();
+}
+
+void SceneRenderer::render_picking_fbo()
+{
+  Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::PICKING);
+  shader->bind();
+  shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
+  shader->set_matrix4f("projectionMatrix", m_projection_mat);
+  const VertexLayout vlayout = shader->vertex_layout();
+  m_gpu_buffers->bind_all();
+  for (size_t i = 0; i < m_drawables.size(); i++)
+  {
+    const auto& drawable = m_drawables[i];
+    shader->set_matrix4f("modelMatrix", drawable->model_matrix());
+    shader->set_uint("objectIndex", i + 1);
+    const size_t mesh_count = drawable->mesh_count();
+    for (size_t j = 0; j < mesh_count; j++)
+    {
+      const Mesh& mesh = drawable->get_mesh(j);
+      auto& vao = m_gpu_buffers->vao;
+      auto& vbo = m_gpu_buffers->vbo;
+      const std::vector<Vertex>& vertices = mesh.vertices();
+      vbo->set_data(vertices.data(), sizeof(Vertex) * vertices.size());
+      vao->link_attrib(vlayout.position, 3, GL_FLOAT, sizeof(Vertex), nullptr);
+      const auto& render_config = drawable->get_render_config();
+      if (render_config.use_indices)
+      {
+        const std::vector<GLuint>& indices = mesh.faces_as_indices();
+        auto& ebo = m_gpu_buffers->ebo;
+        ebo->set_data(indices.data(), sizeof(GLuint) * indices.size());
+        glDrawElements(render_config.mode, (GLsizei)(indices.size()), GL_UNSIGNED_INT, nullptr);
+      }
+      else
+      {
+        glDrawArrays(render_config.mode, 0, (GLsizei)vertices.size());
+      }
+    }
+  }
+  m_gpu_buffers->unbind_all();
+  shader->unbind();
+}
+
+void SceneRenderer::render_selected_objects()
+{
+  Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::OUTLINING);
+  shader->bind();
+  shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
+  shader->set_matrix4f("projectionMatrix", m_projection_mat);
+  const VertexLayout vlayout = shader->vertex_layout();
+
+  //glDisable(GL_DEPTH_TEST);
+  glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+  glStencilMask(0x00);
+
+  m_gpu_buffers->bind_all();
+  for (auto& pobj : m_drawables)
+  {
+    if (pobj->is_selected() && pobj->has_surface())
+    {
+      const glm::vec3 old_scale = pobj->scale();
+      pobj->scale(glm::vec3(old_scale + 0.05f));
+      shader->set_matrix4f("modelMatrix", pobj->model_matrix());
+      const size_t mesh_count = pobj->mesh_count();
+      for (size_t i = 0; i < mesh_count; i++)
+      {
+        const Mesh& mesh = pobj->get_mesh(i);
+        auto& vao = m_gpu_buffers->vao;
+        auto& vbo = m_gpu_buffers->vbo;
+        const std::vector<Vertex>& vertices = mesh.vertices();
+        vbo->set_data(vertices.data(), sizeof(Vertex) * vertices.size());
+        vao->link_attrib(vlayout.position, 3, GL_FLOAT, sizeof(Vertex), nullptr);
+        const auto& render_config = pobj->get_render_config();
+        if (render_config.use_indices)
+        {
+          const std::vector<GLuint>& indices = mesh.faces_as_indices();
+          auto& ebo = m_gpu_buffers->ebo;
+          ebo->set_data(indices.data(), sizeof(GLuint) * indices.size());
+          glDrawElements(render_config.mode, (GLsizei)(indices.size()), GL_UNSIGNED_INT, nullptr);
+        }
+        else
+        {
+          glDrawArrays(render_config.mode, 0, (GLsizei)vertices.size());
+        }
+      }
+      pobj->scale(glm::vec3(old_scale));
+    }
+  }
+  m_gpu_buffers->unbind_all();
+  glStencilMask(0xFF);
+  glStencilFunc(GL_ALWAYS, 0, 0xFF);
+  glEnable(GL_DEPTH_TEST);
+  shader->unbind();
+}
+
+void SceneRenderer::render_lines()
+{
+  Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::LINES);
+  shader->bind();
+  shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
+  shader->set_matrix4f("projectionMatrix", m_projection_mat);
+  const VertexLayout vlayout = shader->vertex_layout();
+  for (const auto& pobj : m_drawables)
+  {
+    shader->set_matrix4f("modelMatrix", pobj->model_matrix());
+
+    m_gpu_buffers->bind_all();
+    auto& vao = m_gpu_buffers->vao;
+    auto& vbo = m_gpu_buffers->vbo;
+    auto& ebo = m_gpu_buffers->ebo;
+
+    if (pobj->is_bbox_visible())
+    {
+      // tmp. need better way of handling any geometry change
+      if (pobj->bbox().is_empty())
+      {
+        pobj->calculate_bbox();
+      }
+      const auto& bbox = pobj->bbox();
+      std::array<glm::vec3, 8> bbox_points = bbox.points();
+      std::array<Vertex, 8> converted;
+      for (size_t i = 0; i < 8; i++)
+      {
+        converted[i] = Vertex(bbox_points[i]);
+        converted[i].color = glm::vec4(0.f, 1.f, 0.f, 1.f);
+      }
+      auto indices = bbox.lines_indices();
+      vbo->set_data(converted.data(), sizeof(Vertex) * 8);
+      vao->link_attrib(vlayout.position, 3, GL_FLOAT, sizeof(Vertex), nullptr);                      // position
+      vao->link_attrib(vlayout.color, 4, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 6));    // color
+      ebo->set_data(indices.data(), sizeof(GLuint) * indices.size());
+      glDrawElements(GL_LINES, (GLsizei)indices.size(), GL_UNSIGNED_INT, nullptr);
+    }
+
+    if (pobj->is_normals_visible())
+    {
+      std::vector<Vertex> normals = pobj->normals_as_lines();
+      vbo->set_data(normals.data(), sizeof(Vertex) * normals.size());
+      vao->link_attrib(0, 3, GL_FLOAT, sizeof(Vertex), nullptr);                      // position
+      vao->link_attrib(1, 4, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 6)); // color
+      glDrawArrays(GL_LINES, 0, (GLsizei)normals.size());
+    }
+    m_gpu_buffers->unbind_all();
+  }
+  shader->unbind();
+}
+
+void SceneRenderer::render_skybox(const Skybox& skybox)
+{
+  glDepthFunc(GL_LEQUAL);
+  Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::SKYBOX);
+  shader->bind();
+  shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
+  shader->set_matrix4f("projectionMatrix", m_projection_mat);
+  glActiveTexture(GL_TEXTURE0);
+  const VertexLayout vlayout = shader->vertex_layout();
+  auto& vao = m_gpu_buffers->vao;
+  auto& vbo = m_gpu_buffers->vbo;
+  vao->bind();
+  vbo->bind();
+  skybox.get_cubemap().bind();
+  vbo->set_data(skyboxVertices, sizeof(skyboxVertices));
+  vao->link_attrib(vlayout.position, 3, GL_FLOAT, sizeof(float) * 3, nullptr);
+  glDrawArrays(GL_TRIANGLES, 0, 36);
+  skybox.get_cubemap().unbind();
+  vbo->unbind();
+  vao->unbind();
+  shader->unbind();
+  glDepthFunc(GL_LESS);
 }
 
 void SceneRenderer::create_scene()
@@ -269,7 +474,7 @@ void SceneRenderer::create_scene()
   c->translate(glm::vec3(0.25f));
   c->scale(glm::vec3(0.5f));
   c->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
-  c->set_texture(".\\.\\src\\textures\\brick.jpg");
+  c->set_texture(std::make_shared<Texture2D>(std::string(".\\.\\src\\textures\\brick.jpg")), TextureType::UNKNOWN, 0);
   m_drawables.push_back(std::move(c));
 
   std::unique_ptr<Cube> c2 = std::make_unique<Cube>();
@@ -302,10 +507,15 @@ void SceneRenderer::create_scene()
 
 void SceneRenderer::select_object(int index)
 {
+  // do not select object that is behind imgui's menu
+  ImGuiIO& io = ImGui::GetIO();
+  if (io.WantCaptureMouse)
+    return;
   if (m_drawables[index]->is_selected())
     return;
   // for now support only single object selection
   assert(m_selected_objects.size() == 0 || m_selected_objects.size() == 1);
+  std::cout << m_drawables[index]->name() << " selected\n";
   if (m_selected_objects.size())
   {
     m_drawables[m_selected_objects.back()]->select(false);
@@ -388,15 +598,17 @@ void SceneRenderer::handle_input()
   }
 }
 
-void ScreenQuad::render(GPUBuffers* gpu_buffers)
+void ScreenQuad::render(GPUBuffers* gpu_buffers, Shader& shader)
 {
+  const VertexLayout vlayout = shader.vertex_layout();
   auto& vao = gpu_buffers->vao;
   auto& vbo = gpu_buffers->vbo;
   vao->bind();
   vbo->bind();
   vbo->set_data(quadVertices, sizeof(quadVertices));
-  vao->link_attrib(0, 2, GL_FLOAT, sizeof(float) * 4, nullptr);
-  vao->link_attrib(1, 2, GL_FLOAT, sizeof(float) * 4, (void*)(sizeof(float) * 2));
+  vao->link_attrib(vlayout.position, 2, GL_FLOAT, sizeof(float) * 4, nullptr);
+  vao->link_attrib(vlayout.uv, 2, GL_FLOAT, sizeof(float) * 4, (void*)(sizeof(float) * 2));
+  shader.set_int("screenTexture", 0);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, m_tex_id);
   glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -409,7 +621,7 @@ static void setup_opengl()
   glEnable(GL_DEPTH_TEST);
   glEnable(GL_BLEND);
   glEnable(GL_STENCIL_TEST);
-  glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+  glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE); 
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 

@@ -2,7 +2,7 @@
 
 Cube::Cube()
 {
-  auto& mesh = m_meshes[0];
+  auto& mesh = emplace_mesh();
   mesh.vertices().reserve(24);
   mesh.faces().reserve(12);
   for (int i = 0; i < 3; ++i) {
@@ -34,36 +34,41 @@ Cube::Cube()
   mesh.append_face(Face{ 21, 17, 18 });
   mesh.append_face(Face{ 21, 18, 22 });
   calc_normals(mesh, Object3D::ShadingMode::FLAT_SHADING);
-}
 
-void Cube::set_texture(const std::string& filename) {
-  auto& mesh = m_meshes[0];
-  mesh.texture() = std::make_shared<Texture2D>(filename);
+  // uv mapping
   int cnt = 0;
-  for (const auto& face : mesh.faces()) {
-    assert(face.size == 3);
-    for (int i = 0; i < face.size; ++i) 
+  for (const auto& face : mesh.faces())
+  {
+    for (int i = 0; i < face.size; ++i)
     {
       Vertex& v = mesh.vertices()[face.data[i]];
-      if (cnt % 2 == 0) {
-        if (i == 0) {
+      if (cnt % 2 == 0)
+      {
+        if (i == 0)
+        {
           v.texture = glm::vec2();
         }
-        else if (i == 1) {
+        else if (i == 1)
+        {
           v.texture = glm::vec2(1.f, 0.f);
         }
-        else {
+        else
+        {
           v.texture = glm::vec2(1.f, 1.f);
         }
       }
-      else {
-        if (i == 0) {
+      else
+      {
+        if (i == 0)
+        {
           v.texture = glm::vec2();
         }
-        else if (i == 1) {
+        else if (i == 1)
+        {
           v.texture = glm::vec2(1.f, 1.f);
         }
-        else {
+        else
+        {
           v.texture = glm::vec2(0.f, 1.f);
         }
       }

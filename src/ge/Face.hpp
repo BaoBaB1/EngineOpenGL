@@ -5,7 +5,8 @@
 
 struct Face {
 
-  Face() : size(0), data(nullptr) {}
+  Face() = default;
+  Face(GLuint sz) { resize(sz); }
   Face(const std::initializer_list<GLuint>& indices);
   Face(const std::vector<GLuint>& indices);
   Face(const Face& other);
@@ -15,8 +16,8 @@ struct Face {
   void resize(int size);
   ~Face();
   
-  int size;
-  GLuint* data;  // can use vector instead but, every Face will be increased by sizeof(vector)
+  uint32_t size = 0;
+  GLuint* data = nullptr;  // can use vector instead but, every Face will be increased by sizeof(vector)
 };
 
 

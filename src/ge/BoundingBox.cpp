@@ -16,28 +16,6 @@ bool BoundingBox::is_empty() const
   return m_min == glm::vec3(g_fmin, g_fmin, g_fmin) && m_max == glm::vec3(g_fmax, g_fmax, g_fmax);
 }
 
-void BoundingBox::render(GPUBuffers* buffers)
-{
-  // BoundingBox::render must be called only inside Object3D::render, 
-  // thus all buffers must be already bound
-  auto& vao = buffers->vao;
-  auto& vbo = buffers->vbo;
-  std::array<glm::vec3, 8> bbox_points = points();
-  std::array<Vertex, 8> converted;
-  for (size_t i = 0; i < 8; i++)
-  {
-    converted[i] = Vertex(bbox_points[i]);
-    converted[i].color = glm::vec4(0.f, 1.f, 0.f, 1.f);
-  }
-  auto indices = lines_indices();
-  auto& ebo = buffers->ebo;
-  vbo->set_data(converted.data(), sizeof(Vertex) * 8);
-  vao->link_attrib(0, 3, GL_FLOAT, sizeof(Vertex), nullptr);                      // position
-  vao->link_attrib(1, 4, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 6)); // color
-  ebo->set_data(indices.data(), sizeof(GLuint) * indices.size());
-  glDrawElements(GL_LINES, (GLsizei)indices.size(), GL_UNSIGNED_INT, nullptr);
-}
-
 bool BoundingBox::contains(const glm::vec3& point) const
 {
   return (point.x >= m_min.x && point.x <= m_max.x) &&

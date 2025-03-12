@@ -1,12 +1,11 @@
 #include "Polyline.hpp"
+#include "./ge/Vertex.hpp"
 
-void Polyline::render(GPUBuffers* gpu_buffers) 
+Polyline::Polyline()
 {
-  assert(m_meshes[0].vertices().size() > 0);
-  RenderConfig cfg;
-  cfg.use_indices = false;
-  cfg.mode = GL_LINE_STRIP;
-  Object3D::render(gpu_buffers, cfg);
+  emplace_mesh();
+  m_render_config.use_indices = false;
+  m_render_config.mode = GL_LINE_STRIP;
 }
 
 void Polyline::add(const Vertex& point) 

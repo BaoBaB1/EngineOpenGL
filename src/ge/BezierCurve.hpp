@@ -17,7 +17,6 @@ public:
   std::vector<Vertex>& control_points() { return m_control_points; }
   const std::vector<Vertex>& control_points() const { return m_control_points; }
   Type type() const { return m_type; }
-  void render(GPUBuffers* buffers) override; 
 private:
   Type m_type; 
 };

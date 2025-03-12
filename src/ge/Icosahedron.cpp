@@ -6,7 +6,7 @@
 
 Icosahedron::Icosahedron()
 {
-  auto& mesh = m_meshes[0];
+  auto& mesh = emplace_mesh();
   mesh.vertices().reserve(12);
   mesh.faces().reserve(20);
   float phi = (1.0f + std::sqrt(5.0f)) * 0.5f; // golden ratio

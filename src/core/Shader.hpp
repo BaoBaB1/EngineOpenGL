@@ -6,20 +6,37 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "OpenGLObject.hpp"
 
+struct VertexLayout
+{
+  constexpr VertexLayout() = default;
+  constexpr VertexLayout(uint8_t position_, uint8_t normal_, uint8_t color_, uint8_t uv_)
+    : position(position_), normal(normal_), color(color_), uv(uv_) {} 
+  uint8_t position = 0;
+  uint8_t normal = 1;
+  uint8_t color = 2;
+  uint8_t uv = 3;
+};
+
 class Shader : public OpenGLObject
 {
 public:
-  static GLuint last_bind;
   OnlyMovable(Shader)
   Shader() = default;
-  Shader(const char* vertex_file, const char* fragment_file);
+  Shader(const char* vertex_file, const char* fragment_file, const VertexLayout& layout);
   ~Shader();
-  void load(const char* vertex_file, const char* fragment_file);
   void set_matrix4f(const char* uniform_name, const glm::mat4& value);
   void set_vec3(const char* uniform_name, const glm::vec3& value);
   void set_bool(const char* uniform_name, bool value);
   void set_uint(const char* uniform_name, unsigned int value);
   void set_float(const char* uniform_name, float value);
+  void set_int(const char* uniform_name, int value);
+  //void set_vertex_layout(const VertexLayout& layout) { m_vertex_layout = layout; }
   void bind() const override;
   void unbind() const override;
+  VertexLayout vertex_layout() { return m_vertex_layout; }
+  const VertexLayout& vertex_layout() const { return m_vertex_layout; }
+private:
+  void load(const char* vertex_file, const char* fragment_file);
+private:
+  VertexLayout m_vertex_layout;
 };

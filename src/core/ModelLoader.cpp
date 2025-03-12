@@ -13,22 +13,22 @@ std::optional<ComplexModel> ModelLoader::load(const std::string& filename, unsig
   else
   {
     ComplexModel model;
-    // contains single mesh by default. delete it since process function creates meshes
-    model.meshes().pop_back();
     // calc extent to scale all vertices in range [-1, 1]
     calc_max_extent(scene->mRootNode, scene);
-    process(scene->mRootNode, scene, model);
+    process(scene->mRootNode, scene, std::filesystem::path(filename).parent_path(), model);
+    center_around_origin(model);
+    // TODO: fix this hack
+    //model.set_shading_mode(Object3D::SMOOTH_SHADING);
     return model;
   }
 }
 
-void ModelLoader::process(const aiNode* root, const aiScene* scene, ComplexModel& model)
+void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::filesystem::path& file_path, ComplexModel& model)
 {
   for (unsigned int i = 0; i < root->mNumMeshes; i++)
   {
     const aiMesh* inmesh = scene->mMeshes[root->mMeshes[i]];
-    model.meshes().insert(model.meshes().end(), Mesh());
-    Mesh& outmesh = model.meshes().back();
+    Mesh& outmesh = model.emplace_mesh();
     
     const bool has_normals = inmesh->HasNormals();
     const bool has_texture_coords = inmesh->HasTextureCoords(0);
@@ -41,14 +41,13 @@ void ModelLoader::process(const aiNode* root, const aiScene* scene, ComplexModel
 
       Vertex v;
       v.position = glm::vec3(vert.x, vert.y, vert.z);
-      v.color = glm::vec4(1.f, 0.f, 0.f, 1.f);
       if (has_normals)
       {
         v.normal = glm::vec3(inmesh->mNormals[vidx].x, inmesh->mNormals[vidx].y, inmesh->mNormals[vidx].z);
       }
       if (has_texture_coords)
       {
-        v.texture = glm::vec2(inmesh->mTextureCoords[0]->x, inmesh->mTextureCoords[0]->y);
+        v.texture = glm::vec2(inmesh->mTextureCoords[0][vidx].x, 1 - inmesh->mTextureCoords[0][vidx].y);
       }
       outmesh.append_vertex(v);
     }
@@ -60,8 +59,7 @@ void ModelLoader::process(const aiNode* root, const aiScene* scene, ComplexModel
       aiFace face = inmesh->mFaces[fidx];
       // all must be triangulated for now
       assert(face.mNumIndices == 3);
-      Face myface;
-      myface.resize(face.mNumIndices);
+      Face myface(face.mNumIndices);
       for (unsigned int i = 0; i < face.mNumIndices; i++)
       {
         myface.data[i] = face.mIndices[i];
@@ -69,13 +67,74 @@ void ModelLoader::process(const aiNode* root, const aiScene* scene, ComplexModel
       outmesh.append_face(myface);
     }
 
-    // TODO: textures + materials
+    // process materials
+    if (inmesh->mMaterialIndex < scene->mNumMaterials)
+    {
+      aiMaterial* ai_material = scene->mMaterials[inmesh->mMaterialIndex];
+      aiColor3D ai_color;
+      Material material;
 
+      const unsigned int ambient_tex_count = ai_material->GetTextureCount(aiTextureType_AMBIENT);
+      const unsigned int diffuse_tex_count = ai_material->GetTextureCount(aiTextureType_DIFFUSE);
+      const unsigned int specular_tex_count = ai_material->GetTextureCount(aiTextureType_SPECULAR);
+
+      if (ambient_tex_count)
+      {
+        aiString path;
+        ai_material->GetTexture(aiTextureType_AMBIENT, 0, &path);
+        outmesh.set_texture(std::make_shared<Texture2D>(file_path / path.C_Str()), TextureType::AMBIENT);
+      }
+
+      if (diffuse_tex_count)
+      {
+        aiString path;
+        ai_material->GetTexture(aiTextureType_DIFFUSE, 0, &path);
+        outmesh.set_texture(std::make_shared<Texture2D>(file_path / path.C_Str()), TextureType::DIFFUSE);
+      }
+
+      if (specular_tex_count)
+      {
+        aiString path;
+        ai_material->GetTexture(aiTextureType_SPECULAR, 0, &path);
+        outmesh.set_texture(std::make_shared<Texture2D>(file_path / path.C_Str()), TextureType::SPECULAR);
+      }
+
+      if (ai_material->Get(AI_MATKEY_COLOR_DIFFUSE, ai_color) == aiReturn_SUCCESS)
+      {
+        material.diffuse.r = ai_color.r;
+        material.diffuse.g = ai_color.g;
+        material.diffuse.b = ai_color.b;
+        model.set_has_material(true);
+      }
+
+      if (ai_material->Get(AI_MATKEY_COLOR_AMBIENT, ai_color) == aiReturn_SUCCESS)
+      {
+        material.ambient.r = ai_color.r;
+        material.ambient.g = ai_color.g;
+        material.ambient.b = ai_color.b;
+        model.set_has_material(true);
+      }
+
+      if (ai_material->Get(AI_MATKEY_COLOR_SPECULAR, ai_color) == aiReturn_SUCCESS)
+      {
+        material.specular.r = ai_color.r;
+        material.specular.g = ai_color.g;
+        material.specular.b = ai_color.b;
+        model.set_has_material(true);
+      }
+
+      float shininess;
+      if (ai_material->Get(AI_MATKEY_SHININESS, shininess) == aiReturn_SUCCESS)
+      {
+        material.shininess = shininess;
+      }
+      outmesh.set_material(material);
+    }
   }
 
   for (unsigned int i = 0; i < root->mNumChildren; i++)
   {
-    process(root->mChildren[i], scene, model);
+    process(root->mChildren[i], scene, file_path, model);
   }
 }
 
@@ -101,3 +160,26 @@ float ModelLoader::get_max_extent(const aiVector3D& min, const aiVector3D& max)
   const float z = std::max(std::abs(max.z), std::abs(min.z));
   return std::max(x, std::max(y, z));
 } 
+
+void ModelLoader::center_around_origin(ComplexModel& model)
+{
+  // to make outlining work properly if model's origin is at it's base and not 0,0,0
+  model.calculate_bbox();
+  const auto& bbox = model.bbox();
+  glm::vec3 bbox_center = (bbox.min() + bbox.max()) * 0.5f;
+  bbox_center /= m_max_extent;
+  if (bbox_center != glm::vec3(0.f))
+  {
+    for (size_t i = 0; i < model.mesh_count(); i++)
+    {
+      Mesh& mesh = model.get_mesh(i);
+      for (Vertex& v : mesh.vertices())
+      {
+        v.position -= bbox_center;
+      }
+    }
+  }
+  // also offset bbox bounds according to new vertex positions
+  model.bbox().set_min(bbox.min() - bbox_center);
+  model.bbox().set_max(bbox.max() - bbox_center);
+}

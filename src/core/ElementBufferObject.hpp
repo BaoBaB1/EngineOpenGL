@@ -9,7 +9,7 @@ public:
   OnlyMovable(ElementBufferObject)
   ElementBufferObject();
   ~ElementBufferObject();
-  void set_data(void* indices, size_t size_in_bytes);
+  void set_data(const void* indices, size_t size_in_bytes);
   void bind() const override;
   void unbind() const override;
 };

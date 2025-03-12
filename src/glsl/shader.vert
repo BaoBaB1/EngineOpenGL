@@ -13,7 +13,7 @@ uniform mat4 projectionMatrix;
 out vec3 normal;
 out vec4 color;
 out vec3 fragment;
-out vec2 textCoord;
+out vec2 uv;
 
 void main()
 {
@@ -21,5 +21,5 @@ void main()
 	fragment = vec3(modelMatrix * vec4(aPos, 1.0f));
 	normal = transpose(inverse(mat3(modelMatrix))) * aNormal;
 	color = aColor;
-	textCoord = aTextCoord;
+	uv = aTextCoord;
 }

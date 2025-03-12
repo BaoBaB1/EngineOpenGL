@@ -11,6 +11,15 @@ struct StbDeleter
   void operator()(unsigned char* data) { free(data); }
 };
 
+enum TextureType
+{
+  AMBIENT,
+  DIFFUSE,
+  SPECULAR,
+  UNKNOWN,
+  LAST = UNKNOWN
+};
+
 class Texture : public OpenGLObject
 {
 public:

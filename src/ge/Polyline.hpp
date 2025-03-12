@@ -1,16 +1,13 @@
 #pragma once
 
-#include <vector>
 #include "./ge/Object3D.hpp"
-#include "./core/GPUBuffers.hpp"
-#include "./core/Shader.hpp"
-#include "./ge/Vertex.hpp"
+
+struct Vertex;
 
 class Polyline : public Object3D {
 public:
-  Polyline() = default;
+  Polyline();
   std::string name() const override { return "Polyline"; }
   bool has_surface() const override { return false; }
-  void render(GPUBuffers*) override;
   void add(const Vertex& point);
 };

@@ -10,7 +10,6 @@ class BoundingBox : IDrawable
 public:
   BoundingBox();
   BoundingBox(const glm::vec3& min, const glm::vec3 max) : m_min(min), m_max(max) {}
-  void render(GPUBuffers*) override;
   bool has_surface() const override { return false; }
   std::string name() const { return "Bounding box"; }
   std::array<glm::vec3, 8> points() const;
@@ -21,6 +20,7 @@ public:
   void set_max(const glm::vec3& max) { m_max = max; }
   glm::vec3 min() const { return m_min; }
   glm::vec3 max() const { return m_max; }
+  operator bool() const { return !is_empty(); }
 private:
   glm::vec3 m_min;
   glm::vec3 m_max;

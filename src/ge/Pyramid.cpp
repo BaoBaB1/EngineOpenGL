@@ -3,7 +3,7 @@
 Pyramid::Pyramid() 
 {
   using list = std::initializer_list<GLuint>;
-  auto& mesh = m_meshes[0];
+  auto& mesh = emplace_mesh();
   mesh.vertices().reserve(5); 
   mesh.faces().reserve(6);
   mesh.vertices().emplace_back(-0.5f, -0.5f, -0.5f);

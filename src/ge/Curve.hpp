@@ -6,8 +6,17 @@
 
 class Curve : public Object3D {
 public:
-  Curve() {}
-  Curve(const Vertex& start, const Vertex& end) : m_start_pnt(start), m_end_pnt(end) {}
+  Curve()
+  {
+    emplace_mesh();
+    m_render_config.use_indices = false;
+    m_render_config.mode = GL_LINE_STRIP;
+  }
+  Curve(const Vertex& start, const Vertex& end) : Curve()
+  {
+    m_start_pnt = start;
+    m_end_pnt = end;
+  }
   void set_start_point(const Vertex& start_pnt) { m_start_pnt = start_pnt; }
   void set_end_point(const Vertex& end_pnt) { m_end_pnt = end_pnt; }
   const Vertex& start_point() { return m_start_pnt; }

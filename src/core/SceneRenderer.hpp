@@ -1,36 +1,42 @@
 #pragma once
 
-#include <vector>
-#include <memory>
-#include <map>
 #include "Shader.hpp"
 #include "Camera.hpp"
 #include "FrameBufferObject.hpp"
+#include "ge/IDrawable.hpp"
+#include "utils/Singleton.hpp"
 #include "GPUBuffers.hpp"
-#include "MainWindow.hpp"
-#include "./utils/Singleton.hpp"
-#include "./ge/Object3D.hpp"
+#include <vector>
+#include <memory>
+#include <map>
 
 class MouseInputHandler;
 class CursorPositionHandler;
 class Ui;
+class Object3D;
+class MainWindow;
+class Skybox;
 
 class SceneRenderer
 {
 public:
-  static SceneRenderer& instance() { return Singleton<SceneRenderer>::instance(); }
-  ~SceneRenderer();
+  static SceneRenderer& instance() { return OpenGLEngineUtils::Singleton<SceneRenderer>::instance(); }
   void render();
 private:
   SceneRenderer();
+  ~SceneRenderer();
   void handle_input();
-  void render_scene(Shader& shader, bool assignIndices = false);
   void create_scene();
   void select_object(int index);  // temporary function. remove when selection of multiple elements is supported
   void new_frame_update();
+  void render_scene();
+  void render_picking_fbo();
+  void render_selected_objects();
+  void render_lines();
+  void render_skybox(const Skybox& skybox);
   friend class MouseInputHandler;
   friend class CursorPositionHandler;
-  friend class Singleton<SceneRenderer>;
+  friend class OpenGLEngineUtils::Singleton<SceneRenderer>;
   friend class Ui;
 private:
   std::vector<std::unique_ptr<Object3D>> m_drawables;
@@ -47,7 +53,7 @@ private:
 struct ScreenQuad : IDrawable
 {
   ScreenQuad(GLuint tex_id) : m_tex_id(tex_id) {}
-  void render(GPUBuffers*);
+  void render(GPUBuffers*, Shader& shader);
   bool has_surface() const override { return false; }
   std::string name() const override { return "ScreenQuad"; }
   GLuint m_tex_id;

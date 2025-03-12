@@ -2,63 +2,7 @@
 
 Object3D::Object3D()
 {
-  m_meshes.resize(1);
-}
-
-void Object3D::render(GPUBuffers* gpu_buffers, const RenderConfig& cfg)
-{
-  assert(gpu_buffers != nullptr);
-  gpu_buffers->bind_all();
-  if (m_bbox.is_empty())
-  {
-    m_bbox = calculate_bbox();
-  }
-
-  for (const auto& mesh : m_meshes)
-  {
-    auto& vao = gpu_buffers->vao;
-    auto& vbo = gpu_buffers->vbo;
-    const std::vector<Vertex>& vertices = mesh.vertices();
-    const auto& texture = mesh.texture();
-    const GLuint tex_id = texture ? texture->id() : 0;
-    vbo->set_data(vertices.data(), sizeof(Vertex) * vertices.size());
-    vao->link_attrib(0, 3, GL_FLOAT, sizeof(Vertex), nullptr);                         // position
-    vao->link_attrib(1, 3, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 3));    // normal
-    vao->link_attrib(2, 4, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 6));    // color
-    vao->link_attrib(3, 2, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 10));   // texture 
-
-    glBindTexture(GL_TEXTURE_2D, tex_id);
-    if (cfg.use_indices)
-    {
-      std::vector<GLuint> indices = mesh.faces_as_indices();
-      auto& ebo = gpu_buffers->ebo;
-      ebo->set_data(indices.data(), sizeof(GLuint) * indices.size());
-      glDrawElements(cfg.mode, (GLsizei)(indices.size()), GL_UNSIGNED_INT, nullptr);
-    }
-    else
-    {
-      glDrawArrays(cfg.mode, 0, (GLsizei)vertices.size());
-    }
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    if (is_normals_visible())
-    {
-      render_lines_and_reset_shader(&Object3D::render_normals, this, gpu_buffers, mesh);
-    }
-  }
-
-  if (is_bbox_visible())
-  {
-    render_lines_and_reset_shader(&BoundingBox::render, &m_bbox, gpu_buffers);
-  }
-
-  // normal lines are recalculated in Object3D::render_normals
-  if (is_normals_visible() && get_flag(RESET_CACHED_NORMALS))
-  {
-    set_flag(RESET_CACHED_NORMALS, false);
-  }
-
-  gpu_buffers->unbind_all();
+  //m_meshes.resize(1);
 }
 
 void Object3D::rotate(float angle, const glm::vec3& axis)
@@ -85,75 +29,68 @@ void Object3D::translate(const glm::vec3& translation)
   m_model_mat = glm::translate(m_model_mat, translation);
 }
 
-void Object3D::set_texture(const std::string& filename)
-{
-  for (auto& mesh : m_meshes)
-  {
-    mesh.texture() = std::make_shared<Texture2D>(filename);
-    for (const auto& face : mesh.faces())
-    {
-      assert(face.size == 3);
-      for (int i = 0; i < face.size; ++i)
-      {
-        // temporary basic implementation. doesn't work well 
-        Vertex& v = mesh.vertices()[face.data[i]];
-        v.texture = glm::normalize(v.position);
-      }
-    }
-  }
+void Object3D::add_mesh(Mesh&& mesh)
+{ 
+  if (mesh.material())
+    set_flag(HAS_MATERIAL, true);
+  set_flag(GEOMETRY_MODIFIED, true);
+  m_meshes.push_back(std::move(mesh)); 
 }
 
-std::vector<Vertex> Object3D::normals_as_lines(const Mesh& mesh)
+void Object3D::add_mesh(const Mesh& mesh)
+{
+  if (mesh.material())
+    set_flag(HAS_MATERIAL, true);
+  set_flag(GEOMETRY_MODIFIED, true);
+  m_meshes.push_back(mesh); 
+}
+
+std::vector<Vertex> Object3D::normals_as_lines()
 {
   // Too slow to call every frame if object has a lot of vertices
-  std::vector<Vertex> normals(mesh.vertices().size() * 2);
+  size_t vertices_count = 0;
+  for (const auto& mesh : m_meshes)
+  {
+    vertices_count += mesh.vertices().size();
+  }
+  std::vector<Vertex> normals(vertices_count * 2);
   constexpr float len_scaler = 3.f;
   size_t index = 0;
-  for (const auto& vertex : mesh.vertices())
+  for (const auto& mesh : m_meshes)
   {
-    normals[index].position = vertex.position;
-    normals[index + 1].position = vertex.position + vertex.normal / len_scaler;
-    normals[index].color = normals[index + 1].color = glm::vec4(0.f, 1.f, 1.f, 1.f);
-    index += 2;
+    for (const auto& vertex : mesh.vertices())
+    {
+      normals[index].position = vertex.position;
+      normals[index + 1].position = vertex.position + vertex.normal / len_scaler;
+      normals[index].color = normals[index + 1].color = glm::vec4(0.f, 1.f, 1.f, 1.f);
+      index += 2;
+    }
   }
   return normals;
 }
 
-BoundingBox Object3D::calculate_bbox()
+void Object3D::calculate_bbox(bool force)
 {
-  glm::vec3 pos_min(0.f), pos_max(0.f);
-  BoundingBox bbox;
+  if (!force && !m_bbox.is_empty())
+  {
+    return;
+  }
+  glm::vec3 min(INFINITY), max(-INFINITY);
   for (const auto& mesh : m_meshes)
   {
-    for (size_t i = 0; i < mesh.vertices().size(); i++)
+    for (const Vertex& v : mesh.vertices())
     {
-      const glm::vec3 pos = mesh.vertices()[i].position;
-      if (pos.x > pos_max.x)
-        pos_max.x = pos.x;
-      if (pos.x < pos_min.x)
-        pos_min.x = pos.x;
-      if (pos.y > pos_max.y)
-        pos_max.y = pos.y;
-      if (pos.y < pos_min.y)
-        pos_min.y = pos.y;
-      if (pos.z > pos_max.z)
-        pos_max.z = pos.z;
-      if (pos.z < pos_min.z)
-        pos_min.z = pos.z;
+      min = glm::min(min, v.position);
+      max = glm::max(max, v.position);
     }
   }
-  bbox.set_min(pos_min);
-  bbox.set_max(pos_max);
-  return bbox;
+  m_bbox.set_min(min);
+  m_bbox.set_max(max);
 }
 
-bool Object3D::has_active_texture() const
+void Object3D::set_texture(const std::shared_ptr<Texture2D>& tex, TextureType type, size_t mesh_idx)
 {
-  return std::find_if(m_meshes.begin(), m_meshes.end(), 
-    [](const Mesh& mesh) 
-    { 
-      return mesh.texture() && !mesh.texture()->disabled(); 
-    }) != m_meshes.end();
+  m_meshes[mesh_idx].set_texture(tex, type);
 }
 
 void Object3D::set_color(const glm::vec4& color)
@@ -180,36 +117,26 @@ void Object3D::set_color(const glm::vec4& color)
   }
 }
 
-glm::vec3 Object3D::center()
+glm::vec3 Object3D::center() const
 {
-  assert(m_meshes.size() > 0);
-  float min_x, max_x, min_y, max_y, min_z, max_z;
-  min_x = max_x = min_y = max_y = min_z = max_z = 0.f;
-  for (auto& mesh : m_meshes)
+  if (!get_flag(GEOMETRY_MODIFIED))
   {
-    for (size_t i = 0; i < mesh.vertices().size(); i++)
+    return m_center;
+  }
+  assert(m_meshes.size() > 0);
+  glm::vec3 min(INFINITY), max(-INFINITY);
+  for (const auto& mesh : m_meshes)
+  {
+    for (const auto& v : mesh.vertices())
     {
-      glm::vec3 pos = mesh.vertices()[i].position;
-      if (pos.x > max_x)
-        max_x = pos.x;
-      else if (pos.x < min_x)
-        min_x = pos.x;
-      if (pos.y > max_y)
-        max_y = pos.y;
-      else if (pos.y < min_y)
-        min_y = pos.y;
-      if (pos.z > max_z)
-        max_z = pos.z;
-      else if (pos.z < min_z)
-        min_z = pos.z;
+      min = glm::min(min, v.position);
+      max = glm::max(max, v.position);
     }
   }
-  return glm::vec3((max_x + min_x) * 0.5f, (max_y + min_y) * 0.5f, (max_z + min_z) * 0.5f);
-}
-
-void Object3D::render(GPUBuffers* gpu_buffers)
-{
-  render(gpu_buffers, RenderConfig::default());
+  m_center = (min + max) * 0.5f;
+  // TODO: get rid of this stupidity. need more elegant way of handling geometry changes
+  const_cast<Object3D&>(*this).set_flag(GEOMETRY_MODIFIED, false);
+  return m_center;
 }
 
 void Object3D::apply_shading(Object3D::ShadingMode mode)
@@ -354,24 +281,3 @@ void Object3D::calc_normals(Mesh& mesh, ShadingMode mode)
     if (v.normal != glm::vec3())
       v.normal = glm::normalize(v.normal);
 }
-
-void Object3D::render_normals(GPUBuffers* buffers, const Mesh& mesh)
-{
-  auto& vbo = buffers->vbo;
-  auto& vao = buffers->vao;
-  std::vector<Vertex> normals;
-  if (get_flag(RESET_CACHED_NORMALS))
-  {
-    normals = normals_as_lines(mesh);
-    const_cast<Mesh&>(mesh).m_cached_normals = normals;
-  }
-  else
-  {
-    normals = mesh.m_cached_normals;
-  }
-  vbo->set_data(normals.data(), sizeof(Vertex) * normals.size());
-  vao->link_attrib(0, 3, GL_FLOAT, sizeof(Vertex), nullptr);                      // position
-  vao->link_attrib(1, 4, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 6)); // color
-  glDrawArrays(GL_LINES, 0, (GLsizei)normals.size());
-}
-

@@ -114,8 +114,20 @@ void Ui::render()
 
       // close
       st_file_selection = false;
-      m_window->notify_all(true);
-      glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+      if (!st_gui_opened)
+      {
+        m_window->notify_all(true);
+        glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+      }
+      else
+      {
+        // keep mouse
+        for (auto& handler : m_window->input_handlers()) {
+          if (handler->type() == UserInputHandler::MOUSE_INPUT) {
+            m_window->notify(handler.get(), true);
+          }
+        }
+      }
       ImGuiFileDialog::Instance()->Close();
     }
   }

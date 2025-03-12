@@ -9,7 +9,7 @@ public:
   Skybox(Cubemap&& cm) : m_cubemap(std::move(cm)) {}
   std::string name() const override { return "Skybox"; }
   bool has_surface() const override { return false; }
-  void render(GPUBuffers*) override;
+  const Cubemap& get_cubemap() const { return m_cubemap; }
 private:
   Cubemap m_cubemap;
 };

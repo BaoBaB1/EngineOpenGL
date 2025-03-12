@@ -22,11 +22,10 @@ static bool read_shader_file_content(const char* const file, std::string& conten
   return false;
 }
 
-GLuint Shader::last_bind = 0;
-
-Shader::Shader(const char* vertex_file, const char* fragment_file) 
+Shader::Shader(const char* vertex_file, const char* fragment_file, const VertexLayout& layout)
 {
   load(vertex_file, fragment_file);
+  m_vertex_layout = layout;
 }
 
 void Shader::load(const char* vertex_file, const char* fragment_file)
@@ -80,6 +79,11 @@ void Shader::set_vec3(const char* uniform_name, const glm::vec3& value)
 
 void Shader::set_bool(const char* uniform_name, bool value) 
 {
+  set_int(uniform_name, value);
+}
+
+void Shader::set_int(const char* uniform_name, int value)
+{
   glUniform1i(glGetUniformLocation(m_id, uniform_name), value);
 }
 
@@ -95,7 +99,6 @@ void Shader::set_float(const char* uniform_name, float value)
 
 void Shader::bind() const 
 {
-  last_bind = m_id;
   glUseProgram(m_id);
 }
 
