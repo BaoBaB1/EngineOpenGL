@@ -5,6 +5,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "OpenGLObject.hpp"
+#include <vector>
+#include <string_view>
 
 struct VertexLayout
 {
@@ -17,12 +19,20 @@ struct VertexLayout
   uint8_t uv = 3;
 };
 
+enum class ShaderStage
+{
+  VERTEX = GL_VERTEX_SHADER,
+  FRAGMENT = GL_FRAGMENT_SHADER,
+  GEOMETRY = GL_GEOMETRY_SHADER,
+  UNKNOWN
+};
+
 class Shader : public OpenGLObject
 {
 public:
   OnlyMovable(Shader)
   Shader() = default;
-  Shader(const char* vertex_file, const char* fragment_file, const VertexLayout& layout);
+  Shader(const std::vector<std::pair<ShaderStage, std::string_view>>& description, const VertexLayout& layout);
   ~Shader();
   void set_matrix4f(const char* uniform_name, const glm::mat4& value);
   void set_vec3(const char* uniform_name, const glm::vec3& value);
@@ -36,7 +46,7 @@ public:
   VertexLayout vertex_layout() { return m_vertex_layout; }
   const VertexLayout& vertex_layout() const { return m_vertex_layout; }
 private:
-  void load(const char* vertex_file, const char* fragment_file);
+  void load(const std::vector<std::pair<ShaderStage, std::string_view>>& description);
 private:
   VertexLayout m_vertex_layout;
 };

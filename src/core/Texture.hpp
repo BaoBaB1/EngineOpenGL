@@ -11,7 +11,7 @@ struct StbDeleter
   void operator()(unsigned char* data) { free(data); }
 };
 
-enum TextureType
+enum class TextureType
 {
   AMBIENT,
   DIFFUSE,

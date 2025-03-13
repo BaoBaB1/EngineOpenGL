@@ -105,7 +105,7 @@ void Ui::render()
       {
         std::string selected_file = dlg.GetFilePathName();
         ModelLoader loader;
-        std::optional<ComplexModel> m = loader.load(selected_file, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenBoundingBoxes /*| aiProcess_GenSmoothNormals*/);
+        std::optional<ComplexModel> m = loader.load(selected_file, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices | aiProcess_GenBoundingBoxes /*| aiProcess_GenSmoothNormals*/);
         if (m)
         {
           scene.m_drawables.push_back(std::make_unique<ComplexModel>(std::move(*m)));

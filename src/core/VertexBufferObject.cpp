@@ -7,7 +7,15 @@ VertexBufferObject::VertexBufferObject()
 
 void VertexBufferObject::set_data(const void* vertices, size_t size_in_bytes)
 {
-  glBufferData(GL_ARRAY_BUFFER, size_in_bytes, vertices, GL_STATIC_DRAW);
+  if (m_size == 0 || m_size < size_in_bytes)
+  {
+    glBufferData(GL_ARRAY_BUFFER, size_in_bytes, vertices, GL_STATIC_DRAW);
+  }
+  else
+  {
+    glBufferSubData(GL_ARRAY_BUFFER, 0, size_in_bytes, vertices);
+  }
+  m_size = std::max(m_size, size_in_bytes);
 }
 
 void VertexBufferObject::bind() const

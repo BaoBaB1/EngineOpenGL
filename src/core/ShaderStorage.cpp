@@ -8,15 +8,7 @@ namespace
 {
   struct ShaderDescription
   {
-    constexpr ShaderDescription(std::string_view vs, std::string_view fs, const VertexLayout& layout)
-      : vertex_shader(vs), fragment_shader(fs), vertex_layout(layout) {}
-    constexpr ShaderDescription() = default;
-    constexpr ShaderDescription(const ShaderDescription&) = default;
-    constexpr ShaderDescription(ShaderDescription&&) noexcept = default;
-    constexpr ShaderDescription& operator=(const ShaderDescription&) = default;
-    constexpr ShaderDescription& operator=(ShaderDescription&&) noexcept = default;
-    std::string_view vertex_shader;
-    std::string_view fragment_shader;
+    std::vector<std::pair<ShaderStage, std::string_view>> sources;
     VertexLayout vertex_layout;
   };
 }
@@ -30,20 +22,61 @@ namespace GlobalState
     static bool once = true;
     if (once)
     {
-      constexpr std::array descriptions =
+      std::vector<ShaderDescription> descriptions;
+      descriptions.reserve(ShaderStorage::LAST_ITEM + 1);
       {
-        ShaderDescription(".//src//glsl//shader.vert", ".//src//glsl//shader.frag", VertexLayout(0, 1, 2, 3)),
-        ShaderDescription(".//src//glsl//outlining.vert", ".//src//glsl//outlining.frag", VertexLayout(0, 1, -1, -1)),
-        ShaderDescription(".//src//glsl//skybox.vert", ".//src//glsl//skybox.frag", VertexLayout(0, -1, -1, -1)),
-        ShaderDescription(".//src//glsl//fbo_default_shader.vert", ".//src//glsl//fbo_default_shader.frag", VertexLayout(0, -1, -1, 1)),
-        ShaderDescription(".//src//glsl//picking_fbo.vert", ".//src//glsl//picking_fbo.frag", VertexLayout(0, -1, -1, -1)),
-        ShaderDescription(".//src//glsl//lines.vert", ".//src//glsl//lines.frag", VertexLayout(0, -1, 1, -1))
-      };
-
+        ShaderDescription d;
+        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//shader.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//shader.frag" });
+        d.vertex_layout = VertexLayout(0, 1, 2, 3);
+        descriptions.push_back(d);
+      }
+      {
+        ShaderDescription d;
+        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//outlining.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//outlining.frag" });
+        d.vertex_layout = VertexLayout(0, 1, -1, -1);
+        descriptions.push_back(d);
+      }
+      {
+        ShaderDescription d;
+        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//skybox.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//skybox.frag" });
+        d.vertex_layout = VertexLayout(0, -1, -1, -1);
+        descriptions.push_back(d);
+      }
+      {
+        ShaderDescription d;
+        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//fbo_default_shader.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//fbo_default_shader.frag" });
+        d.vertex_layout = VertexLayout(0, -1, -1, 1);
+        descriptions.push_back(d);
+      }
+      {
+        ShaderDescription d;
+        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//picking_fbo.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//picking_fbo.frag" });
+        d.vertex_layout = VertexLayout(0, -1, -1, -1);
+        descriptions.push_back(d);
+      }
+      {
+        ShaderDescription d;
+        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//lines.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//lines.frag" });
+        d.vertex_layout = VertexLayout(0, -1, 1, -1);
+        descriptions.push_back(d);
+      }
+      {
+        ShaderDescription d;
+        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//normals.vert" });
+        d.sources.push_back({ ShaderStage::GEOMETRY, ".//src//glsl//normals.geom" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//normals.frag" });
+        d.vertex_layout = VertexLayout(0, 1, -1, -1);
+        descriptions.push_back(d);
+      }
       for (int i = 0; i < ShaderStorage::LAST_ITEM; i++)
       {
-        shaders.emplace(static_cast<ShaderStorage::ShaderType>(i), 
-          Shader(descriptions[i].vertex_shader.data(), descriptions[i].fragment_shader.data(), descriptions[i].vertex_layout));
+        shaders.emplace(static_cast<ShaderStorage::ShaderType>(i), Shader(descriptions[i].sources, descriptions[i].vertex_layout));
       }
       once = false;
     }

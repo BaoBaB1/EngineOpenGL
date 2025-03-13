@@ -33,6 +33,7 @@ private:
   void render_picking_fbo();
   void render_selected_objects();
   void render_lines();
+  void render_normals();
   void render_skybox(const Skybox& skybox);
   friend class MouseInputHandler;
   friend class CursorPositionHandler;

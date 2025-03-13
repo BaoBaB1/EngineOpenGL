@@ -15,15 +15,16 @@ std::optional<ComplexModel> ModelLoader::load(const std::string& filename, unsig
     ComplexModel model;
     // calc extent to scale all vertices in range [-1, 1]
     calc_max_extent(scene->mRootNode, scene);
-    process(scene->mRootNode, scene, std::filesystem::path(filename).parent_path(), model);
+    size_t vcount = 0, fcount = 0;
+    process(scene->mRootNode, scene, std::filesystem::path(filename).parent_path(), model, vcount, fcount);
     center_around_origin(model);
     // TODO: fix this hack
-    //model.set_shading_mode(Object3D::SMOOTH_SHADING);
+    model.set_shading_mode(Object3D::SMOOTH_SHADING);
     return model;
   }
 }
 
-void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::filesystem::path& file_path, ComplexModel& model)
+void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::filesystem::path& file_path, ComplexModel& model, size_t& vcount, size_t& fcount)
 {
   for (unsigned int i = 0; i < root->mNumMeshes; i++)
   {
@@ -34,6 +35,7 @@ void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::f
     const bool has_texture_coords = inmesh->HasTextureCoords(0);
 
     // process vertices
+    vcount += inmesh->mNumVertices;
     for (unsigned int vidx = 0; vidx < inmesh->mNumVertices; vidx++)
     {
       aiVector3D vert = inmesh->mVertices[vidx];
@@ -54,6 +56,7 @@ void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::f
 
     // process faces
     assert(inmesh->mNumFaces > 0);
+    fcount += inmesh->mNumFaces;
     for (unsigned int fidx = 0; fidx < inmesh->mNumFaces; fidx++)
     {
       aiFace face = inmesh->mFaces[fidx];
@@ -134,7 +137,12 @@ void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::f
 
   for (unsigned int i = 0; i < root->mNumChildren; i++)
   {
-    process(root->mChildren[i], scene, file_path, model);
+    process(root->mChildren[i], scene, file_path, model, vcount, fcount);
+  }
+
+  if (root == scene->mRootNode)
+  {
+    std::cout << "Model has been loaded. Vertex count: " << vcount << ", face count " << fcount << '\n';
   }
 }
 

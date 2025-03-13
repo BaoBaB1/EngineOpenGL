@@ -11,8 +11,7 @@ file(GLOB_RECURSE SOURCES
 	"src/*.h"
 	"src/*.hpp"
 	"src/*.cpp"
-	"src/*.frag"
-	"src/*.vert"
+	"src/glsl/*.*"
 	)
 
 add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/src/core/OpenGLMain.cpp ${SOURCES})

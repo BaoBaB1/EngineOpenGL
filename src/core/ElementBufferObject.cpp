@@ -7,7 +7,16 @@ ElementBufferObject::ElementBufferObject()
 
 void ElementBufferObject::set_data(const void* indices, size_t size_in_bytes)
 {
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, size_in_bytes, indices, GL_STATIC_DRAW);
+  if (m_size == 0 || m_size < size_in_bytes)
+  {
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, size_in_bytes, indices, GL_STATIC_DRAW);
+  }
+  else
+  {
+    // for EBO seems to be slightly slower than just calling glBufferData all the time ???
+    glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, size_in_bytes, indices);
+  }
+  m_size = std::max(m_size, size_in_bytes);
 }
 
 void ElementBufferObject::bind() const

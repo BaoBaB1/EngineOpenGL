@@ -37,6 +37,6 @@ private:
   std::vector<Face> m_faces;
   mutable std::vector<GLuint> m_faces_indices;
   //std::vector<Vertex> m_cached_normals;     // normal lines
-  std::array<std::shared_ptr<Texture2D>, TextureType::LAST + 1> m_textures;
+  std::array<std::shared_ptr<Texture2D>, static_cast<int>(TextureType::LAST) + 1> m_textures;
   BoundingBox m_bbox;
 };

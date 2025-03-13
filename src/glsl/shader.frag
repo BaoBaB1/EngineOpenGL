@@ -33,19 +33,35 @@ uniform Material material;
 
 void main()
 {
+	vec3 ambientColor = vec3(1);
+	vec3 diffuseColor = vec3(1);
+	vec3 specularColor = vec3(1);
+	if (hasAmbientTex)
+	{
+		ambientColor = texture(ambientTex, uv).rgb;
+	}
+	if (hasDiffuseTex)
+	{
+		diffuseColor = texture(diffuseTex, uv).rgb;
+	}
+	if (hasSpecularTex)
+	{
+		specularColor = texture(specularTex, uv).rgb;
+	}
+
 	if (applyShading)
 	{
-		vec3 ambientComponent = vec3(1);
-		vec3 diffuseComponent = vec3(1);
-		vec3 specularComponent = vec3(1);
+		vec3 ambientMaterialComponent = vec3(1);
+		vec3 diffuseMaterialComponent = vec3(1);
+		vec3 specularMaterialComponent = vec3(1);
 		float shininess = 32.f;
 		float alpha = color.a;
 
 		if (hasMaterial)
 		{
-			ambientComponent = material.ambient;
-			diffuseComponent = material.diffuse;
-			specularComponent = material.specular;
+			ambientMaterialComponent = material.ambient;
+			diffuseMaterialComponent = material.diffuse;
+			specularMaterialComponent = material.specular;
 			shininess = material.shininess;
 			alpha = material.alpha;
 		}
@@ -54,46 +70,30 @@ void main()
 
 		// ambient light
 		float ambientStrength = 0.2f;
-		vec3 ambient = ambientStrength * lightColor * ambientComponent;
+		vec3 ambient = ambientStrength * lightColor * ambientMaterialComponent * ambientColor;
 
 		//diffuse light
 		vec3 norm = normalize(normal);
 		vec3 lightDir = normalize(lightPos - fragment);
 		float diffuseValue = max(dot(norm, lightDir), 0.0);
-		vec3 diffuse = diffuseValue * lightColor * diffuseComponent;
+		vec3 diffuse = diffuseValue * lightColor * diffuseMaterialComponent * diffuseColor;
 
 		// specular light
 		float specularStrength = 0.5f;
 		vec3 viewDir = normalize(viewPos - fragment);
 		vec3 reflectedDir = reflect(-lightDir, norm);
 		float specValue = pow(max(dot(viewDir, reflectedDir), 0.0), shininess);
-		vec3 specular = specularStrength * specValue * lightColor * specularComponent;
+		vec3 specular = specularStrength * specValue * lightColor * specularMaterialComponent * specularColor;
 
 		fragColor = vec4((diffuse + ambient + specular) * color.rgb, alpha);
-
-		if (hasAmbientTex)
-		{
-			fragColor *= texture(ambientTex, uv);
-		}
-		if (hasDiffuseTex)
-		{
-			fragColor *= texture(diffuseTex, uv);
-		}
-		if (hasSpecularTex)
-		{
-			fragColor += texture(specularTex, uv) * vec4(specular, 1);
-		}
 	}
 	else
 	{
 		fragColor = color;
 	}
 
-
 	if (hasDefaultTexture)
 	{
 		fragColor *= texture(defaultTexture, uv);
 	}
-	
-
 }

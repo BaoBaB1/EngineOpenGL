@@ -16,6 +16,7 @@ namespace GlobalState
       FBO_DEFAULT,
       PICKING,
       LINES,
+      NORMALS,
       LAST_ITEM
     };
     static void init();

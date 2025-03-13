@@ -87,9 +87,8 @@ protected:
     LIGHT_SOURCE = (1 << 2),
     VISIBLE_BBOX = (1 << 3),
     IS_SELECTED = (1 << 4),
-    RESET_CACHED_NORMALS = (1 << 5),
-    HAS_MATERIAL = (1 << 6),
-    GEOMETRY_MODIFIED = (1 << 7)
+    HAS_MATERIAL = (1 << 5),
+    GEOMETRY_MODIFIED = (1 << 6)
   };
   struct WrappedVertex {
     explicit WrappedVertex(const Vertex& vertex) {
@@ -134,7 +133,7 @@ protected:
   float m_rotation_angle = 0.f;
   float m_delta_time = 0.f;
   glm::vec3 m_rotation_axis = glm::vec3(0.f);
-  uint32_t m_flags = RESET_CACHED_NORMALS;
+  uint32_t m_flags = 0;
   ShadingMode m_shading_mode = ShadingMode::NO_SHADING;
   VertexFinder m_vertex_finder;
   BoundingBox m_bbox;             // bounding box which covers all meshes

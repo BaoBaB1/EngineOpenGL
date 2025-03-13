@@ -33,6 +33,8 @@ MainWindow::MainWindow(int width, int height, const char* title) :
   m_input_handlers.push_back(std::make_unique<CursorPositionHandler>(this));
   m_input_handlers.push_back(std::make_unique<MouseInputHandler>(this));
   glfwMakeContextCurrent(m_window);
+  // disable vsync
+  glfwSwapInterval(0);
   glfwSetWindowSizeLimits(m_window, 1600, 900, GLFW_DONT_CARE, GLFW_DONT_CARE);
   glfwSetWindowFocusCallback(m_window, window_focus_callback);
   gladLoadGL();

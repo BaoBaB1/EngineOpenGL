@@ -126,6 +126,7 @@ void SceneRenderer::render()
     render_skybox(skybox);
     render_scene();
     render_selected_objects();
+    render_normals();
     render_lines();
     m_ui->render();
     main_fbo.unbind();
@@ -154,6 +155,13 @@ void SceneRenderer::render_scene()
   shader->set_int("specularTex", 3);
   const VertexLayout vlayout = shader->vertex_layout();
   m_gpu_buffers->bind_all();
+
+  auto& vao = m_gpu_buffers->vao;
+  vao->link_attrib(vlayout.position, 3, GL_FLOAT, sizeof(Vertex), nullptr);                     // position
+  vao->link_attrib(vlayout.normal, 3, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 3));  // normal
+  vao->link_attrib(vlayout.color, 4, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 6));   // color
+  vao->link_attrib(vlayout.uv, 2, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 10));     // texture 
+
   for (const auto& pobj : m_drawables)
   {
     shader->set_matrix4f("modelMatrix", pobj->model_matrix());
@@ -223,14 +231,9 @@ void SceneRenderer::render_scene()
         shader->set_bool("hasSpecularTex", false);
       }
 
-      auto& vao = m_gpu_buffers->vao;
       auto& vbo = m_gpu_buffers->vbo;
       const std::vector<Vertex>& vertices = mesh.vertices();
       vbo->set_data(vertices.data(), sizeof(Vertex) * vertices.size());
-      vao->link_attrib(vlayout.position, 3, GL_FLOAT, sizeof(Vertex), nullptr);                     // position
-      vao->link_attrib(vlayout.normal, 3, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 3));  // normal
-      vao->link_attrib(vlayout.color, 4, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 6));   // color
-      vao->link_attrib(vlayout.uv, 2, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 10));     // texture 
 
       const auto mat = mesh.material();
       shader->set_bool("hasMaterial", bool(mat));
@@ -368,11 +371,10 @@ void SceneRenderer::render_lines()
   shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
   shader->set_matrix4f("projectionMatrix", m_projection_mat);
   const VertexLayout vlayout = shader->vertex_layout();
+  m_gpu_buffers->bind_all();
   for (const auto& pobj : m_drawables)
   {
     shader->set_matrix4f("modelMatrix", pobj->model_matrix());
-
-    m_gpu_buffers->bind_all();
     auto& vao = m_gpu_buffers->vao;
     auto& vbo = m_gpu_buffers->vbo;
     auto& ebo = m_gpu_buffers->ebo;
@@ -399,17 +401,41 @@ void SceneRenderer::render_lines()
       ebo->set_data(indices.data(), sizeof(GLuint) * indices.size());
       glDrawElements(GL_LINES, (GLsizei)indices.size(), GL_UNSIGNED_INT, nullptr);
     }
+  }
+  m_gpu_buffers->unbind_all();
+  shader->unbind();
+}
+
+void SceneRenderer::render_normals()
+{
+  Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::NORMALS);
+  shader->bind();
+  shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
+  shader->set_matrix4f("projectionMatrix", m_projection_mat);
+  shader->set_vec3("normalColor", glm::vec3(0, 1, 1));
+  const VertexLayout vlayout = shader->vertex_layout();
+  m_gpu_buffers->bind_all();
+  for (const auto& pobj : m_drawables)
+  {
+    shader->set_matrix4f("modelMatrix", pobj->model_matrix());
+
+    auto& vao = m_gpu_buffers->vao;
+    auto& vbo = m_gpu_buffers->vbo;
 
     if (pobj->is_normals_visible())
     {
-      std::vector<Vertex> normals = pobj->normals_as_lines();
-      vbo->set_data(normals.data(), sizeof(Vertex) * normals.size());
-      vao->link_attrib(0, 3, GL_FLOAT, sizeof(Vertex), nullptr);                      // position
-      vao->link_attrib(1, 4, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 6)); // color
-      glDrawArrays(GL_LINES, 0, (GLsizei)normals.size());
+      const size_t mesh_count = pobj->mesh_count();
+      for (size_t i = 0; i < mesh_count; i++)
+      {
+        const Mesh& mesh = pobj->get_mesh(i);
+        vbo->set_data(mesh.vertices().data(), sizeof(Vertex) * mesh.vertices().size());
+        vao->link_attrib(vlayout.position, 3, GL_FLOAT, sizeof(Vertex), nullptr);
+        vao->link_attrib(vlayout.normal, 3, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 3));
+        glDrawArrays(GL_POINTS, 0, mesh.vertices().size());
+      }
     }
-    m_gpu_buffers->unbind_all();
   }
+  m_gpu_buffers->unbind_all();
   shader->unbind();
 }
 
