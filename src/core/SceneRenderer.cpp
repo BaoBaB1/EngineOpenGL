@@ -529,11 +529,11 @@ void SceneRenderer::create_scene()
   m_drawables.push_back(std::move(bc2));
 }
 
-void SceneRenderer::select_object(int index)
+void SceneRenderer::select_object(int index, bool click_from_menu_item)
 {
-  // do not select object that is behind imgui's menu
+  // do not select object that is behind imgui's menu, but select it when we are clicking on obj name inside menu itself
   ImGuiIO& io = ImGui::GetIO();
-  if (io.WantCaptureMouse)
+  if (!click_from_menu_item && io.WantCaptureMouse)
     return;
   if (m_drawables[index]->is_selected())
     return;

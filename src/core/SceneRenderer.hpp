@@ -27,7 +27,7 @@ private:
   ~SceneRenderer();
   void handle_input();
   void create_scene();
-  void select_object(int index);  // temporary function. remove when selection of multiple elements is supported
+  void select_object(int index, bool click_from_menu_item);  // temporary function. remove when selection of multiple elements is supported
   void new_frame_update();
   void render_scene();
   void render_picking_fbo();

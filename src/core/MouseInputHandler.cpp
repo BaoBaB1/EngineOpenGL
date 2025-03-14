@@ -40,7 +40,7 @@ void MouseInputHandler::left_btn_click_callback(GLFWwindow* window, int button, 
       if (id != 0)
       {
         std::cout << "Pixel " << x << ',' << y << " object id = " << id << '\n';
-        scene.select_object(id - 1);
+        scene.select_object(id - 1, false);
       }
       glReadBuffer(0);
       picking_fbo.unbind();

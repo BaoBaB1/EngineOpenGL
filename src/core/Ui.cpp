@@ -158,8 +158,8 @@ void Ui::render()
     // stick menu to the right side of window
     const ImVec2 sz = ImVec2(m_window->width(), m_window->height());
     constexpr float scale_factor = 0.2f;
-    ImGui::SetNextWindowSize(ImVec2(sz.x * scale_factor, sz.y - menubar_size.y - 1));
-    ImGui::SetNextWindowPos(ImVec2(sz.x - sz.x * scale_factor, menubar_size.y - 1));
+    ImGui::SetNextWindowSize(ImVec2(sz.x * scale_factor, sz.y - menubar_size.y));
+    ImGui::SetNextWindowPos(ImVec2(sz.x - sz.x * scale_factor, menubar_size.y));
     ImGui::Begin("Scene properties", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
     ImGui::Text("Scene objects");
@@ -229,7 +229,7 @@ void Ui::render()
         bool selected = obj->is_selected();
         if (ImGui::Selectable((obj->name() + std::to_string(idx + 1)).c_str(), &selected))
         {
-          scene.select_object(idx);
+          scene.select_object(idx, true);
         }
         ++idx;
       }
