@@ -33,7 +33,7 @@ void Object3D::add_mesh(Mesh&& mesh)
   if (mesh.material())
     set_flag(HAS_MATERIAL, true);
   set_flag(GEOMETRY_MODIFIED, true);
-  m_meshes.push_back(std::move(mesh)); 
+  m_meshes->push_back(std::move(mesh)); 
 }
 
 void Object3D::add_mesh(const Mesh& mesh)
@@ -41,31 +41,7 @@ void Object3D::add_mesh(const Mesh& mesh)
   if (mesh.material())
     set_flag(HAS_MATERIAL, true);
   set_flag(GEOMETRY_MODIFIED, true);
-  m_meshes.push_back(mesh); 
-}
-
-std::vector<Vertex> Object3D::normals_as_lines()
-{
-  // Too slow to call every frame if object has a lot of vertices
-  size_t vertices_count = 0;
-  for (const auto& mesh : m_meshes)
-  {
-    vertices_count += mesh.vertices().size();
-  }
-  std::vector<Vertex> normals(vertices_count * 2);
-  constexpr float len_scaler = 3.f;
-  size_t index = 0;
-  for (const auto& mesh : m_meshes)
-  {
-    for (const auto& vertex : mesh.vertices())
-    {
-      normals[index].position = vertex.position;
-      normals[index + 1].position = vertex.position + vertex.normal / len_scaler;
-      normals[index].color = normals[index + 1].color = glm::vec4(0.f, 1.f, 1.f, 1.f);
-      index += 2;
-    }
-  }
-  return normals;
+  m_meshes->push_back(mesh); 
 }
 
 void Object3D::calculate_bbox(bool force)
@@ -75,7 +51,7 @@ void Object3D::calculate_bbox(bool force)
     return;
   }
   glm::vec3 min(INFINITY), max(-INFINITY);
-  for (const auto& mesh : m_meshes)
+  for (const auto& mesh : *m_meshes)
   {
     for (const Vertex& v : mesh.vertices())
     {
@@ -89,13 +65,13 @@ void Object3D::calculate_bbox(bool force)
 
 void Object3D::set_texture(const std::shared_ptr<Texture2D>& tex, TextureType type, size_t mesh_idx)
 {
-  m_meshes[mesh_idx].set_texture(tex, type);
+  (*m_meshes)[mesh_idx].set_texture(tex, type);
 }
 
 void Object3D::set_color(const glm::vec4& color)
 {
   m_color = color;
-  auto apply_color = [](std::vector<Mesh>& meshes, const glm::vec4& color) 
+  auto apply_color = [](std::vector<Mesh>& meshes, const glm::vec4& color)
     {
       for (auto& mesh : meshes)
       {
@@ -107,12 +83,15 @@ void Object3D::set_color(const glm::vec4& color)
     };
 
   // set color of current mesh
-  apply_color(m_meshes, color);
+  apply_color(*m_meshes, color);
 
   // set color of cached meshes
   for (auto& cached_meshes : m_cached_meshes)
   {
-    apply_color(cached_meshes.second, color);
+    if (cached_meshes)
+    {
+      apply_color(*cached_meshes, color);
+    }
   }
 }
 
@@ -122,9 +101,9 @@ glm::vec3 Object3D::center() const
   {
     return m_center;
   }
-  assert(m_meshes.size() > 0);
+  assert(m_meshes->size() > 0);
   glm::vec3 min(INFINITY), max(-INFINITY);
-  for (const auto& mesh : m_meshes)
+  for (const auto& mesh : *m_meshes)
   {
     for (const auto& v : mesh.vertices())
     {
@@ -142,36 +121,29 @@ void Object3D::apply_shading(Object3D::ShadingMode mode)
 {
   if (mode != m_shading_mode)
   {
-    // if meshes with current shading mode are not cached yet
-    if (m_cached_meshes.count(m_shading_mode) == 0)
+    if (!m_cached_meshes[m_shading_mode])
     {
       m_cached_meshes[m_shading_mode] = m_meshes;
     }
-    m_shading_mode = mode;
 
-    // if meshes with new shading mode have already been cached
-    if (m_cached_meshes.count(mode) != 0)
+    if (auto mesh_ptr_from_cache = m_cached_meshes[mode])
     {
-      m_meshes = m_cached_meshes[mode];
+      m_meshes = mesh_ptr_from_cache;
+      m_shading_mode = mode;
       return;
     }
-
-    // no shading, all normals == 0
-    if (mode == Object3D::ShadingMode::NO_SHADING)
+    // copy data
+    auto current_meshes_tmp = m_meshes;
+    m_meshes = std::make_shared<std::vector<Mesh>>();
+    for (const auto& mesh : *current_meshes_tmp)
     {
-      for (auto& mesh : m_meshes)
-      {
-        for (Vertex& v : mesh.vertices())
-        {
-          v.normal = glm::vec3(0.f);
-        }
-      }
+      m_meshes->emplace_back(mesh.vertices(), mesh.faces());
     }
 
     // duplicate each vertex of current mesh for flat shading so each face has its own normal
-    else if (mode == Object3D::ShadingMode::FLAT_SHADING)
+    if (mode == Object3D::ShadingMode::FLAT_SHADING)
     {
-      for (auto& mesh : m_meshes)
+      for (auto& mesh : *m_meshes)
       {
         m_vertex_finder.m_map_vert.clear();
         std::vector<GLuint> indices(3);
@@ -202,12 +174,12 @@ void Object3D::apply_shading(Object3D::ShadingMode mode)
         calc_normals(mesh, mode);
       }
     }
-
     // for smooth shading we have to make sure that every vertex is unique as well as it's normal.
-    // fragment color will be interpolated between triangle's vertex normals 
-    else if (mode == Object3D::ShadingMode::SMOOTH_SHADING)
+    // fragment color will be interpolated between triangle's vertex normals
+    // same applies for shading mode = NO_SHADING, except the difference that normals are 0,0,0
+    else
     {
-      for (auto& mesh : m_meshes)
+      for (auto& mesh : *m_meshes)
       {
         m_vertex_finder.m_map_vert.clear();
         std::vector<GLuint> indices(3);
@@ -220,6 +192,7 @@ void Object3D::apply_shading(Object3D::ShadingMode mode)
           for (int i = 0; i < face.size; ++i)
           {
             Vertex vert = vertices[face.data[i]];
+            vert.normal = glm::vec3(0.f);
             VertexFinder::iter iter = m_vertex_finder.find_vertex(vert);
             if (iter != m_vertex_finder.end())
             {
@@ -234,9 +207,14 @@ void Object3D::apply_shading(Object3D::ShadingMode mode)
           }
         }
         vertices = std::move(unique_vertices);
-        calc_normals(mesh, mode);
+        if (mode == Object3D::ShadingMode::SMOOTH_SHADING)
+        {
+          calc_normals(mesh, mode);
+        }
       }
     }
+    m_cached_meshes[mode] = m_meshes;
+    m_shading_mode = mode;
   }
 }
 

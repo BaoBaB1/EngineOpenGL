@@ -33,6 +33,9 @@ Cube::Cube()
   // right
   mesh.append_face(Face{ 21, 17, 18 });
   mesh.append_face(Face{ 21, 18, 22 });
+
+  // by default we create cube for flat shading
+  set_shading_mode(ShadingMode::FLAT_SHADING);
   calc_normals(mesh, Object3D::ShadingMode::FLAT_SHADING);
 
   // uv mapping

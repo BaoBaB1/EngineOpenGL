@@ -22,18 +22,13 @@ public:
   {
     NO_SHADING,
     FLAT_SHADING,
-    SMOOTH_SHADING
+    SMOOTH_SHADING,
+    LAST_ITEM
   };
   struct RenderConfig
   {
-    static RenderConfig& default() {
-      static RenderConfig cfgdef;
-      cfgdef.mode = GL_TRIANGLES;
-      cfgdef.use_indices = true;
-      return cfgdef;
-    }
-    int mode;
-    bool use_indices;
+    int mode = GL_TRIANGLES;
+    bool use_indices = true;
   };
 public:
   virtual void apply_shading(ShadingMode mode);
@@ -43,13 +38,13 @@ public:
   void set_shading_mode(ShadingMode mode) { m_shading_mode = mode; }
   void set_delta_time(float delta_time) { m_delta_time = delta_time; }
   void set_render_config(const RenderConfig& cfg) { m_render_config = cfg; }
+  void set_meshes_data(const std::shared_ptr<std::vector<Mesh>>& meshes) { m_meshes = meshes; }
   void rotate(float angle, const glm::vec3& axis);
   void scale(const glm::vec3& scale);
   void translate(const glm::vec3& translation);
   void add_mesh(Mesh&& mesh);
   void add_mesh(const Mesh& mesh);
-  Mesh& emplace_mesh() { set_flag(GEOMETRY_MODIFIED, true); return m_meshes.emplace_back(); }
-  std::vector<Vertex> normals_as_lines();
+  Mesh& emplace_mesh() { set_flag(GEOMETRY_MODIFIED, true); return m_meshes->emplace_back(); }
   void calculate_bbox(bool force = false);
   float rotation_angle() const { return m_rotation_angle; }
   glm::vec3 rotation_axis() const { return m_rotation_axis; }
@@ -67,14 +62,16 @@ public:
   bool is_bbox_visible() const { return get_flag(VISIBLE_BBOX); }
   bool is_selected() const { return get_flag(IS_SELECTED); }
   bool has_material() const { return get_flag(HAS_MATERIAL); }
+  std::shared_ptr<std::vector<Mesh>> get_meshes_data() { return m_meshes; }
+  const std::shared_ptr<std::vector<Mesh>>& get_meshes_data() const { return m_meshes; }
   ShadingMode shading_mode() const { return m_shading_mode; }
   const glm::mat4& model_matrix() const { return m_model_mat; }
   glm::mat4& model_matrix() { return m_model_mat; }
   const glm::vec4& color() const { return m_color; }
-  size_t mesh_count() const { return m_meshes.size(); }
-  Mesh& get_mesh(size_t idx) { return m_meshes[idx]; }
+  size_t mesh_count() const { return m_meshes->size(); }
+  Mesh& get_mesh(size_t idx) { return (*m_meshes)[idx]; }
   const RenderConfig& get_render_config() const { return m_render_config; }
-  const Mesh& get_mesh(size_t idx) const { return m_meshes[idx]; }
+  const Mesh& get_mesh(size_t idx) const { return (*m_meshes)[idx]; }
   const BoundingBox& bbox() const { return m_bbox; }
   BoundingBox bbox() { return m_bbox; }
   friend class SceneRenderer;
@@ -126,7 +123,7 @@ protected:
   void clear_flag(Flag flag) { m_flags &= ~flag; }
   bool get_flag(Flag flag) const { return m_flags & flag; }
 protected:
-  std::vector<Mesh> m_meshes;
+  std::shared_ptr<std::vector<Mesh>> m_meshes = std::make_shared<std::vector<Mesh>>();
   mutable glm::vec3 m_center = glm::vec3(0.f);
   glm::mat4 m_model_mat = glm::mat4(1.f);
   glm::vec4 m_color = glm::vec4(1.f);
@@ -137,6 +134,6 @@ protected:
   ShadingMode m_shading_mode = ShadingMode::NO_SHADING;
   VertexFinder m_vertex_finder;
   BoundingBox m_bbox;             // bounding box which covers all meshes
-  RenderConfig m_render_config = RenderConfig::default();
-  std::map<ShadingMode, std::vector<Mesh>> m_cached_meshes;
+  RenderConfig m_render_config;
+  std::array<std::shared_ptr<std::vector<Mesh>>, ShadingMode::LAST_ITEM + 1> m_cached_meshes;
 };

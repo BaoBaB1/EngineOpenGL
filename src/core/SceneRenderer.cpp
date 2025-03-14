@@ -478,23 +478,21 @@ void SceneRenderer::create_scene()
   }
   m_drawables.push_back(std::move(origin));
 
-  std::unique_ptr<Icosahedron> sun = std::make_unique<Icosahedron>();
+  Icosahedron* sun = static_cast<Icosahedron*>(m_drawables.emplace_back(std::make_unique<Icosahedron>()).get());
   sun->light_source(true);
   sun->translate(glm::vec3(0.f, 0.5f, 2.f));
   sun->set_color(glm::vec4(1.f, 1.f, 0.f, 1.f));
   sun->scale(glm::vec3(0.3f));
   sun->subdivide_triangles(4);
   sun->project_points_on_sphere();
-  m_drawables.push_back(std::move(sun));
 
-  std::unique_ptr<Icosahedron> sphere = std::make_unique<Icosahedron>();
+  Icosahedron* sphere = static_cast<Icosahedron*>(m_drawables.emplace_back(std::make_unique<Icosahedron>()).get());
   sphere->translate(glm::vec3(2.5f, 0.5f, 2.f));
   sphere->set_color(glm::vec4(1.f, 0.f, 0.f, 1.f));
   sphere->subdivide_triangles(4);
   sphere->project_points_on_sphere();
   sphere->scale(glm::vec3(0.3f));
   sphere->apply_shading(Object3D::ShadingMode::SMOOTH_SHADING);
-  m_drawables.push_back(std::move(sphere));
 
   std::unique_ptr<Cube> c = std::make_unique<Cube>();
   c->translate(glm::vec3(0.25f));

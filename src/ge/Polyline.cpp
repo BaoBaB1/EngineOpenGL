@@ -10,5 +10,5 @@ Polyline::Polyline()
 
 void Polyline::add(const Vertex& point) 
 {
-  m_meshes[0].append_vertex(point);
+  get_mesh(0).append_vertex(point);
 }

@@ -49,7 +49,7 @@ Icosahedron::Icosahedron()
 }
 
 void Icosahedron::project_points_on_sphere() {
-  auto& mesh = m_meshes[0];
+  auto& mesh = get_mesh(0);
   for (Vertex& v : mesh.vertices()) {
     v.position = glm::normalize(v.position);
   }
@@ -57,7 +57,7 @@ void Icosahedron::project_points_on_sphere() {
 
 void Icosahedron::subdivide_triangles(int subdivision_level, const Vertex& a, const Vertex& b, const Vertex& c) {
   if (subdivision_level == 0) {
-    auto& mesh = m_meshes[0];
+    auto& mesh = get_mesh(0);
     GLuint ind = mesh.append_vertex(a);
     GLuint ind2 = mesh.append_vertex(b);
     GLuint ind3 = mesh.append_vertex(c);
@@ -76,8 +76,8 @@ void Icosahedron::subdivide_triangles(int subdivision_level, const Vertex& a, co
 }
 
 void Icosahedron::subdivide_triangles(int subdivision_depth) {
-  std::vector<Face> faces = std::move(m_meshes[0].faces());
-  std::vector<Vertex> vertices = std::move(m_meshes[0].vertices());
+  std::vector<Face> faces = std::move(get_mesh(0).faces());
+  std::vector<Vertex> vertices = std::move(get_mesh(0).vertices());
   allocate_memory_before_subdivision(subdivision_depth, (int)faces.size());
   for (size_t i = 0; i < faces.size(); ++i) {
     assert(faces[i].size == 3);
@@ -89,7 +89,7 @@ void Icosahedron::subdivide_triangles(int subdivision_depth) {
 }
 
 void Icosahedron::allocate_memory_before_subdivision(int subdivision_depth, int face_count) {
-  auto& mesh = m_meshes[0];
+  auto& mesh = get_mesh(0);
   mesh.vertices().clear();
   mesh.faces().clear();
   size_t new_face_count = face_count * (size_t)std::pow(4, subdivision_depth);

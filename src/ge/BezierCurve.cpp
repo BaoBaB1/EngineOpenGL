@@ -24,7 +24,7 @@ void BezierCurve::set_control_points(const std::vector<Vertex>& c_points)
     break;
   }
 
-  Mesh& mesh = m_meshes[0];
+  Mesh& mesh = get_mesh(0);
   m_control_points = c_points;
   mesh.vertices().clear();
   mesh.faces().clear();
