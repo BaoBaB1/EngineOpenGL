@@ -44,6 +44,9 @@ private:
   std::vector<int> m_selected_objects;
   std::unique_ptr<MainWindow> m_window;
   std::unique_ptr<GPUBuffers> m_gpu_buffers;
+  // TODO: move to some other place
+  std::unique_ptr<VertexBufferObject> m_skybox_vbo;
+  std::unique_ptr<VertexArrayObject> m_skybox_vao;
   std::unique_ptr<Ui> m_ui;
   Camera m_camera;
   std::map<std::string, FrameBufferObject> m_fbos;
@@ -53,10 +56,21 @@ private:
 
 struct ScreenQuad : IDrawable
 {
-  ScreenQuad(GLuint tex_id) : m_tex_id(tex_id) {}
-  void render(GPUBuffers*, Shader& shader);
+  ScreenQuad(GLuint tex_id) : m_tex_id(tex_id)
+  {
+    vao->bind();
+    vbo->bind();
+    vbo->set_data(quadVertices, sizeof(quadVertices));
+    vao->link_attrib(0, 2, GL_FLOAT, sizeof(float) * 4, nullptr);
+    vao->link_attrib(1, 2, GL_FLOAT, sizeof(float) * 4, (void*)(sizeof(float) * 2));
+    vao->unbind();
+    vbo->unbind();
+  }
+  void render();
   bool has_surface() const override { return false; }
   std::string name() const override { return "ScreenQuad"; }
+  std::unique_ptr<VertexArrayObject> vao = std::make_unique<VertexArrayObject>();
+  std::unique_ptr<VertexBufferObject> vbo = std::make_unique<VertexBufferObject>();
   GLuint m_tex_id;
 
   static constexpr float quadVertices[] =

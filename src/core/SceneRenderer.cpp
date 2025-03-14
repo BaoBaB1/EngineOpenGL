@@ -67,6 +67,15 @@ SceneRenderer::SceneRenderer()
   picking_fbo.attach_renderbuffer(w, h, GL_DEPTH_COMPONENT, GL_DEPTH_ATTACHMENT);
   picking_fbo.unbind();
   m_fbos["picking"] = std::move(picking_fbo);
+
+  m_skybox_vbo = std::make_unique<VertexBufferObject>();
+  m_skybox_vao = std::make_unique<VertexArrayObject>();
+  m_skybox_vao->bind();
+  m_skybox_vbo->bind();
+  m_skybox_vao->link_attrib(0, 3, GL_FLOAT, sizeof(float) * 3, nullptr);
+  m_skybox_vbo->set_data(skyboxVertices, sizeof(skyboxVertices));
+  m_skybox_vao->unbind();
+  m_skybox_vbo->unbind();
 }
 
 SceneRenderer::~SceneRenderer()
@@ -101,8 +110,14 @@ void SceneRenderer::render()
   };
   Skybox skybox(Cubemap(std::move(skybox_faces)));
 
-  Shader& fbo_default_shader = ShaderStorage::get(ShaderStorage::FBO_DEFAULT);
-
+  m_gpu_buffers->bind_all();
+  auto& vao = m_gpu_buffers->vao;
+  vao->link_attrib(0, 3, GL_FLOAT, sizeof(Vertex), nullptr);                        // position
+  vao->link_attrib(1, 3, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 3));   // normal
+  vao->link_attrib(2, 4, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 6));   // color
+  vao->link_attrib(3, 2, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 10));  // texture
+  m_gpu_buffers->bind_all();
+  
   while (!glfwWindowShouldClose(gl_window))
   {
     glfwPollEvents();
@@ -113,7 +128,6 @@ void SceneRenderer::render()
     picking_fbo.bind();
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-    glEnable(GL_DEPTH_TEST);
     render_picking_fbo();
     picking_fbo.unbind();
 
@@ -134,9 +148,7 @@ void SceneRenderer::render()
     // set GL_FILL mode because next we are rendering texture
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glDisable(GL_DEPTH_TEST);
-    fbo_default_shader.bind();
-    screen_quad.render(m_gpu_buffers.get(), fbo_default_shader);
-    fbo_default_shader.unbind();
+    screen_quad.render();
 
     glfwSwapBuffers(gl_window);
   }
@@ -155,13 +167,6 @@ void SceneRenderer::render_scene()
   shader->set_int("specularTex", 3);
   const VertexLayout vlayout = shader->vertex_layout();
   m_gpu_buffers->bind_all();
-
-  auto& vao = m_gpu_buffers->vao;
-  vao->link_attrib(vlayout.position, 3, GL_FLOAT, sizeof(Vertex), nullptr);                     // position
-  vao->link_attrib(vlayout.normal, 3, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 3));  // normal
-  vao->link_attrib(vlayout.color, 4, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 6));   // color
-  vao->link_attrib(vlayout.uv, 2, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 10));     // texture 
-
   for (const auto& pobj : m_drawables)
   {
     shader->set_matrix4f("modelMatrix", pobj->model_matrix());
@@ -274,6 +279,7 @@ void SceneRenderer::render_scene()
 
 void SceneRenderer::render_picking_fbo()
 {
+  glEnable(GL_DEPTH_TEST);
   Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::PICKING);
   shader->bind();
   shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
@@ -289,11 +295,9 @@ void SceneRenderer::render_picking_fbo()
     for (size_t j = 0; j < mesh_count; j++)
     {
       const Mesh& mesh = drawable->get_mesh(j);
-      auto& vao = m_gpu_buffers->vao;
       auto& vbo = m_gpu_buffers->vbo;
       const std::vector<Vertex>& vertices = mesh.vertices();
       vbo->set_data(vertices.data(), sizeof(Vertex) * vertices.size());
-      vao->link_attrib(vlayout.position, 3, GL_FLOAT, sizeof(Vertex), nullptr);
       const auto& render_config = drawable->get_render_config();
       if (render_config.use_indices)
       {
@@ -310,6 +314,7 @@ void SceneRenderer::render_picking_fbo()
   }
   m_gpu_buffers->unbind_all();
   shader->unbind();
+  glDisable(GL_DEPTH_TEST);
 }
 
 void SceneRenderer::render_selected_objects()
@@ -323,7 +328,6 @@ void SceneRenderer::render_selected_objects()
   //glDisable(GL_DEPTH_TEST);
   glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
   glStencilMask(0x00);
-
   m_gpu_buffers->bind_all();
   for (auto& pobj : m_drawables)
   {
@@ -336,11 +340,9 @@ void SceneRenderer::render_selected_objects()
       for (size_t i = 0; i < mesh_count; i++)
       {
         const Mesh& mesh = pobj->get_mesh(i);
-        auto& vao = m_gpu_buffers->vao;
         auto& vbo = m_gpu_buffers->vbo;
         const std::vector<Vertex>& vertices = mesh.vertices();
         vbo->set_data(vertices.data(), sizeof(Vertex) * vertices.size());
-        vao->link_attrib(vlayout.position, 3, GL_FLOAT, sizeof(Vertex), nullptr);
         const auto& render_config = pobj->get_render_config();
         if (render_config.use_indices)
         {
@@ -370,15 +372,14 @@ void SceneRenderer::render_lines()
   shader->bind();
   shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
   shader->set_matrix4f("projectionMatrix", m_projection_mat);
+  shader->set_vec3("lineColor", glm::vec3(0.f, 1.f, 0.f));
   const VertexLayout vlayout = shader->vertex_layout();
+  auto& vbo = m_gpu_buffers->vbo;
+  auto& ebo = m_gpu_buffers->ebo;
   m_gpu_buffers->bind_all();
   for (const auto& pobj : m_drawables)
   {
     shader->set_matrix4f("modelMatrix", pobj->model_matrix());
-    auto& vao = m_gpu_buffers->vao;
-    auto& vbo = m_gpu_buffers->vbo;
-    auto& ebo = m_gpu_buffers->ebo;
-
     if (pobj->is_bbox_visible())
     {
       // tmp. need better way of handling any geometry change
@@ -392,12 +393,9 @@ void SceneRenderer::render_lines()
       for (size_t i = 0; i < 8; i++)
       {
         converted[i] = Vertex(bbox_points[i]);
-        converted[i].color = glm::vec4(0.f, 1.f, 0.f, 1.f);
       }
       auto indices = bbox.lines_indices();
       vbo->set_data(converted.data(), sizeof(Vertex) * 8);
-      vao->link_attrib(vlayout.position, 3, GL_FLOAT, sizeof(Vertex), nullptr);                      // position
-      vao->link_attrib(vlayout.color, 4, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 6));    // color
       ebo->set_data(indices.data(), sizeof(GLuint) * indices.size());
       glDrawElements(GL_LINES, (GLsizei)indices.size(), GL_UNSIGNED_INT, nullptr);
     }
@@ -418,10 +416,7 @@ void SceneRenderer::render_normals()
   for (const auto& pobj : m_drawables)
   {
     shader->set_matrix4f("modelMatrix", pobj->model_matrix());
-
-    auto& vao = m_gpu_buffers->vao;
     auto& vbo = m_gpu_buffers->vbo;
-
     if (pobj->is_normals_visible())
     {
       const size_t mesh_count = pobj->mesh_count();
@@ -429,8 +424,6 @@ void SceneRenderer::render_normals()
       {
         const Mesh& mesh = pobj->get_mesh(i);
         vbo->set_data(mesh.vertices().data(), sizeof(Vertex) * mesh.vertices().size());
-        vao->link_attrib(vlayout.position, 3, GL_FLOAT, sizeof(Vertex), nullptr);
-        vao->link_attrib(vlayout.normal, 3, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 3));
         glDrawArrays(GL_POINTS, 0, mesh.vertices().size());
       }
     }
@@ -447,18 +440,13 @@ void SceneRenderer::render_skybox(const Skybox& skybox)
   shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
   shader->set_matrix4f("projectionMatrix", m_projection_mat);
   glActiveTexture(GL_TEXTURE0);
-  const VertexLayout vlayout = shader->vertex_layout();
-  auto& vao = m_gpu_buffers->vao;
-  auto& vbo = m_gpu_buffers->vbo;
-  vao->bind();
-  vbo->bind();
+  m_skybox_vao->bind();
+  m_skybox_vbo->bind();
   skybox.get_cubemap().bind();
-  vbo->set_data(skyboxVertices, sizeof(skyboxVertices));
-  vao->link_attrib(vlayout.position, 3, GL_FLOAT, sizeof(float) * 3, nullptr);
   glDrawArrays(GL_TRIANGLES, 0, 36);
   skybox.get_cubemap().unbind();
-  vbo->unbind();
-  vao->unbind();
+  m_skybox_vbo->unbind();
+  m_skybox_vao->unbind();
   shader->unbind();
   glDepthFunc(GL_LESS);
 }
@@ -622,22 +610,19 @@ void SceneRenderer::handle_input()
   }
 }
 
-void ScreenQuad::render(GPUBuffers* gpu_buffers, Shader& shader)
+void ScreenQuad::render()
 {
-  const VertexLayout vlayout = shader.vertex_layout();
-  auto& vao = gpu_buffers->vao;
-  auto& vbo = gpu_buffers->vbo;
+  Shader& shader = ShaderStorage::get(ShaderStorage::ShaderType::FBO_DEFAULT);
+  shader.bind();
   vao->bind();
   vbo->bind();
-  vbo->set_data(quadVertices, sizeof(quadVertices));
-  vao->link_attrib(vlayout.position, 2, GL_FLOAT, sizeof(float) * 4, nullptr);
-  vao->link_attrib(vlayout.uv, 2, GL_FLOAT, sizeof(float) * 4, (void*)(sizeof(float) * 2));
   shader.set_int("screenTexture", 0);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, m_tex_id);
   glDrawArrays(GL_TRIANGLES, 0, 6);
   vbo->unbind();
   vao->unbind();
+  shader.unbind();
 }
 
 static void setup_opengl()
