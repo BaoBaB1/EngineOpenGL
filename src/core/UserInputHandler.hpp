@@ -17,9 +17,10 @@ class UserInputHandler : public IObserver
 public:
   enum HandlerType
   {
-    KEYBOARD = 1,
+    KEYBOARD,
     CURSOR_POSITION,
     MOUSE_INPUT,
+    LAST_ITEM
   };
 public:
   OnlyMovable(UserInputHandler)
