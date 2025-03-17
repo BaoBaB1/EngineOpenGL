@@ -121,12 +121,7 @@ void Ui::render()
       }
       else
       {
-        // keep mouse
-        for (auto& handler : m_window->input_handlers()) {
-          if (handler->type() == UserInputHandler::MOUSE_INPUT) {
-            m_window->notify(handler.get(), true);
-          }
-        }
+        m_window->get_input_handler(UserInputHandler::MOUSE_INPUT)->notify(true);
       }
       ImGuiFileDialog::Instance()->Close();
     }
@@ -140,9 +135,11 @@ void Ui::render()
     {
       glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
       // disable everything except mouse clicks to enable object selection in editing mode
-      for (auto& handler : m_window->input_handlers()) {
-        if (handler->type() != UserInputHandler::MOUSE_INPUT) {
-          m_window->notify(handler.get(), false);
+      for (int i = 0; i < static_cast<int>(UserInputHandler::LAST_ITEM); i++)
+      {
+        if (i != UserInputHandler::MOUSE_INPUT)
+        {
+          m_window->get_input_handler(static_cast<UserInputHandler::HandlerType>(i))->notify(false);
         }
       }
     }
@@ -168,18 +165,7 @@ void Ui::render()
     // Gizmo
     if (!scene.m_selected_objects.empty())
     {
-      KeyboardHandler* kh = nullptr;
-      for (const auto& h : m_window->input_handlers())
-      {
-        // TODO: add normal retrieval of handlers
-        if (h->type() == KeyboardHandler::KEYBOARD)
-        {
-          kh = static_cast<KeyboardHandler*>(h.get());
-          break;
-        }
-      }
-      assert(kh);
-
+      KeyboardHandler* kh = static_cast<KeyboardHandler*>(m_window->get_input_handler(UserInputHandler::KEYBOARD));
       // default mode is translation
       if (kh->get_keystate(KeyboardHandler::InputKey::T) == KeyboardHandler::KeyState::PRESSED)
       {
@@ -198,13 +184,12 @@ void Ui::render()
       ImGuizmo::SetOrthographic(false);
       ImGuizmo::SetRect(0, 0, m_scene.m_window->width(), m_scene.m_window->height());
 
-      const int idx = scene.m_selected_objects.back();
-      auto& obj = scene.m_drawables[idx];
+      Object3D* obj = scene.m_selected_objects.back();
       Camera& cam = scene.m_camera;
       ImGuizmo::MODE gizmo_mode = ImGuizmo::MODE::LOCAL;
 
       glm::mat4 model_mat = obj->m_model_mat;
-      ImGuizmo::Manipulate(glm::value_ptr(cam.view_matrix()), glm::value_ptr(scene.m_projection_mat), static_cast<ImGuizmo::OPERATION>(m_guizmo_operation),
+      ImGuizmo::Manipulate(glm::value_ptr(cam.view_matrix()), glm::value_ptr(scene.m_camera.get_projection_matrix()), static_cast<ImGuizmo::OPERATION>(m_guizmo_operation),
         gizmo_mode, glm::value_ptr(model_mat));
       if (ImGuizmo::IsUsing())
       {
@@ -229,7 +214,7 @@ void Ui::render()
         bool selected = obj->is_selected();
         if (ImGui::Selectable((obj->name() + std::to_string(idx + 1)).c_str(), &selected))
         {
-          scene.select_object(idx, true);
+          scene.select_object(obj.get(), true);
         }
         ++idx;
       }
@@ -254,8 +239,7 @@ void Ui::render()
 
     if (scene.m_selected_objects.size())
     {
-      const int idx = scene.m_selected_objects.back();
-      render_object_properties(*scene.m_drawables[idx]);
+      render_object_properties(*scene.m_selected_objects.back());
     }
 
     ImGuiIO& io = ImGui::GetIO();

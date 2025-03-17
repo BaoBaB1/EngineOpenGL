@@ -28,6 +28,61 @@ void Object3D::translate(const glm::vec3& translation)
   m_model_mat = glm::translate(m_model_mat, translation);
 }
 
+std::optional<RayHit> Object3D::hit(const Ray& ray) const
+{
+  if (m_bbox.is_empty())
+  {
+    const_cast<Object3D*>(this)->calculate_bbox();
+  }
+  std::optional<RayHit> rhit;
+  if (ray.intersect_aabb(m_bbox))
+  {
+    if (m_render_config.mode == GL_TRIANGLES)
+    {
+      if (m_render_config.use_indices)
+      {
+        for (const auto& mesh : *m_meshes)
+        {
+          for (const auto& face : mesh.faces())
+          {
+             if (auto hit = ray.intersect_triangle(
+                mesh.get_vertex(face[0]).position, mesh.get_vertex(face[1]).position, mesh.get_vertex(face[2]).position)
+              )
+            {
+               // find closest hit
+              if (!rhit || rhit->distance > hit->distance)
+                rhit = hit;
+            }
+          }
+        }
+      }
+      else
+      {
+        for (const auto& mesh : *m_meshes)
+        {
+          const auto& vertices = mesh.vertices();
+          for (size_t i = 0; i < vertices.size(); i += 3)
+          {
+            if (auto hit = ray.intersect_triangle(
+              mesh.get_vertex(i).position, mesh.get_vertex(i + 1).position, mesh.get_vertex(i + 2).position)
+              )
+            {
+              // find closest hit
+              if (!rhit || rhit->distance > hit->distance)
+                rhit = hit;
+            }
+          }
+        }
+      }
+    }
+    else
+    {
+      std::cerr << "Bounding box is intersected, but could not test if object is actually hit. Primitives are not triangles\n";
+    }
+  }
+  return rhit;
+}
+
 void Object3D::add_mesh(Mesh&& mesh)
 { 
   if (mesh.material())

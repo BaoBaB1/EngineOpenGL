@@ -1,18 +1,15 @@
 #pragma once
 
 #include "UserInputHandler.hpp"
+#include "Event.hpp"
 
 class MouseInputHandler : public UserInputHandler
 {
 public:
   OnlyMovable(MouseInputHandler)
   MouseInputHandler(MainWindow* window);
-  int x() const { return m_x; }
-  int y() const { return m_y; }
+  Event<int, int, int> on_button_click;
+  Event<int, int, int> on_window_size_change;
 private:
-  void left_btn_click_callback(GLFWwindow* window, int button, int action, int mods);
-  void window_size_change_callback(GLFWwindow* window, int width, int height);
-private:
-  int m_x = 0;
-  int m_y = 0;
+  void click_callback(GLFWwindow* window, int button, int action, int mods) const;
 };

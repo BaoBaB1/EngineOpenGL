@@ -3,13 +3,15 @@
 #include <array>
 #include <glm/glm.hpp>
 #include "IDrawable.hpp"
+#include "IRayHittable.hpp"
 #include "./ge/Face.hpp"
 
-class BoundingBox : IDrawable
+class BoundingBox : public IDrawable, public IRayHittable
 {
 public:
   BoundingBox();
   BoundingBox(const glm::vec3& min, const glm::vec3 max) : m_min(min), m_max(max) {}
+  std::optional<RayHit> hit(const Ray& ray) const override;
   bool has_surface() const override { return false; }
   std::string name() const { return "Bounding box"; }
   std::array<glm::vec3, 8> points() const;

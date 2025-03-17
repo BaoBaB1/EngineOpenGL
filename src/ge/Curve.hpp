@@ -17,6 +17,7 @@ public:
     m_start_pnt = start;
     m_end_pnt = end;
   }
+  std::optional<RayHit> hit(const Ray& ray) const override { return {}; }
   void set_start_point(const Vertex& start_pnt) { m_start_pnt = start_pnt; }
   void set_end_point(const Vertex& end_pnt) { m_end_pnt = end_pnt; }
   const Vertex& start_point() { return m_start_pnt; }

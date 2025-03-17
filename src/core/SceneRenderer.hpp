@@ -16,32 +16,33 @@ class Ui;
 class Object3D;
 class MainWindow;
 class Skybox;
+struct GLFWwindow;
 
 class SceneRenderer
 {
 public:
   static SceneRenderer& instance() { return OpenGLEngineUtils::Singleton<SceneRenderer>::instance(); }
+  Camera& get_camera() { return m_camera; }
   void render();
 private:
   SceneRenderer();
   ~SceneRenderer();
   void handle_input();
   void create_scene();
-  void select_object(int index, bool click_from_menu_item);  // temporary function. remove when selection of multiple elements is supported
+  void select_object(Object3D* obj, bool click_from_menu_item);  // temporary function. remove when selection of multiple elements is supported
   void new_frame_update();
   void render_scene();
-  void render_picking_fbo();
   void render_selected_objects();
   void render_lines();
   void render_normals();
   void render_skybox(const Skybox& skybox);
-  friend class MouseInputHandler;
-  friend class CursorPositionHandler;
+  void handle_mouse_click(int button, int x, int y);
+  void handle_window_size_change(int width, int height);
   friend class OpenGLEngineUtils::Singleton<SceneRenderer>;
   friend class Ui;
 private:
   std::vector<std::unique_ptr<Object3D>> m_drawables;
-  std::vector<int> m_selected_objects;
+  std::vector<Object3D*> m_selected_objects;
   std::unique_ptr<MainWindow> m_window;
   std::unique_ptr<GPUBuffers> m_gpu_buffers;
   // TODO: move to some other place
@@ -50,7 +51,6 @@ private:
   std::unique_ptr<Ui> m_ui;
   Camera m_camera;
   std::map<std::string, FrameBufferObject> m_fbos;
-  glm::mat4 m_projection_mat;
   GLint m_polygon_mode = GL_FILL;
 };
 
