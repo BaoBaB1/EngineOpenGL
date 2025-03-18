@@ -35,12 +35,6 @@ void CursorPositionHandler::callback(double xpos, double ypos)
     m_prev_pos[1] = m_cur_pos[1];
     m_cur_pos[0] = xpos;
     m_cur_pos[1] = ypos;
-    double diff_x = m_cur_pos[0] - m_prev_pos[0];
-    double diff_y = m_cur_pos[1] - m_prev_pos[1];
-    if (diff_x != 0.0 || diff_y != 0.0)
-    {
-      auto& scene = SceneRenderer::instance();
-      scene.get_camera().add_to_yaw_and_pitch(diff_x, diff_y);
-    }
+    on_cursor_position_change.notify(m_cur_pos[0], m_cur_pos[1], m_prev_pos[0], m_prev_pos[1]);
   }
 }

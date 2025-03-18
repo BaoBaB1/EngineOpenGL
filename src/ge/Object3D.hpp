@@ -32,6 +32,8 @@ public:
     bool use_indices = true;
   };
 public:
+  template<typename T>
+  static T* cast_to(Object3D* obj) { return static_cast<T*>(obj); }
   virtual void apply_shading(ShadingMode mode);
   virtual void set_color(const glm::vec4& color);
   std::optional<RayHit> hit(const Ray& ray) const override;

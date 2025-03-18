@@ -21,19 +21,28 @@ KeyboardHandler::KeyboardHandler(MainWindow* window) : UserInputHandler(window, 
 
 void KeyboardHandler::key_callback(int key, int scancode, int action, int mods)
 {
-  for (auto reg_key : KeyboardHandler::registered_keys)
+  if (!disabled())
   {
-    if (reg_key == key)
+    for (auto reg_key : KeyboardHandler::registered_keys)
     {
-      InputKey ckey = static_cast<InputKey>(key);
-      switch (action)
+      if (reg_key == key)
       {
-      case GLFW_RELEASE:
-        m_keystate[ckey] = KeyState::RELEASED;
-        break;
-      case GLFW_PRESS:
-        m_keystate[ckey] = KeyState::PRESSED;
-        break;
+        InputKey ckey = static_cast<InputKey>(key);
+        switch (action)
+        {
+        case GLFW_RELEASE:
+          m_keystate[ckey] = KeyState::RELEASED;
+          m_pressed_keys.erase(m_pressed_key_map[ckey]);
+          m_pressed_key_map.erase(ckey);
+          on_key_state_change.notify(ckey, KeyState::RELEASED);
+          break;
+        case GLFW_PRESS:
+          m_keystate[ckey] = KeyState::PRESSED;
+          m_pressed_keys.push_back(ckey);
+          m_pressed_key_map.emplace(std::make_pair(ckey, std::prev(m_pressed_keys.end())));
+          on_key_state_change.notify(ckey, KeyState::PRESSED);
+          break;
+        }
       }
     }
   }
@@ -44,7 +53,19 @@ KeyboardHandler::KeyState KeyboardHandler::get_keystate(InputKey key) const
   return m_keystate.at(key);
 }
 
+void KeyboardHandler::disable()
+{
+  m_disabled = true;
+  m_pressed_keys.clear();
+  m_pressed_key_map.clear();
+  for (const auto key : registered_keys)
+  {
+    reset_state(key);
+  }
+}
+
 void KeyboardHandler::reset_state(InputKey key)
 {
   m_keystate[key] = NO_STATE;
+  on_key_state_change.notify(key, NO_STATE);
 }

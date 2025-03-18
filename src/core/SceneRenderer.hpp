@@ -6,6 +6,8 @@
 #include "ge/IDrawable.hpp"
 #include "utils/Singleton.hpp"
 #include "GPUBuffers.hpp"
+#include "KeyboardHandler.hpp"
+#include "CameraController.hpp"
 #include <vector>
 #include <memory>
 #include <map>
@@ -27,10 +29,9 @@ public:
 private:
   SceneRenderer();
   ~SceneRenderer();
-  void handle_input();
   void create_scene();
   void select_object(Object3D* obj, bool click_from_menu_item);  // temporary function. remove when selection of multiple elements is supported
-  void new_frame_update();
+  void on_new_frame();
   void render_scene();
   void render_selected_objects();
   void render_lines();
@@ -38,6 +39,7 @@ private:
   void render_skybox(const Skybox& skybox);
   void handle_mouse_click(int button, int x, int y);
   void handle_window_size_change(int width, int height);
+  void handle_keyboard_input(KeyboardHandler::InputKey key, KeyboardHandler::KeyState state);
   friend class OpenGLEngineUtils::Singleton<SceneRenderer>;
   friend class Ui;
 private:
@@ -49,6 +51,7 @@ private:
   std::unique_ptr<VertexBufferObject> m_skybox_vbo;
   std::unique_ptr<VertexArrayObject> m_skybox_vao;
   std::unique_ptr<Ui> m_ui;
+  CameraController m_cam_controller;
   Camera m_camera;
   std::map<std::string, FrameBufferObject> m_fbos;
   GLint m_polygon_mode = GL_FILL;

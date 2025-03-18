@@ -54,9 +54,13 @@ SceneRenderer::SceneRenderer()
   m_camera.set_position(glm::vec3(-4.f, 2.f, 3.f));
   m_camera.look_at(glm::vec3(2.f, 0.5f, 0.5f));
 
+  CursorPositionHandler* cursor_pos_handler = static_cast<CursorPositionHandler*>(m_window->get_input_handler(UserInputHandler::CURSOR_POSITION));
   MouseInputHandler* mouse_input_handler = static_cast<MouseInputHandler*>(m_window->get_input_handler(UserInputHandler::MOUSE_INPUT));
+  KeyboardHandler* keyboard_input_handler = static_cast<KeyboardHandler*>(m_window->get_input_handler(UserInputHandler::KEYBOARD));
   mouse_input_handler->on_button_click += new InstanceListener(this, &::SceneRenderer::handle_mouse_click);
+  keyboard_input_handler->on_key_state_change += new InstanceListener(this, &::SceneRenderer::handle_keyboard_input);
   m_window->on_window_size_change += new InstanceListener(this, &::SceneRenderer::handle_window_size_change);
+  m_cam_controller.init(&m_camera, keyboard_input_handler, cursor_pos_handler);
   ShaderStorage::init();
 
   auto main_scene_fbo = FrameBufferObject();
@@ -126,8 +130,8 @@ void SceneRenderer::render()
   while (!glfwWindowShouldClose(gl_window))
   {
     glfwPollEvents();
-    new_frame_update();
-    handle_input();
+    on_new_frame();
+    m_cam_controller.on_new_frame();
     glPolygonMode(GL_FRONT_AND_BACK, m_polygon_mode);
     
     // render to a custom framebuffer
@@ -138,7 +142,10 @@ void SceneRenderer::render()
     // render scene before gui to make sure that imgui window always will be on top of drawn entities
     render_skybox(skybox);
     render_scene();
-    render_selected_objects();
+    if (!m_selected_objects.empty())
+    {
+      render_selected_objects();
+    }
     render_normals();
     render_lines();
     m_ui->render();
@@ -477,6 +484,33 @@ void SceneRenderer::handle_window_size_change(int width, int height)
   glViewport(0, 0, width, height);
 }
 
+void SceneRenderer::handle_keyboard_input(KeyboardHandler::InputKey key, KeyboardHandler::KeyState state)
+{
+  using Key = KeyboardHandler::InputKey;
+  using State = KeyboardHandler::KeyState;
+  // pressed once. if we want to know if key is being held, then need to use KeyboardHandler::get_pressed_keys() each frame
+  if (state == State::PRESSED)
+  {
+    if (key == Key::ESC)
+    {
+      assert(m_selected_objects.empty() || m_selected_objects.size() == 1);
+      for (Object3D* obj : m_selected_objects)
+      {
+        m_selected_objects.pop_back();
+        obj->select(false);
+      }
+    }
+  }
+  else if (state == State::RELEASED)
+  {
+    if (key == Key::LEFT_SHIFT)
+    {
+      m_camera.unfreeze();
+      glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    }
+  }
+}
+
 void SceneRenderer::create_scene()
 {
   Vertex arr[6];
@@ -553,7 +587,7 @@ void SceneRenderer::select_object(Object3D* obj, bool click_from_menu_item)
     return;
   // for now support only single object selection
   assert(m_selected_objects.size() == 0 || m_selected_objects.size() == 1);
-  std::cout << m_drawables[0]->name() << " selected\n";
+  std::cout << obj->name() << " selected\n";
   if (m_selected_objects.size())
   {
     m_selected_objects.back()->select(false);
@@ -563,7 +597,7 @@ void SceneRenderer::select_object(Object3D* obj, bool click_from_menu_item)
   obj->select(true);
 }
 
-void SceneRenderer::new_frame_update()
+void SceneRenderer::on_new_frame()
 {
   ImGuiIO& io = ImGui::GetIO();
   m_camera.scale_speed(io.DeltaTime);
@@ -572,67 +606,19 @@ void SceneRenderer::new_frame_update()
     obj->set_delta_time(io.DeltaTime);
   }
 
+  KeyboardHandler* kh = static_cast<KeyboardHandler*>(m_window->get_input_handler(UserInputHandler::KEYBOARD));
+  if (kh->get_keystate(KeyboardHandler::InputKey::LEFT_SHIFT) == KeyboardHandler::PRESSED)
+  {
+    m_camera.freeze();
+    glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+  }
+
   double x, y;
   glfwGetCursorPos(m_window->gl_window(), &x, &y);
   // update virtual cursor pos to avoid camera jumps after cursor goes out of window or window regains focus,
   // because once cursor goes out of glfw window cursor callback is no longer triggered
   UserInputHandler* h = m_window->get_input_handler(UserInputHandler::CURSOR_POSITION);
   static_cast<CursorPositionHandler*>(h)->update_current_pos(x, y);
-}
-
-void SceneRenderer::handle_input()
-{
-  // handle pressed key every frame for smooth movement because glfw calls callback not every frame
-  KeyboardHandler* kh = static_cast<KeyboardHandler*>(m_window->get_input_handler(UserInputHandler::KEYBOARD));
-  assert(kh->type() == UserInputHandler::KEYBOARD);
-  if (kh->disabled())
-    return;
-  using InputKey = KeyboardHandler::InputKey;
-  if (kh->get_keystate(InputKey::W) == KeyboardHandler::PRESSED || kh->get_keystate(InputKey::ARROW_UP) == KeyboardHandler::PRESSED)
-  {
-    m_camera.move(Camera::Direction::FORWARD);
-  }
-  if (kh->get_keystate(InputKey::A) == KeyboardHandler::PRESSED || kh->get_keystate(InputKey::ARROW_LEFT) == KeyboardHandler::PRESSED)
-  {
-    m_camera.move(Camera::Direction::LEFT);
-  }
-  if (kh->get_keystate(InputKey::S) == KeyboardHandler::PRESSED || kh->get_keystate(InputKey::ARROW_DOWN) == KeyboardHandler::PRESSED)
-  {
-    m_camera.move(Camera::Direction::BACKWARD);
-  }
-  if (kh->get_keystate(InputKey::D) == KeyboardHandler::PRESSED || kh->get_keystate(InputKey::ARROW_RIGHT) == KeyboardHandler::PRESSED)
-  {
-    m_camera.move(Camera::Direction::RIGHT);
-  }
-  if (kh->get_keystate(InputKey::ESC) == KeyboardHandler::PRESSED)
-  {
-    assert(m_selected_objects.empty() || m_selected_objects.size() == 1);
-    for (Object3D* obj : m_selected_objects)
-    {
-      m_selected_objects.pop_back();
-      obj->select(false);
-    }
-  }
-  if (kh->get_keystate(InputKey::SPACE) == KeyboardHandler::PRESSED)
-  {
-    m_camera.move(Camera::Direction::UP);
-  }
-  if (kh->get_keystate(InputKey::LEFT_CTRL) == KeyboardHandler::PRESSED)
-  {
-    m_camera.move(Camera::Direction::DOWN);
-  }
-
-  if (kh->get_keystate(InputKey::LEFT_SHIFT) == KeyboardHandler::PRESSED)
-  {
-    m_camera.freeze();
-    glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-  }
-  else if (kh->get_keystate(InputKey::LEFT_SHIFT) == KeyboardHandler::RELEASED)
-  {
-    m_camera.unfreeze();
-    kh->reset_state(InputKey::LEFT_SHIFT);
-    glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-  }
 }
 
 void ScreenQuad::render()

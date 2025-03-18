@@ -65,6 +65,11 @@ public:
 
 	bool operator -=(Listener* listener)
 	{
+		return this->operator-=(static_cast<void*>(listener));
+	}
+
+	bool operator -=(void* listener)
+	{
 		for (size_t i = 0; i < m_listeners.size(); i++)
 		{
 			if (m_listeners[i].get() == listener)
@@ -77,6 +82,8 @@ public:
 	}
 
 	Listener* get(size_t idx) { return m_listeners[idx].get(); }
+
+	Listener* back() { return m_listeners.back().get(); }
 
 	void unregister_all()
 	{

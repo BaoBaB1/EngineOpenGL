@@ -3,7 +3,7 @@
 
 MouseInputHandler::MouseInputHandler(MainWindow* window) : UserInputHandler(window, HandlerType::MOUSE_INPUT)
 {
-  auto lb_click_callback = [](GLFWwindow* window, int button, int action, int mods)
+  auto click_callback = [](GLFWwindow* window, int button, int action, int mods)
     {
       // this must point to MainWindow instance
       void* old_ptr = glfwGetWindowUserPointer(window);
@@ -12,7 +12,7 @@ MouseInputHandler::MouseInputHandler(MainWindow* window) : UserInputHandler(wind
       static_cast<MouseInputHandler*>(glfwGetWindowUserPointer(window))->click_callback(window, button, action, mods);
       glfwSetWindowUserPointer(window, old_ptr);
     };
-  glfwSetMouseButtonCallback(m_window->gl_window(), lb_click_callback);
+  glfwSetMouseButtonCallback(m_window->gl_window(), click_callback);
 }
 
 void MouseInputHandler::click_callback(GLFWwindow* window, int button, int action, int mods) const
