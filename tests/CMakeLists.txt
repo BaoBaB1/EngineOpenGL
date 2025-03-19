@@ -21,8 +21,9 @@ enable_testing()
 add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp ${TESTS_SOURCES} ${ENGINE_SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE ${ENGINE_INCLUDES})
 target_link_libraries(${PROJECT_NAME} PRIVATE ${ENGINE_LINKED_LIBS} gtest gtest_main)
-add_test(NAME EngineTests COMMAND ${PROJECT_NAME})
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${TESTS_SOURCES})
 source_group(EngineSources FILES ${ENGINE_SOURCES} ${ENGINE_INCLUDES})
 
+include(CTest)
+add_test(NAME ${PROJECT_NAME} COMMAND ${PROJECT_NAME})
