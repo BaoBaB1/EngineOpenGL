@@ -11,6 +11,7 @@ struct GLFWwindow;
 class WindowGLFW
 {
 public:
+  static void get_monitor_resolution(int& horizontal, int& vertical);
   WindowGLFW() = default;
   WindowGLFW(int width, int height, const char* title);
   OnlyMovable(WindowGLFW)

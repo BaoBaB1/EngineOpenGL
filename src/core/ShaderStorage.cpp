@@ -47,15 +47,15 @@ namespace GlobalState
       }
       {
         ShaderDescription d;
-        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//fbo_default_shader.vert" });
-        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//fbo_default_shader.frag" });
+        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//screen_quad.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//screen_quad.frag" });
         d.vertex_layout = VertexLayout(0, -1, -1, 1);
         descriptions.push_back(d);
       }
       {
         ShaderDescription d;
-        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//picking_fbo.vert" });
-        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//picking_fbo.frag" });
+        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//depth_picking.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//depth_picking.frag" });
         d.vertex_layout = VertexLayout(0, -1, -1, -1);
         descriptions.push_back(d);
       }

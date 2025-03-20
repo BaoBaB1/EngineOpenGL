@@ -13,8 +13,8 @@ namespace GlobalState
       MAIN,
       OUTLINING,
       SKYBOX,
-      FBO_DEFAULT,
-      PICKING,
+      SCREEN_QUAD,
+      DEPTH_PICKING,
       LINES,
       NORMALS,
       LAST_ITEM

@@ -31,8 +31,19 @@
 
 #define DEBUG_RAY 0
 
-static void setup_opengl();
-static void get_desktop_resolution(int& horizontal, int& vertical);
+namespace
+{
+  void setup_opengl();
+  constexpr std::array<std::string_view, 6> skybox_faces =
+  {
+    ".\\.\\src\\textures\\skybox\\right.jpg",
+    ".\\.\\src\\textures\\skybox\\left.jpg",
+    ".\\.\\src\\textures\\skybox\\top.jpg",
+    ".\\.\\src\\textures\\skybox\\bottom.jpg",
+    ".\\.\\src\\textures\\skybox\\front.jpg",
+    ".\\.\\src\\textures\\skybox\\back.jpg"
+  };
+}
 
 using namespace GlobalState;
 
@@ -40,8 +51,6 @@ SceneRenderer::SceneRenderer(WindowGLFW* window) : m_window(window)
 {
   const int w = window->width();
   const int h = window->height();
-  //get_desktop_resolution(w, h);
-
   m_ui.init(this, m_window);
   m_camera.set_screen_size({ w, h });
   m_camera.set_position(glm::vec3(-4.f, 2.f, 3.f));
@@ -62,13 +71,6 @@ SceneRenderer::SceneRenderer(WindowGLFW* window) : m_window(window)
   main_scene_fbo.attach_renderbuffer(w, h, GL_DEPTH24_STENCIL8, GL_DEPTH_STENCIL_ATTACHMENT);
   main_scene_fbo.unbind();
   m_fbos["main"] = std::move(main_scene_fbo);
-
-  auto picking_fbo = FrameBufferObject();
-  picking_fbo.bind();
-  picking_fbo.attach_texture(w, h, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT);
-  picking_fbo.attach_renderbuffer(w, h, GL_DEPTH_COMPONENT, GL_DEPTH_ATTACHMENT);
-  picking_fbo.unbind();
-  m_fbos["picking"] = std::move(picking_fbo);
 }
 
 SceneRenderer::~SceneRenderer()
@@ -88,20 +90,9 @@ void SceneRenderer::render()
     fbo.unbind();
   }
   const auto& main_fbo = m_fbos.at("main");
-  const auto& picking_fbo = m_fbos.at("picking");
   ScreenQuad screen_quad(main_fbo.texture()->id());
 
-  const std::string skybox_folder = ".\\.\\src\\textures\\skybox\\";
-  std::array<std::string, 6> skybox_faces =
-  { 
-    skybox_folder + "right.jpg",
-    skybox_folder + "left.jpg",
-    skybox_folder + "top.jpg",
-    skybox_folder + "bottom.jpg",
-    skybox_folder + "front.jpg",
-    skybox_folder + "back.jpg" 
-  };
-  Skybox skybox(Cubemap(std::move(skybox_faces)));
+  Skybox skybox = Cubemap(skybox_faces);
 
   m_gpu_buffers.bind_all();
   auto& vao = m_gpu_buffers.vao;
@@ -329,9 +320,9 @@ void SceneRenderer::render_lines()
   m_gpu_buffers.bind_all();
   for (const auto& pobj : m_drawables)
   {
-    shader->set_matrix4f("modelMatrix", pobj->model_matrix());
     if (pobj->is_bbox_visible())
     {
+      shader->set_matrix4f("modelMatrix", pobj->model_matrix());
       // tmp. need better way of handling any geometry change
       if (pobj->bbox().is_empty())
       {
@@ -365,15 +356,16 @@ void SceneRenderer::render_normals()
   m_gpu_buffers.bind_all();
   for (const auto& pobj : m_drawables)
   {
-    shader->set_matrix4f("modelMatrix", pobj->model_matrix());
-    auto& vbo = m_gpu_buffers.vbo;
     if (pobj->is_normals_visible())
     {
+      shader->set_matrix4f("modelMatrix", pobj->model_matrix());
+      auto& vbo = m_gpu_buffers.vbo;
       const size_t mesh_count = pobj->mesh_count();
       for (size_t i = 0; i < mesh_count; i++)
       {
         const Mesh& mesh = pobj->get_mesh(i);
         vbo.set_data(mesh.vertices().data(), sizeof(Vertex) * mesh.vertices().size());
+        // TODO: batch everything into same buffer
         glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(mesh.vertices().size()));
       }
     }
@@ -601,7 +593,7 @@ void SceneRenderer::on_new_frame()
 
 void ScreenQuad::render()
 {
-  Shader& shader = ShaderStorage::get(ShaderStorage::ShaderType::FBO_DEFAULT);
+  Shader& shader = ShaderStorage::get(ShaderStorage::ShaderType::SCREEN_QUAD);
   shader.bind();
   vao.bind();
   vbo.bind();
@@ -614,19 +606,14 @@ void ScreenQuad::render()
   shader.unbind();
 }
 
-static void setup_opengl()
+namespace
 {
-  glEnable(GL_DEPTH_TEST);
-  glEnable(GL_BLEND);
-  glEnable(GL_STENCIL_TEST);
-  glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE); 
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-}
-
-void get_desktop_resolution(int& horizontal, int& vertical)
-{
-  GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-  auto info = glfwGetVideoMode(monitor);
-  horizontal = info->width;
-  vertical = info->height;
+  void setup_opengl()
+  {
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glEnable(GL_STENCIL_TEST);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  }
 }

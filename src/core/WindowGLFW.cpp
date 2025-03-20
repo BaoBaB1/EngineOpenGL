@@ -17,6 +17,14 @@ static void window_focus_callback(GLFWwindow* window, int focused)
   }
 }
 
+void WindowGLFW::get_monitor_resolution(int& horizontal, int& vertical)
+{
+  GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+  auto info = glfwGetVideoMode(monitor);
+  horizontal = info->width;
+  vertical = info->height;
+}
+
 WindowGLFW::WindowGLFW(int width, int height, const char* title)
 {
   init(width, height, title);

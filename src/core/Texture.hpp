@@ -27,7 +27,7 @@ public:
   ~Texture();
   virtual void resize(int w, int h, GLint internalformat, GLint format, GLint type) = 0;
   virtual void resize(const std::string& filename) = 0;
-  std::unique_ptr<unsigned char, StbDeleter> load(const std::string& filename);
+  std::unique_ptr<unsigned char, StbDeleter> load(const char* filename);
   void disable() { m_disabled = true; }
   void enable() { m_disabled = false; }
   bool disabled() const { return m_disabled; }
