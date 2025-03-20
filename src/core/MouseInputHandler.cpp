@@ -1,16 +1,14 @@
+#include <GLFW/glfw3.h>
 #include "MouseInputHandler.hpp"
-#include "MainWindow.hpp"
+#include "WindowGLFW.hpp"
+#include <cassert>
 
-MouseInputHandler::MouseInputHandler(MainWindow* window) : UserInputHandler(window, HandlerType::MOUSE_INPUT)
+MouseInputHandler::MouseInputHandler(WindowGLFW* window) : UserInputHandler(window, HandlerType::MOUSE_INPUT)
 {
   auto click_callback = [](GLFWwindow* window, int button, int action, int mods)
     {
-      // this must point to MainWindow instance
-      void* old_ptr = glfwGetWindowUserPointer(window);
-      assert(old_ptr);
-      glfwSetWindowUserPointer(window, m_ptrs[HandlerType::MOUSE_INPUT]);
-      static_cast<MouseInputHandler*>(glfwGetWindowUserPointer(window))->click_callback(window, button, action, mods);
-      glfwSetWindowUserPointer(window, old_ptr);
+      WindowGLFW* window_glfw = static_cast<WindowGLFW*>(glfwGetWindowUserPointer(window));
+      static_cast<MouseInputHandler*>(window_glfw->get_input_handler(HandlerType::MOUSE_INPUT))->click_callback(window, button, action, mods);
     };
   glfwSetMouseButtonCallback(m_window->gl_window(), click_callback);
 }

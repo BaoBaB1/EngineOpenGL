@@ -1,6 +1,6 @@
 #include "Cube.hpp"
 
-Cube::Cube()
+Cube::Cube() : Object3D("Cube")
 {
   auto& mesh = emplace_mesh();
   mesh.vertices().reserve(24);

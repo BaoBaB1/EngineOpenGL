@@ -1,19 +1,15 @@
 #include "CursorPositionHandler.hpp"
 #include "SceneRenderer.hpp"
-#include "MainWindow.hpp"
+#include "WindowGLFW.hpp"
 
 extern int ignore_frames;
 
-CursorPositionHandler::CursorPositionHandler(MainWindow* window) : UserInputHandler(window, HandlerType::CURSOR_POSITION)
+CursorPositionHandler::CursorPositionHandler(WindowGLFW* window) : UserInputHandler(window, HandlerType::CURSOR_POSITION)
 {
   auto callback = [](GLFWwindow* window, double xpos, double ypos)
     {
-      // this must point to MainWindow instance
-      void* old_ptr = glfwGetWindowUserPointer(window);
-      assert(old_ptr);
-      glfwSetWindowUserPointer(window, m_ptrs[HandlerType::CURSOR_POSITION]);
-      static_cast<CursorPositionHandler*>(glfwGetWindowUserPointer(window))->callback(xpos, ypos);
-      glfwSetWindowUserPointer(window, old_ptr);
+      WindowGLFW* window_glfw = static_cast<WindowGLFW*>(glfwGetWindowUserPointer(window));
+      static_cast<CursorPositionHandler*>(window_glfw->get_input_handler(HandlerType::CURSOR_POSITION))->callback(xpos, ypos);
     };
   glfwSetCursorPosCallback(m_window->gl_window(), callback);
   glfwGetCursorPos(m_window->gl_window(), &m_cur_pos[0], &m_cur_pos[1]);

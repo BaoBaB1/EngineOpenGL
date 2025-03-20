@@ -2,18 +2,16 @@
 
 #include <array>
 #include <glm/glm.hpp>
-#include "IDrawable.hpp"
+#include "Entity.hpp"
 #include "IRayHittable.hpp"
 #include "./ge/Face.hpp"
 
-class BoundingBox : public IDrawable, public IRayHittable
+class BoundingBox : public Entity, public IRayHittable
 {
 public:
   BoundingBox();
-  BoundingBox(const glm::vec3& min, const glm::vec3 max) : m_min(min), m_max(max) {}
+  BoundingBox(const glm::vec3& min, const glm::vec3 max) : Entity("Bounding box") { m_min = min; m_max = max; }
   std::optional<RayHit> hit(const Ray& ray) const override;
-  bool has_surface() const override { return false; }
-  std::string name() const { return "Bounding box"; }
   std::array<glm::vec3, 8> points() const;
   std::vector<GLuint> lines_indices() const;
   bool is_empty() const;

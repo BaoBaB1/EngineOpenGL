@@ -1,6 +1,6 @@
 #include "Pyramid.hpp"
 
-Pyramid::Pyramid() 
+Pyramid::Pyramid() : Object3D("Pyramid")
 {
   using list = std::initializer_list<GLuint>;
   auto& mesh = emplace_mesh();

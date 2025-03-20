@@ -7,7 +7,6 @@ struct Vertex;
 class Polyline : public Object3D {
 public:
   Polyline();
-  std::string name() const override { return "Polyline"; }
   bool has_surface() const override { return false; }
   std::optional<RayHit> hit(const Ray& ray) const override { return {}; }
   void add(const Vertex& point);

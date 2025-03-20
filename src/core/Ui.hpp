@@ -3,13 +3,15 @@
 #include <array>
 
 class SceneRenderer;
-class MainWindow;
+class WindowGLFW;
 class Object3D;
 
 class Ui
 {
 public:
-  Ui(SceneRenderer& scene, MainWindow* window);
+  Ui() = default;
+  Ui(SceneRenderer* scene, WindowGLFW* window);
+  void init(SceneRenderer* scene, WindowGLFW* window);
   ~Ui();
   void render();
 private:
@@ -18,6 +20,6 @@ private:
 private:
   std::array<bool, 16> m_imgui_statesb;
   uint16_t m_guizmo_operation;
-  MainWindow* m_window;
-  SceneRenderer& m_scene;
+  WindowGLFW* m_window = nullptr;
+  SceneRenderer* m_scene = nullptr;
 };

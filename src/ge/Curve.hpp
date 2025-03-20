@@ -6,7 +6,7 @@
 
 class Curve : public Object3D {
 public:
-  Curve()
+  Curve() : Object3D("Curve")
   {
     emplace_mesh();
     m_render_config.use_indices = false;
@@ -23,7 +23,6 @@ public:
   const Vertex& start_point() { return m_start_pnt; }
   const Vertex& end_point() { return m_end_pnt; }
   bool has_surface() const override { return false; }
-  std::string name() const override { return "Curve"; }
 protected:
   Vertex m_start_pnt; 
   Vertex m_end_pnt; 

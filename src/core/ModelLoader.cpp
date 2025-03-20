@@ -1,6 +1,6 @@
 #include "ModelLoader.hpp"
 
-std::optional<ComplexModel> ModelLoader::load(const std::string& filename, unsigned int flags)
+std::optional<Object3D> ModelLoader::load(const std::string& filename, unsigned int flags)
 {
   Assimp::Importer importer;
   const aiScene* scene = importer.ReadFile(filename, flags);
@@ -12,7 +12,7 @@ std::optional<ComplexModel> ModelLoader::load(const std::string& filename, unsig
   }
   else
   {
-    ComplexModel model;
+    Object3D model;
     // calc extent to scale all vertices in range [-1, 1]
     calc_max_extent(scene->mRootNode, scene);
     size_t vcount = 0, fcount = 0;
@@ -24,7 +24,7 @@ std::optional<ComplexModel> ModelLoader::load(const std::string& filename, unsig
   }
 }
 
-void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::filesystem::path& file_path, ComplexModel& model, size_t& vcount, size_t& fcount)
+void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::filesystem::path& file_path, Object3D& model, size_t& vcount, size_t& fcount)
 {
   for (unsigned int i = 0; i < root->mNumMeshes; i++)
   {
@@ -169,7 +169,7 @@ float ModelLoader::get_max_extent(const aiVector3D& min, const aiVector3D& max)
   return std::max(x, std::max(y, z));
 } 
 
-void ModelLoader::center_around_origin(ComplexModel& model)
+void ModelLoader::center_around_origin(Object3D& model)
 {
   // to make outlining work properly if model's origin is at it's base and not 0,0,0
   model.calculate_bbox();

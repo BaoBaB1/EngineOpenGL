@@ -1,16 +1,13 @@
-#include "MainWindow.hpp"
+#include "WindowGLFW.hpp"
 #include "KeyboardHandler.hpp"
+#include <cassert>
 
-KeyboardHandler::KeyboardHandler(MainWindow* window) : UserInputHandler(window, HandlerType::KEYBOARD)
+KeyboardHandler::KeyboardHandler(WindowGLFW* window) : UserInputHandler(window, HandlerType::KEYBOARD)
 {
   auto key_callback = [](GLFWwindow* window, int key, int scancode, int action, int mods)
     {
-      // this must point to MainWindow instance
-      void* old_ptr = glfwGetWindowUserPointer(window);
-      assert(old_ptr);
-      glfwSetWindowUserPointer(window, m_ptrs[HandlerType::KEYBOARD]);
-      static_cast<KeyboardHandler*>(glfwGetWindowUserPointer(window))->key_callback(key, scancode, action, mods);
-      glfwSetWindowUserPointer(window, old_ptr);
+      WindowGLFW* window_glfw = static_cast<WindowGLFW*>(glfwGetWindowUserPointer(window));
+      static_cast<KeyboardHandler*>(window_glfw->get_input_handler(HandlerType::KEYBOARD))->key_callback(key, scancode, action, mods);
     };
   for (InputKey key : KeyboardHandler::registered_keys)
   {

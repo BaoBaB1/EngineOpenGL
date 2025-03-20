@@ -1,9 +1,12 @@
-#include "MainWindow.hpp"
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include "WindowGLFW.hpp"
 #include "KeyboardHandler.hpp"
 #include "CursorPositionHandler.hpp"
 #include "MouseInputHandler.hpp"
 #include "Debug.hpp"
 
+// TODO: ignore frames for each window !!!
 extern int ignore_frames = 3;
 
 static void window_focus_callback(GLFWwindow* window, int focused)
@@ -14,18 +17,25 @@ static void window_focus_callback(GLFWwindow* window, int focused)
   }
 }
 
-MainWindow::MainWindow(int width, int height, const char* title) :
-  m_width(width), m_height(height), m_title(title)
+WindowGLFW::WindowGLFW(int width, int height, const char* title)
 {
+  init(width, height, title);
+}
+
+void WindowGLFW::init(int width, int height, const char* title)
+{
+  m_width = width;
+  m_height = height;
+  m_title = title;
   // Tell GLFW what version of OpenGL we are using 
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
   // Tell GLFW we are using the CORE profile (only modern functions)
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-  m_window = glfwCreateWindow(width, height, title, nullptr, nullptr);
+  m_window = glfwCreateWindow(width, height, title, nullptr, glfwGetCurrentContext());
   if (m_window == nullptr) {
     DEBUG("Failed to create GLFW window" << std::endl);
-    glfwTerminate();
+    return;
   }
   glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
   glfwSetCursorPos(m_window, m_width / 2., m_height / 2.);
@@ -41,27 +51,31 @@ MainWindow::MainWindow(int width, int height, const char* title) :
   glfwSetWindowUserPointer(m_window, this);
   auto window_size_change_callback = [](GLFWwindow* window, int width, int height)
     {
-      static_cast<MainWindow*>(glfwGetWindowUserPointer(window))->on_window_size_change.notify(width, height);
+      static_cast<WindowGLFW*>(glfwGetWindowUserPointer(window))->on_window_size_change.notify(width, height);
     };
   glfwSetWindowSizeCallback(m_window, window_size_change_callback);
-
   gladLoadGL();
   glViewport(0, 0, m_width, m_height);
 }
 
-void MainWindow::notify(IObserver* observer, bool enable)
+UserInputHandler* WindowGLFW::get_input_handler(UserInputHandler::HandlerType type)
+{
+  auto it = m_input_handlers.find(type);
+  return (it != m_input_handlers.end()) ? it->second.get() : nullptr;
+}
+
+void WindowGLFW::notify(IObserver* observer, bool enable)
 {
   observer->notify(enable);
 }
 
-void MainWindow::notify_all(bool enable)
+void WindowGLFW::notify_all(bool enable)
 {
   for (const auto& phandler : m_input_handlers)
     phandler.second->notify(enable);
 }
 
-MainWindow::~MainWindow()
+WindowGLFW::~WindowGLFW()
 {
   glfwDestroyWindow(m_window);
-  glfwTerminate();
 }

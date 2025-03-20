@@ -12,7 +12,7 @@
 
 #include "Ui.hpp"
 #include "SceneRenderer.hpp"
-#include "MainWindow.hpp"
+#include "WindowGLFW.hpp"
 #include "ModelLoader.hpp"
 #include "./ge/Object3D.hpp"
 #include "KeyboardHandler.hpp"
@@ -25,8 +25,15 @@ static bool once = true;
 static glm::vec3 g_translation = {};
 static glm::vec3 g_scale = {};
 
-Ui::Ui(SceneRenderer& scene, MainWindow* window) : m_scene(scene), m_window(window)
+Ui::Ui(SceneRenderer* scene, WindowGLFW* window)
 {
+  init(scene, window);
+}
+
+void Ui::init(SceneRenderer* scene, WindowGLFW* window)
+{
+  m_scene = scene;
+  m_window = window;
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO& io = ImGui::GetIO();
@@ -105,10 +112,10 @@ void Ui::render()
       {
         std::string selected_file = dlg.GetFilePathName();
         ModelLoader loader;
-        std::optional<ComplexModel> m = loader.load(selected_file, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices | aiProcess_GenBoundingBoxes /*| aiProcess_GenSmoothNormals*/);
+        std::optional<Object3D> m = loader.load(selected_file, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices | aiProcess_GenBoundingBoxes /*| aiProcess_GenSmoothNormals*/);
         if (m)
         {
-          scene.m_drawables.push_back(std::make_unique<ComplexModel>(std::move(*m)));
+          scene->m_drawables.push_back(std::make_unique<Object3D>(std::move(*m)));
         }
       }
 
@@ -163,7 +170,7 @@ void Ui::render()
     ImGui::PushItemWidth(-1);
 
     // Gizmo
-    if (!scene.m_selected_objects.empty())
+    if (!scene->m_selected_objects.empty())
     {
       KeyboardHandler* kh = static_cast<KeyboardHandler*>(m_window->get_input_handler(UserInputHandler::KEYBOARD));
       // default mode is translation
@@ -182,14 +189,14 @@ void Ui::render()
 
       ImGuizmo::BeginFrame();
       ImGuizmo::SetOrthographic(false);
-      ImGuizmo::SetRect(0, 0, m_scene.m_window->width(), m_scene.m_window->height());
+      ImGuizmo::SetRect(0, 0, m_window->width(), m_window->height());
 
-      Object3D* obj = scene.m_selected_objects.back();
-      Camera& cam = scene.m_camera;
+      Object3D* obj = scene->m_selected_objects.back();
+      Camera& cam = scene->m_camera;
       ImGuizmo::MODE gizmo_mode = ImGuizmo::MODE::LOCAL;
 
       glm::mat4 model_mat = obj->m_model_mat;
-      ImGuizmo::Manipulate(glm::value_ptr(cam.view_matrix()), glm::value_ptr(scene.m_camera.get_projection_matrix()), static_cast<ImGuizmo::OPERATION>(m_guizmo_operation),
+      ImGuizmo::Manipulate(glm::value_ptr(cam.view_matrix()), glm::value_ptr(scene->m_camera.get_projection_matrix()), static_cast<ImGuizmo::OPERATION>(m_guizmo_operation),
         gizmo_mode, glm::value_ptr(model_mat));
       if (ImGuizmo::IsUsing())
       {
@@ -209,12 +216,12 @@ void Ui::render()
     if (ImGui::BeginListBox("##ListBox"))
     {
       int idx = 0;
-      for (const auto& obj : scene.m_drawables)
+      for (const auto& obj : scene->m_drawables)
       {
         bool selected = obj->is_selected();
-        if (ImGui::Selectable((obj->name() + std::to_string(idx + 1)).c_str(), &selected))
+        if (ImGui::Selectable((obj->get_name() + std::to_string(idx + 1)).c_str(), &selected))
         {
-          scene.select_object(obj.get(), true);
+          scene->select_object(obj.get(), true);
         }
         ++idx;
       }
@@ -229,17 +236,17 @@ void Ui::render()
     {
       if (ImGui::Checkbox("Don't fill polygons", &st_polygone_mode))
       {
-        glGetIntegerv(GL_POLYGON_MODE, &scene.m_polygon_mode);
-        if (scene.m_polygon_mode == GL_LINE)
-          scene.m_polygon_mode = GL_FILL;
+        glGetIntegerv(GL_POLYGON_MODE, &scene->m_polygon_mode);
+        if (scene->m_polygon_mode == GL_LINE)
+          scene->m_polygon_mode = GL_FILL;
         else
-          scene.m_polygon_mode = GL_LINE;
+          scene->m_polygon_mode = GL_LINE;
       }
     }
 
-    if (scene.m_selected_objects.size())
+    if (scene->m_selected_objects.size())
     {
-      render_object_properties(*scene.m_selected_objects.back());
+      render_object_properties(*scene->m_selected_objects.back());
     }
 
     ImGuiIO& io = ImGui::GetIO();
@@ -254,7 +261,7 @@ void Ui::render()
 void Ui::render_object_properties(Object3D& drawable)
 {
   ImGui::SetNextItemOpen(true, ImGuiCond_::ImGuiCond_Once);
-  std::string name = drawable.name();
+  const std::string& name = drawable.get_name();
   if (ImGui::TreeNode(name.c_str()))
   {
     // translation

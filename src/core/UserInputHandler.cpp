@@ -1,10 +1,7 @@
+#include "UserInputHandler.hpp"
+#include "WindowGLFW.hpp"
 #include <iostream>
 #include <stdexcept>
-
-#include "UserInputHandler.hpp"
-#include "MainWindow.hpp"
-
-std::map<UserInputHandler::HandlerType, void*> UserInputHandler::m_ptrs;
 
 static std::string handler_type_to_string(UserInputHandler::HandlerType type)
 {
@@ -21,22 +18,20 @@ static std::string handler_type_to_string(UserInputHandler::HandlerType type)
   }
 }
 
-UserInputHandler::UserInputHandler(MainWindow* window, HandlerType type)
+UserInputHandler::UserInputHandler(WindowGLFW* window, HandlerType type)
 {
-  if (m_ptrs.find(type) != m_ptrs.end())
+  if (window->get_input_handler(type))
   {
     std::string msg = handler_type_to_string(type) + " handler already exists\n";
     throw std::runtime_error(msg);
   }
   m_type = type;
   m_window = window;
-  m_ptrs[m_type] = this;
   m_disabled = false;
 }
 
 UserInputHandler::~UserInputHandler()
 {
-  m_ptrs.erase(m_type);
 }
 
 void UserInputHandler::notify(bool _enable)

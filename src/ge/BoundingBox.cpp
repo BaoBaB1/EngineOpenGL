@@ -5,7 +5,7 @@
 static constexpr float g_fmin = OpenGLEngineUtils::limits::fmin;
 static constexpr float g_fmax = OpenGLEngineUtils::limits::fmax;
 
-BoundingBox::BoundingBox()
+BoundingBox::BoundingBox() : Entity("Bounding box")
 {
   m_min = glm::vec3(g_fmin, g_fmin, g_fmin);
   m_max = glm::vec3(g_fmax, g_fmax, g_fmax);

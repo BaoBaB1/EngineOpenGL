@@ -1,7 +1,7 @@
 #include "Polyline.hpp"
 #include "./ge/Vertex.hpp"
 
-Polyline::Polyline()
+Polyline::Polyline() : Object3D("Polyline")
 {
   emplace_mesh();
   m_render_config.use_indices = false;

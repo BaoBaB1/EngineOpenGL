@@ -6,8 +6,6 @@ class Icosahedron : public Object3D
 {
 public:
   Icosahedron();
-  std::string name() const override { return "Icosahedron"; }
-  bool has_surface() const override { return true; }
   void subdivide_triangles(int subdivision_depth);
   void project_points_on_sphere();
 private:

@@ -1,8 +1,11 @@
 #include "Object3D.hpp"
 
-Object3D::Object3D()
+Object3D::Object3D() : Entity("Object")
 {
-  //m_meshes.resize(1);
+}
+
+Object3D::Object3D(const std::string& name) : Entity(name)
+{
 }
 
 void Object3D::rotate(float angle, const glm::vec3& axis)

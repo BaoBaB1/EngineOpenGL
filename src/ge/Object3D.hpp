@@ -6,7 +6,7 @@
 #include "core/GPUBuffers.hpp"
 #include "core/Texture2D.hpp"
 #include "core/ShaderStorage.hpp"
-#include "ge/IDrawable.hpp"
+#include "ge/Entity.hpp"
 #include "ge/Mesh.hpp"
 #include "ge/BoundingBox.hpp"
 #include "ge/IRayHittable.hpp"
@@ -16,7 +16,7 @@
 #include <list>
 #include <map>
 
-class Object3D : public IDrawable, public IRayHittable
+class Object3D : public Entity, public IRayHittable
 {
 public:
   enum ShadingMode
@@ -34,8 +34,12 @@ public:
 public:
   template<typename T>
   static T* cast_to(Object3D* obj) { return static_cast<T*>(obj); }
+  Object3D();
+  Object3D(const std::string& name);
+  virtual ~Object3D() = default;
   virtual void apply_shading(ShadingMode mode);
   virtual void set_color(const glm::vec4& color);
+  virtual bool has_surface() const { return true; }
   std::optional<RayHit> hit(const Ray& ray) const override;
   glm::vec3 center() const;
   void set_texture(const std::shared_ptr<Texture2D>& tex, TextureType type, size_t mesh_idx);
@@ -116,11 +120,6 @@ protected:
     std::unordered_map<WrappedVertex, GLuint, VertexHasher, std::equal_to<WrappedVertex>> m_map_vert; // vertex, index
   };
 protected:
-  Object3D();
-  Object3D(const Object3D&) = default;
-  Object3D(Object3D&&) = default;
-  Object3D& operator=(const Object3D&) noexcept = default;
-  Object3D& operator=(Object3D&&) noexcept = default;
   void calc_normals(Mesh&, ShadingMode);
   void set_flag(Flag flag, bool value) { value ? set_flag(flag) : clear_flag(flag); }
   void set_flag(Flag flag) { m_flags |= flag; }

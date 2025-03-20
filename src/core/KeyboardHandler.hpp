@@ -1,9 +1,11 @@
 #pragma once
 
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
 #include "UserInputHandler.hpp"
 #include "Event.hpp"
 
-class KeyboardHandler : public UserInputHandler 
+class KeyboardHandler : public UserInputHandler
 {
 public:
   // TODO: remap them
@@ -39,7 +41,7 @@ public:
   };
 
   OnlyMovable(KeyboardHandler)
-  KeyboardHandler(MainWindow* window);
+  KeyboardHandler(WindowGLFW* window);
   KeyboardHandler::KeyState get_keystate(KeyboardHandler::InputKey key) const;
   void disable() override;
   void reset_state(InputKey key);

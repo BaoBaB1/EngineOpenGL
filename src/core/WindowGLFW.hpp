@@ -1,19 +1,23 @@
 #pragma once
 
-#include <glad/glad.h>
-#include <GLFW\glfw3.h>
+#include "utils/Macro.hpp"
 #include "UserInputHandler.hpp"
 #include "Event.hpp"
 #include <map>
 #include <memory>
 
-class MainWindow
+struct GLFWwindow;
+
+class WindowGLFW
 {
 public:
-  MainWindow(int width, int height, const char* title);
-  ~MainWindow();
+  WindowGLFW() = default;
+  WindowGLFW(int width, int height, const char* title);
+  OnlyMovable(WindowGLFW)
+  ~WindowGLFW();
+  void init(int width, int height, const char* title);
   GLFWwindow* gl_window() const { return m_window; }
-  UserInputHandler* get_input_handler(UserInputHandler::HandlerType type) { return m_input_handlers.at(type).get(); }
+  UserInputHandler* get_input_handler(UserInputHandler::HandlerType type);
   void notify(IObserver* observer, bool enable);
   void notify_all(bool enable);
   void set_width(int w) { m_width = w; }
@@ -22,8 +26,6 @@ public:
   int height() const { return m_height; }
   const char* title() const { return m_title; }
   Event<int, int> on_window_size_change;
-private:
-
 private:
   const char* m_title;
   int m_width;

@@ -4,7 +4,7 @@
 #include "Icosahedron.hpp"
 #include "./core/Debug.hpp"
 
-Icosahedron::Icosahedron()
+Icosahedron::Icosahedron() : Object3D("Icosahedron")
 {
   auto& mesh = emplace_mesh();
   mesh.vertices().reserve(12);

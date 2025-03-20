@@ -1,14 +1,10 @@
 #pragma once
 
-#include <glad/glad.h>
-#include <glm/vec3.hpp>
-#include <GLFW/glfw3.h>
-#include <map>
-#include "Debug.hpp"
 #include "./utils/IObserver.hpp"
 #include "./utils/Macro.hpp"
+#include <map>
 
-class MainWindow;
+class WindowGLFW;
 
 using namespace OpenGLEngineUtils;
 
@@ -31,10 +27,9 @@ public:
   HandlerType type() const { return m_type; }
   ~UserInputHandler();
 protected:
-  UserInputHandler(MainWindow* window, HandlerType input_type);
+  UserInputHandler(WindowGLFW* window, HandlerType input_type);
 protected:
   HandlerType m_type;
-  MainWindow* m_window;
-  bool m_disabled;
-  static std::map<HandlerType, void*> m_ptrs; // for correct cast in callbacks for glfwSetWindowUserPointer
+  WindowGLFW* m_window = nullptr;
+  bool m_disabled = false;
 };
