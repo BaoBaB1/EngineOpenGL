@@ -45,8 +45,6 @@ namespace
   };
 }
 
-using namespace GlobalState;
-
 SceneRenderer::SceneRenderer(WindowGLFW* window) : m_window(window)
 {
   const int w = window->width();
@@ -65,12 +63,15 @@ SceneRenderer::SceneRenderer(WindowGLFW* window) : m_window(window)
   m_cam_controller.init(&m_camera, keyboard_input_handler, cursor_pos_handler);
   ShaderStorage::init();
 
-  auto main_scene_fbo = FrameBufferObject();
+  auto& main_scene_fbo = m_fbos["main"];
   main_scene_fbo.bind();
   main_scene_fbo.attach_texture(w, h, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE);
   main_scene_fbo.attach_renderbuffer(w, h, GL_DEPTH24_STENCIL8, GL_DEPTH_STENCIL_ATTACHMENT);
   main_scene_fbo.unbind();
-  m_fbos["main"] = std::move(main_scene_fbo);
+
+  m_skybox = Cubemap(skybox_faces);
+  m_screen_quad.set_texture_id(main_scene_fbo.texture()->id());
+  //m_gpu_buffers.vbo.resize(4'000'000);
 }
 
 SceneRenderer::~SceneRenderer()
@@ -90,9 +91,6 @@ void SceneRenderer::render()
     fbo.unbind();
   }
   const auto& main_fbo = m_fbos.at("main");
-  ScreenQuad screen_quad(main_fbo.texture()->id());
-
-  Skybox skybox = Cubemap(skybox_faces);
 
   m_gpu_buffers.bind_all();
   auto& vao = m_gpu_buffers.vao;
@@ -105,8 +103,8 @@ void SceneRenderer::render()
   while (!glfwWindowShouldClose(gl_window))
   {
     glfwPollEvents();
-    on_new_frame();
-    m_cam_controller.on_new_frame();
+    tick();
+    m_cam_controller.tick();
     glPolygonMode(GL_FRONT_AND_BACK, m_polygon_mode);
     
     // render to a custom framebuffer
@@ -115,7 +113,7 @@ void SceneRenderer::render()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
     // render scene before gui to make sure that imgui window always will be on top of drawn entities
-    render_skybox(skybox);
+    render_skybox();
     render_scene();
     if (!m_selected_objects.empty())
     {
@@ -126,11 +124,7 @@ void SceneRenderer::render()
     m_ui.render();
     main_fbo.unbind();
 
-    // set GL_FILL mode because next we are rendering texture
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-    glDisable(GL_DEPTH_TEST);
-    screen_quad.render();
-
+    m_screen_quad.tick();
     glfwSwapBuffers(gl_window);
   }
 }
@@ -153,10 +147,6 @@ void SceneRenderer::render_scene()
     shader->set_matrix4f("modelMatrix", pobj->model_matrix());
     shader->set_bool("applyShading", pobj->m_shading_mode != Object3D::ShadingMode::NO_SHADING && !pobj->is_light_source());
 
-    if (pobj->is_rotating())
-    {
-      pobj->rotate(pobj->m_rotation_angle, pobj->m_rotation_axis);
-    }
     if (pobj->is_selected() && pobj->has_surface())
     {
       // enable writing to the stencil buffer and disable it in the end of current iteration
@@ -219,7 +209,7 @@ void SceneRenderer::render_scene()
 
       auto& vbo = m_gpu_buffers.vbo;
       const std::vector<Vertex>& vertices = mesh.vertices();
-      vbo.set_data(vertices.data(), sizeof(Vertex) * vertices.size());
+      vbo.set_data(vertices.data(), sizeof(Vertex) * vertices.size(), 0);
 
       const auto mat = mesh.material();
       shader->set_bool("hasMaterial", bool(mat));
@@ -237,7 +227,7 @@ void SceneRenderer::render_scene()
       {
         const std::vector<GLuint>& indices = mesh.faces_as_indices();
         auto& ebo = m_gpu_buffers.ebo;
-        ebo.set_data(indices.data(), sizeof(GLuint) * indices.size());
+        ebo.set_data(indices.data(), sizeof(GLuint) * indices.size(), 0);
         glDrawElements(render_config.mode, (GLsizei)(indices.size()), GL_UNSIGNED_INT, nullptr);
       }
       else
@@ -283,13 +273,13 @@ void SceneRenderer::render_selected_objects()
         const Mesh& mesh = pobj->get_mesh(i);
         auto& vbo = m_gpu_buffers.vbo;
         const std::vector<Vertex>& vertices = mesh.vertices();
-        vbo.set_data(vertices.data(), sizeof(Vertex) * vertices.size());
+        vbo.set_data(vertices.data(), sizeof(Vertex) * vertices.size(), 0);
         const auto& render_config = pobj->get_render_config();
         if (render_config.use_indices)
         {
           const std::vector<GLuint>& indices = mesh.faces_as_indices();
           auto& ebo = m_gpu_buffers.ebo;
-          ebo.set_data(indices.data(), sizeof(GLuint) * indices.size());
+          ebo.set_data(indices.data(), sizeof(GLuint) * indices.size(), 0);
           glDrawElements(render_config.mode, (GLsizei)(indices.size()), GL_UNSIGNED_INT, nullptr);
         }
         else
@@ -335,9 +325,9 @@ void SceneRenderer::render_lines()
       {
         converted[i] = Vertex(bbox_points[i]);
       }
-      auto indices = bbox.lines_indices();
-      vbo.set_data(converted.data(), sizeof(Vertex) * 8);
-      ebo.set_data(indices.data(), sizeof(GLuint) * indices.size());
+      const auto& indices = bbox.lines_indices();
+      vbo.set_data(converted.data(), sizeof(Vertex) * 8, 0);
+      ebo.set_data(indices.data(), sizeof(GLuint) * indices.size(), 0);
       glDrawElements(GL_LINES, (GLsizei)indices.size(), GL_UNSIGNED_INT, nullptr);
     }
   }
@@ -364,7 +354,7 @@ void SceneRenderer::render_normals()
       for (size_t i = 0; i < mesh_count; i++)
       {
         const Mesh& mesh = pobj->get_mesh(i);
-        vbo.set_data(mesh.vertices().data(), sizeof(Vertex) * mesh.vertices().size());
+        vbo.set_data(mesh.vertices().data(), sizeof(Vertex) * mesh.vertices().size(), 0);
         // TODO: batch everything into same buffer
         glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(mesh.vertices().size()));
       }
@@ -374,7 +364,7 @@ void SceneRenderer::render_normals()
   shader->unbind();
 }
 
-void SceneRenderer::render_skybox(const Skybox& skybox)
+void SceneRenderer::render_skybox()
 {
   glDepthFunc(GL_LEQUAL);
   Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::SKYBOX);
@@ -382,7 +372,7 @@ void SceneRenderer::render_skybox(const Skybox& skybox)
   shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
   shader->set_matrix4f("projectionMatrix", m_camera.get_projection_matrix());
   glActiveTexture(GL_TEXTURE0);
-  skybox.render();
+  m_skybox.render();
   shader->unbind();
   glDepthFunc(GL_LESS);
 }
@@ -567,13 +557,17 @@ void SceneRenderer::select_object(Object3D* obj, bool click_from_menu_item)
   obj->select(true);
 }
 
-void SceneRenderer::on_new_frame()
+void SceneRenderer::tick()
 {
   ImGuiIO& io = ImGui::GetIO();
   m_camera.scale_speed(io.DeltaTime);
   for (auto& obj : m_drawables) 
   {
     obj->set_delta_time(io.DeltaTime);
+    if (obj->is_rotating())
+    {
+      obj->rotate(obj->m_rotation_angle, obj->m_rotation_axis);
+    }
   }
 
   KeyboardHandler* kh = static_cast<KeyboardHandler*>(m_window->get_input_handler(UserInputHandler::KEYBOARD));
@@ -589,21 +583,6 @@ void SceneRenderer::on_new_frame()
   // because once cursor goes out of glfw window cursor callback is no longer triggered
   UserInputHandler* h = m_window->get_input_handler(UserInputHandler::CURSOR_POSITION);
   static_cast<CursorPositionHandler*>(h)->update_current_pos(x, y);
-}
-
-void ScreenQuad::render()
-{
-  Shader& shader = ShaderStorage::get(ShaderStorage::ShaderType::SCREEN_QUAD);
-  shader.bind();
-  vao.bind();
-  vbo.bind();
-  shader.set_int("screenTexture", 0);
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, m_tex_id);
-  glDrawArrays(GL_TRIANGLES, 0, 6);
-  vbo.unbind();
-  vao.unbind();
-  shader.unbind();
 }
 
 namespace

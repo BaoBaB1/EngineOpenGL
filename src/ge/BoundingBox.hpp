@@ -1,19 +1,19 @@
 #pragma once
 
-#include <array>
 #include <glm/glm.hpp>
 #include "Entity.hpp"
 #include "IRayHittable.hpp"
 #include "./ge/Face.hpp"
+#include <array>
 
 class BoundingBox : public Entity, public IRayHittable
 {
 public:
   BoundingBox();
   BoundingBox(const glm::vec3& min, const glm::vec3 max) : Entity("Bounding box") { m_min = min; m_max = max; }
+  static const std::array<GLuint, 24>& lines_indices();
   std::optional<RayHit> hit(const Ray& ray) const override;
   std::array<glm::vec3, 8> points() const;
-  std::vector<GLuint> lines_indices() const;
   bool is_empty() const;
   bool contains(const glm::vec3& point) const;
   void set_min(const glm::vec3& min) { m_min = min; }

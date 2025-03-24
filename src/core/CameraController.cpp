@@ -10,7 +10,7 @@ CameraController::CameraController(Camera* camera, KeyboardHandler* keyboard_han
 	init(camera, keyboard_handler, cursor_handler);
 }
 
-void CameraController::on_new_frame()
+void CameraController::tick()
 {
 	// do movement every frame while movement key is in PRESSED state
 	if (m_keyboard_handler && !m_keyboard_handler->get_pressed_keys().empty())

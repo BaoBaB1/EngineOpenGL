@@ -1,4 +1,5 @@
 #include "Skybox.hpp"
+#include "core/BindGuard.hpp"
 
 namespace
 {
@@ -51,21 +52,13 @@ namespace
 
 Skybox::Skybox(Cubemap&& cm) : m_cubemap(std::move(cm))
 {
-	m_skybox_vao.bind();
-	m_skybox_vbo.bind();
-	m_skybox_vao.link_attrib(0, 3, GL_FLOAT, sizeof(float) * 3, nullptr);
-	m_skybox_vbo.set_data(skyboxVertices, sizeof(skyboxVertices));
-	m_skybox_vao.unbind();
-	m_skybox_vbo.unbind();
+  BindChainFIFO bind_chain({ &m_vao, &m_vbo });
+  m_vao.link_attrib(0, 3, GL_FLOAT, sizeof(float) * 3, nullptr);
+  m_vbo.set_data(skyboxVertices, sizeof(skyboxVertices), 0);
 }
 
-void Skybox::render() const
+void Skybox::render()
 {
-  m_skybox_vao.bind();
-  m_skybox_vbo.bind();
-  m_cubemap.bind();
+  BindChainFIFO bind_chain({ &m_vao, &m_vbo, &m_cubemap });
   glDrawArrays(GL_TRIANGLES, 0, 36);
-  m_cubemap.unbind();
-  m_skybox_vbo.unbind();
-  m_skybox_vao.unbind();
 }

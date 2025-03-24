@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ITickable.hpp"
 #include "KeyboardHandler.hpp"
 #include "utils/Macro.hpp"
 
@@ -7,7 +8,7 @@ class KeyboardHandler;
 class CursorPositionHandler;
 class Camera;
 
-class CameraController
+class CameraController : public ITickable
 {
 public:
 	CameraController() = default;
@@ -15,7 +16,7 @@ public:
 	OnlyMovable(CameraController)
 	~CameraController();
 	void init(Camera* camera, KeyboardHandler* keyboard_handler, CursorPositionHandler* cursor_handler);
-	void on_new_frame();
+	void tick() override;
 private:
 	void handle_cursor_move(double newx, double newy, double oldx, double oldy);
 private:

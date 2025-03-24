@@ -1,17 +1,13 @@
 #pragma once
 
-#include <glad/glad.h>
-#include "OpenGLObject.hpp"
+#include "OpenGLBuffer.hpp"
+#include "ge/Vertex.hpp"
 
-class VertexBufferObject : public OpenGLObject
+class VertexBufferObject : public OpenGLBuffer
 {
 public:
+  constexpr static size_t DEFAULT_VBO_SIZE = sizeof(Vertex) * 50'000;
   OnlyMovable(VertexBufferObject)
   VertexBufferObject();
-  ~VertexBufferObject();
-  void set_data(const void* vertices, size_t size_in_bytes);
-  void bind() const override;
-  void unbind() const override;
-private:
-  size_t m_size = 0;
+  VertexBufferObject(size_t size);
 };

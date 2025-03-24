@@ -45,12 +45,12 @@ std::array<glm::vec3, 8> BoundingBox::points() const
   return points;
 }
 
-std::vector<GLuint> BoundingBox::lines_indices() const
+const std::array<GLuint, 24>& BoundingBox::lines_indices()
 {
-  std::vector<GLuint> v = {
+  constexpr std::array<GLuint, 24> indices = {
     0, 1, 1, 2, 2, 3, 3, 0, // front
     4, 5, 5, 6, 6, 7, 7, 4, // back
     0, 4, 3, 7, 1, 5, 2, 6
   };
-  return v;
+  return indices;
 }
