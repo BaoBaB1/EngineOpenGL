@@ -5,10 +5,13 @@ layout (location = 1) in vec3 aNormal;
 layout (location = 2) in vec4 aColor;
 layout (location = 3) in vec2 aTextCoord;
 
-//uniform mat4 MVP;
+layout (std140, binding = 1) uniform CameraData
+{
+	mat4 viewMatrix;
+	mat4 projectionMatrix;
+} camData;
+
 uniform mat4 modelMatrix;
-uniform mat4 viewMatrix;
-uniform mat4 projectionMatrix;
 
 out vec3 normal;
 out vec4 color;
@@ -17,7 +20,7 @@ out vec2 uv;
 
 void main()
 {
-	gl_Position = (projectionMatrix * viewMatrix * modelMatrix) * vec4(aPos, 1.0);
+	gl_Position = (camData.projectionMatrix * camData.viewMatrix * modelMatrix) * vec4(aPos, 1.0);
 	fragment = vec3(modelMatrix * vec4(aPos, 1.0f));
 	normal = transpose(inverse(mat3(modelMatrix))) * aNormal;
 	color = aColor;

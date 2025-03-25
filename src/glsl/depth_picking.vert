@@ -2,11 +2,15 @@
 
 layout (location = 0) in vec3 aPos;
 
+layout (std140, binding = 1) uniform CameraData
+{
+	mat4 viewMatrix;
+	mat4 projectionMatrix;
+} camData;
+
 uniform mat4 modelMatrix;
-uniform mat4 viewMatrix;
-uniform mat4 projectionMatrix;
 
 void main()
 {
-    gl_Position = (projectionMatrix * viewMatrix * modelMatrix) * vec4(aPos, 1.0);
+    gl_Position = (camData.projectionMatrix * camData.viewMatrix * modelMatrix) * vec4(aPos, 1.0);
 }

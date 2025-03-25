@@ -72,6 +72,8 @@ SceneRenderer::SceneRenderer(WindowGLFW* window) : m_window(window)
   m_skybox = Cubemap(skybox_faces);
   m_screen_quad.set_texture_id(main_scene_fbo.texture()->id());
   //m_gpu_buffers.vbo.resize(4'000'000);
+  m_uniform_buffer.resize(sizeof(glm::mat4) * 2);
+  m_uniform_buffer.set_binding_point(1);
 }
 
 SceneRenderer::~SceneRenderer()
@@ -104,7 +106,6 @@ void SceneRenderer::render()
   {
     glfwPollEvents();
     tick();
-    m_cam_controller.tick();
     glPolygonMode(GL_FRONT_AND_BACK, m_polygon_mode);
     
     // render to a custom framebuffer
@@ -134,8 +135,6 @@ void SceneRenderer::render_scene()
   Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::MAIN);
   shader->bind();
   shader->set_vec3("viewPos", m_camera.position());
-  shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
-  shader->set_matrix4f("projectionMatrix", m_camera.get_projection_matrix());
   shader->set_int("defaultTexture", 0);
   shader->set_int("ambientTex", 1);
   shader->set_int("diffuseTex", 2);
@@ -252,8 +251,6 @@ void SceneRenderer::render_selected_objects()
 {
   Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::OUTLINING);
   shader->bind();
-  shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
-  shader->set_matrix4f("projectionMatrix", m_camera.get_projection_matrix());
   const VertexLayout vlayout = shader->vertex_layout();
 
   //glDisable(GL_DEPTH_TEST);
@@ -301,8 +298,6 @@ void SceneRenderer::render_lines()
 {
   Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::LINES);
   shader->bind();
-  shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
-  shader->set_matrix4f("projectionMatrix", m_camera.get_projection_matrix());
   shader->set_vec3("lineColor", glm::vec3(0.f, 1.f, 0.f));
   const VertexLayout vlayout = shader->vertex_layout();
   auto& vbo = m_gpu_buffers.vbo;
@@ -339,8 +334,6 @@ void SceneRenderer::render_normals()
 {
   Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::NORMALS);
   shader->bind();
-  shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
-  shader->set_matrix4f("projectionMatrix", m_camera.get_projection_matrix());
   shader->set_vec3("normalColor", glm::vec3(0, 1, 1));
   const VertexLayout vlayout = shader->vertex_layout();
   m_gpu_buffers.bind_all();
@@ -570,6 +563,7 @@ void SceneRenderer::tick()
     }
   }
 
+  m_cam_controller.tick();
   KeyboardHandler* kh = static_cast<KeyboardHandler*>(m_window->get_input_handler(UserInputHandler::KEYBOARD));
   if (kh->get_keystate(KeyboardHandler::InputKey::LEFT_SHIFT) == KeyboardHandler::PRESSED)
   {
@@ -583,6 +577,11 @@ void SceneRenderer::tick()
   // because once cursor goes out of glfw window cursor callback is no longer triggered
   UserInputHandler* h = m_window->get_input_handler(UserInputHandler::CURSOR_POSITION);
   static_cast<CursorPositionHandler*>(h)->update_current_pos(x, y);
+
+  m_uniform_buffer.bind();
+  m_uniform_buffer.set_data(&m_camera.view_matrix(), sizeof(glm::mat4), 0);
+  m_uniform_buffer.set_data(&m_camera.get_projection_matrix(), sizeof(glm::mat4), sizeof(glm::mat4));
+  m_uniform_buffer.unbind();
 }
 
 namespace

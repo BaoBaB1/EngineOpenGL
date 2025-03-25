@@ -10,6 +10,7 @@
 #include "ScreenQuad.hpp"
 #include "ITickable.hpp"
 #include "ge/Skybox.hpp"
+#include "UniformBuffer.hpp"
 #include <vector>
 #include <memory>
 #include <map>
@@ -40,6 +41,7 @@ private:
 private:
   std::vector<std::unique_ptr<Object3D>> m_drawables;
   std::vector<Object3D*> m_selected_objects;
+  UniformBuffer m_uniform_buffer;
   ScreenQuad m_screen_quad;
   Skybox m_skybox;
   WindowGLFW* m_window;

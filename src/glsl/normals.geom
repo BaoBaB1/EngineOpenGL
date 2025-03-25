@@ -11,12 +11,16 @@ in VS_OUT
 //out vec4 color;
 
 uniform mat4 modelMatrix;
-uniform mat4 viewMatrix;
-uniform mat4 projectionMatrix;
+
+layout (std140, binding = 1) uniform CameraData
+{
+	mat4 viewMatrix;
+	mat4 projectionMatrix;
+} camData;
 
 void main()
 {
-  mat4 mvp = projectionMatrix * viewMatrix * modelMatrix;
+  mat4 mvp = camData.projectionMatrix * camData.viewMatrix * modelMatrix;
   const float len_scaler = 5.f;
   // gl position is in local space !
   gl_Position = mvp * gl_in[0].gl_Position;
