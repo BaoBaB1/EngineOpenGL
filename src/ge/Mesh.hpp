@@ -7,7 +7,6 @@
 #include "core/Texture2D.hpp"
 #include "core/Material.hpp"
 #include <vector>
-#include <optional>
 #include <memory>
 #include <array>
 
@@ -24,17 +23,18 @@ public:
   const std::vector<GLuint>& Mesh::faces_as_indices() const;
   void set_texture(const std::shared_ptr<Texture2D>& tex, TextureType type) { m_textures[static_cast<int>(type)] = tex; }
   const std::shared_ptr<Texture2D> get_texture(TextureType type) const { return m_textures[static_cast<int>(type)]; }
+  bool has_texture() const;
   BoundingBox& bbox() { return m_bbox; }
   const BoundingBox& bbox() const { return m_bbox; }
-  std::optional<Material> material() { return m_material; }
-  const std::optional<Material> material() const { return m_material; }
+  Material& material() { return m_material; }
+  const Material& material() const { return m_material; }
   Vertex& get_vertex(size_t idx) { return m_vertices[idx]; }
   const Vertex& get_vertex(size_t idx) const { return m_vertices[idx]; }
   size_t append_vertex(const Vertex& vertex);
   size_t append_face(const Face& face);
   size_t append_face(Face&& face);
 private:
-  std::optional<Material> m_material;
+  Material m_material;
   std::vector<Vertex> m_vertices;
   std::vector<Face> m_faces;
   mutable std::vector<GLuint> m_faces_indices;

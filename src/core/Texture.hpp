@@ -13,11 +13,11 @@ struct StbDeleter
 
 enum class TextureType
 {
+  GENERIC,
   AMBIENT,
   DIFFUSE,
   SPECULAR,
-  UNKNOWN,
-  LAST = UNKNOWN
+  LAST
 };
 
 class Texture : public OpenGLObject

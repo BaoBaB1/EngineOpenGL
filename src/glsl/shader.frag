@@ -21,7 +21,6 @@ uniform bool hasDefaultTexture;
 uniform bool hasAmbientTex;
 uniform bool hasDiffuseTex;
 uniform bool hasSpecularTex;
-uniform bool hasMaterial;
 uniform vec3 viewPos;
 uniform vec3 lightColor;
 uniform vec3 lightPos;
@@ -51,20 +50,11 @@ void main()
 
 	if (applyShading)
 	{
-		vec3 ambientMaterialComponent = vec3(1);
-		vec3 diffuseMaterialComponent = vec3(1);
-		vec3 specularMaterialComponent = vec3(1);
-		float shininess = 32.f;
-		float alpha = color.a;
-
-		if (hasMaterial)
-		{
-			ambientMaterialComponent = material.ambient;
-			diffuseMaterialComponent = material.diffuse;
-			specularMaterialComponent = material.specular;
-			shininess = material.shininess;
-			alpha = material.alpha;
-		}
+		vec3 ambientMaterialComponent = material.ambient;
+		vec3 diffuseMaterialComponent = material.diffuse;
+		vec3 specularMaterialComponent = material.specular;
+		float shininess = material.shininess;
+		float alpha = material.alpha;
 
 		// Phong shading model
 

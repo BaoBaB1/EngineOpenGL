@@ -87,17 +87,13 @@ std::optional<RayHit> Object3D::hit(const Ray& ray) const
 }
 
 void Object3D::add_mesh(Mesh&& mesh)
-{ 
-  if (mesh.material())
-    set_flag(HAS_MATERIAL, true);
+{
   set_flag(GEOMETRY_MODIFIED, true);
   m_meshes->push_back(std::move(mesh)); 
 }
 
 void Object3D::add_mesh(const Mesh& mesh)
 {
-  if (mesh.material())
-    set_flag(HAS_MATERIAL, true);
   set_flag(GEOMETRY_MODIFIED, true);
   m_meshes->push_back(mesh); 
 }
@@ -119,11 +115,6 @@ void Object3D::calculate_bbox(bool force)
   }
   m_bbox.set_min(min);
   m_bbox.set_max(max);
-}
-
-void Object3D::set_texture(const std::shared_ptr<Texture2D>& tex, TextureType type, size_t mesh_idx)
-{
-  (*m_meshes)[mesh_idx].set_texture(tex, type);
 }
 
 void Object3D::set_color(const glm::vec4& color)

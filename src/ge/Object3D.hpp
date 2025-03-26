@@ -1,15 +1,11 @@
 #pragma once
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include "core/Shader.hpp"
-#include "core/Texture2D.hpp"
-#include "core/ShaderStorage.hpp"
 #include "ge/Entity.hpp"
 #include "ge/Mesh.hpp"
 #include "ge/BoundingBox.hpp"
 #include "ge/IRayHittable.hpp"
-#include "core/Material.hpp"
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <unordered_map>
 #include <optional>
 #include <list>
@@ -40,7 +36,6 @@ public:
   virtual bool has_surface() const { return true; }
   std::optional<RayHit> hit(const Ray& ray) const override;
   glm::vec3 center() const;
-  void set_texture(const std::shared_ptr<Texture2D>& tex, TextureType type, size_t mesh_idx);
   void set_shading_mode(ShadingMode mode) { m_shading_mode = mode; }
   void set_delta_time(float delta_time) { m_delta_time = delta_time; }
   void set_render_config(const RenderConfig& cfg) { m_render_config = cfg; }
@@ -61,15 +56,11 @@ public:
   void visible_normals(bool val) { set_flag(VISIBLE_NORMALS, val); }
   void visible_bbox(bool val) { set_flag(VISIBLE_BBOX, val); }
   void select(bool val) { set_flag(IS_SELECTED, val); }
-  //void set_has_material(bool val) { set_flag(HAS_MATERIAL, val); }
-  //void set_has_texture(bool val) { set_flag(HAS_TEXTURE, val); }
   bool is_normals_visible() const { return get_flag(VISIBLE_NORMALS); }
   bool is_rotating() const { return get_flag(ROTATE_EACH_FRAME); }
   bool is_light_source() const { return get_flag(LIGHT_SOURCE); }
   bool is_bbox_visible() const { return get_flag(VISIBLE_BBOX); }
   bool is_selected() const { return get_flag(IS_SELECTED); }
-  bool has_material() const { return get_flag(HAS_MATERIAL); }
-  bool has_texture() const { return get_flag(HAS_TEXTURE); }
   std::shared_ptr<std::vector<Mesh>> get_meshes_data() { return m_meshes; }
   const std::shared_ptr<std::vector<Mesh>>& get_meshes_data() const { return m_meshes; }
   ShadingMode shading_mode() const { return m_shading_mode; }
@@ -92,9 +83,7 @@ protected:
     LIGHT_SOURCE = (1 << 2),
     VISIBLE_BBOX = (1 << 3),
     IS_SELECTED = (1 << 4),
-    HAS_MATERIAL = (1 << 5),
-    GEOMETRY_MODIFIED = (1 << 6),
-    HAS_TEXTURE = (1 << 7),
+    GEOMETRY_MODIFIED = (1 << 5)
   };
   struct WrappedVertex {
     explicit WrappedVertex(const Vertex& vertex) {

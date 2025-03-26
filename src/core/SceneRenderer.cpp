@@ -149,14 +149,19 @@ void SceneRenderer::render()
 
 void SceneRenderer::render_scene()
 {
+  assert(m_light_sources.size() == 1);
+  Object3D* light_source = *m_light_sources.begin();
+
   Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::MAIN);
-  shader->bind(); 
+  shader->bind();
   shader->set_vec3("viewPos", m_camera.position());
   shader->set_int("defaultTexture", 0);
   shader->set_int("ambientTex", 1);
   shader->set_int("diffuseTex", 2);
   shader->set_int("specularTex", 3);
-  const VertexLayout vlayout = shader->vertex_layout();
+  // center in world space
+  shader->set_vec3("lightPos", light_source->center() + glm::vec3(light_source->m_model_mat[3]));
+  shader->set_vec3("lightColor", glm::vec3(1.f));
 
   PipelineBuffersRecord& rec = PipelineBuffersManager::instance().get(PIPELINE_BUFFERS_MAIN_RECORD_NAME.data());
   BindChainFIFO bind_chain({ &rec.vao, &rec.vbo, &rec.ebo });
@@ -171,20 +176,15 @@ void SceneRenderer::render_scene()
       glStencilFunc(GL_ALWAYS, 1, 0xFF);
       glStencilMask(0xFF);
     }
-    if (pobj->is_light_source())
-    {
-      // center in world space
-      shader->set_vec3("lightPos", pobj->center() + glm::vec3(pobj->m_model_mat[3]));
-      shader->set_vec3("lightColor", glm::vec3(1.f));
-    }
 
+    const auto& render_config = pobj->get_render_config();
     const size_t mesh_count = pobj->mesh_count();
     for (size_t i = 0; i < mesh_count; i++)
     {
       const Mesh& mesh = pobj->get_mesh(i);
 
       // bind textures
-      if (auto tex = mesh.get_texture(TextureType::UNKNOWN))
+      if (auto tex = mesh.get_texture(TextureType::GENERIC))
       {
         shader->set_bool("hasDefaultTexture", true);
         glActiveTexture(GL_TEXTURE0);
@@ -229,16 +229,12 @@ void SceneRenderer::render_scene()
       const std::vector<Vertex>& vertices = mesh.vertices();
       vbo.set_data(vertices.data(), sizeof(Vertex) * vertices.size(), 0);
 
-      const auto mat = mesh.material();
-      shader->set_bool("hasMaterial", bool(mat));
-      if (mat)
-      {
-        shader->set_vec3("material.ambient", mat->ambient);
-        shader->set_vec3("material.diffuse", mat->diffuse);
-        shader->set_vec3("material.specular", mat->specular);
-        shader->set_float("material.shininess", mat->shininess);
-        shader->set_float("material.alpha", mat->alpha);
-      }
+      const auto& mat = mesh.material();
+      shader->set_vec3("material.ambient", mat.ambient);
+      shader->set_vec3("material.diffuse", mat.diffuse);
+      shader->set_vec3("material.specular", mat.specular);
+      shader->set_float("material.shininess", mat.shininess);
+      shader->set_float("material.alpha", mat.alpha);
 
       const auto& render_config = pobj->get_render_config();
       if (render_config.use_indices)
@@ -269,7 +265,6 @@ void SceneRenderer::render_selected_objects()
 {
   Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::OUTLINING);
   shader->bind();
-  const VertexLayout vlayout = shader->vertex_layout();
 
   //glDisable(GL_DEPTH_TEST);
   glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
@@ -610,6 +605,7 @@ void SceneRenderer::create_scene()
   sun->scale(glm::vec3(0.3f));
   sun->subdivide_triangles(4);
   sun->project_points_on_sphere();
+  m_light_sources.insert(sun);
 
   Icosahedron* sphere = static_cast<Icosahedron*>(m_drawables.emplace_back(std::make_unique<Icosahedron>()).get());
   sphere->translate(glm::vec3(2.5f, 0.5f, 2.f));
@@ -623,7 +619,7 @@ void SceneRenderer::create_scene()
   c->translate(glm::vec3(0.25f));
   c->scale(glm::vec3(0.5f));
   c->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
-  c->set_texture(std::make_shared<Texture2D>(std::string(".\\.\\src\\textures\\brick.jpg")), TextureType::UNKNOWN, 0);
+  c->get_mesh(0).set_texture(std::make_shared<Texture2D>(std::string(".\\.\\src\\textures\\brick.jpg")), TextureType::GENERIC);
   m_drawables.push_back(std::move(c));
 
   std::unique_ptr<Cube> c2 = std::make_unique<Cube>();

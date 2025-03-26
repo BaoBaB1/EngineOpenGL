@@ -40,3 +40,13 @@ const std::vector<GLuint>& Mesh::faces_as_indices() const
   }
   return m_faces_indices;
 }
+
+bool Mesh::has_texture() const
+{
+  for (const auto& tex : m_textures)
+  {
+    if (tex)
+      return true;
+  }
+  return false;
+}
