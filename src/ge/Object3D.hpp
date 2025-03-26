@@ -3,7 +3,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include "core/Shader.hpp"
-#include "core/GPUBuffers.hpp"
 #include "core/Texture2D.hpp"
 #include "core/ShaderStorage.hpp"
 #include "ge/Entity.hpp"
