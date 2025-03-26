@@ -685,6 +685,11 @@ void SceneRenderer::tick()
     {
       obj->rotate(obj->m_rotation_angle, obj->m_rotation_axis);
     }
+    if (obj->is_normals_visible() && m_objects_with_visible_normals.count(obj.get()) == 0)
+    {
+      m_objects_with_visible_normals.insert(obj.get());
+      m_need_normal_data_update = true;
+    }
   }
 
   m_cam_controller.tick();

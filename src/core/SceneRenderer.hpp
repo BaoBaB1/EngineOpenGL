@@ -44,7 +44,7 @@ private:
   std::vector<std::unique_ptr<Object3D>> m_drawables;
   std::vector<Object3D*> m_selected_objects;
   std::unordered_set<Object3D*> m_objects_with_visible_normals;
-  bool m_need_normal_data_update = true; // update on first run
+  bool m_need_normal_data_update = false;
   ScreenQuad m_screen_quad;
   Skybox m_skybox;
   WindowGLFW* m_window;
