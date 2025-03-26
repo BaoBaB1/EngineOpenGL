@@ -1,6 +1,6 @@
 #include "ElementBufferObject.hpp"
 
-ElementBufferObject::ElementBufferObject() : ElementBufferObject(DEFAULT_EBO_SIZE)
+ElementBufferObject::ElementBufferObject() : ElementBufferObject(GL_ELEMENT_ARRAY_BUFFER)
 {
 }
 

@@ -398,7 +398,10 @@ void Ui::render_object_properties(Object3D& drawable)
 
       bool is_normals_visible = drawable.is_normals_visible();
       if (ImGui::Checkbox("Visible normals", &is_normals_visible))
+      {
         drawable.visible_normals(is_normals_visible);
+        on_visible_normals_button_pressed.notify(&drawable, is_normals_visible);
+      }
 
       // shading modes
       std::vector<std::pair<Object3D::ShadingMode, std::string>> modes(3);

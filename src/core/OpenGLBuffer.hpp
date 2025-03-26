@@ -15,10 +15,9 @@ public:
   void bind() const override;
   void unbind() const override;
   size_t get_size() const { return m_size; }
-  int64_t get_free_space() const { return m_free_space; }
   int get_type() const { return m_type; }
+  void set_binding_point(int point) const;
 private:
   size_t m_size = 0;
-  int64_t m_free_space = 0;
   int m_type = -1; // GL_ARRAY_BUFFER | GL_ELEMENT_BUFFER ...
 };

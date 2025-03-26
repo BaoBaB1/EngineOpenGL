@@ -3,17 +3,17 @@
 #include "Shader.hpp"
 #include "Camera.hpp"
 #include "FrameBufferObject.hpp"
-#include "GPUBuffers.hpp"
 #include "KeyboardHandler.hpp"
 #include "CameraController.hpp"
 #include "Ui.hpp"
 #include "ScreenQuad.hpp"
 #include "ITickable.hpp"
 #include "ge/Skybox.hpp"
-#include "UniformBuffer.hpp"
+#include "PipelineBufferManager.hpp"
 #include <vector>
 #include <memory>
 #include <map>
+#include <unordered_set>
 
 class Object3D;
 class Skybox;
@@ -37,15 +37,17 @@ private:
   void handle_mouse_click(int button, int x, int y);
   void handle_window_size_change(int width, int height);
   void handle_keyboard_input(KeyboardHandler::InputKey key, KeyboardHandler::KeyState state);
+  void handle_visible_normals_click(Object3D* obj, bool is_selected);
+  void prepare_pipeline_buffers();
   friend class Ui;
 private:
   std::vector<std::unique_ptr<Object3D>> m_drawables;
   std::vector<Object3D*> m_selected_objects;
-  UniformBuffer m_uniform_buffer;
+  std::unordered_set<Object3D*> m_objects_with_visible_normals;
+  bool m_need_normal_data_update = true; // update on first run
   ScreenQuad m_screen_quad;
   Skybox m_skybox;
   WindowGLFW* m_window;
-  GPUBuffers m_gpu_buffers;
   Ui m_ui;
   CameraController m_cam_controller;
   Camera m_camera;

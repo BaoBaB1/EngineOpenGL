@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Event.hpp"
 #include <array>
 
 class SceneRenderer;
@@ -14,6 +15,7 @@ public:
   void init(SceneRenderer* scene, WindowGLFW* window);
   ~Ui();
   void render();
+  Event<Object3D*, bool> on_visible_normals_button_pressed;
 private:
   void render_object_properties(Object3D& drawable);
   void render_xyz_markers(float offset_from_left, float width);

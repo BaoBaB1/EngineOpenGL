@@ -1,6 +1,6 @@
 #include "VertexBufferObject.hpp"
 
-VertexBufferObject::VertexBufferObject() : VertexBufferObject(DEFAULT_VBO_SIZE)
+VertexBufferObject::VertexBufferObject() : VertexBufferObject(GL_ARRAY_BUFFER)
 {
 }
 

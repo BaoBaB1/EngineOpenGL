@@ -26,7 +26,7 @@ void OpenGLBuffer::resize(size_t new_size)
 {
   bind();
   glBufferData(m_type, new_size, nullptr, GL_STATIC_DRAW);
-  m_free_space = m_size = new_size;
+  m_size = new_size;
   unbind();
 }
 
@@ -38,6 +38,11 @@ void OpenGLBuffer::bind() const
 void OpenGLBuffer::unbind() const
 {
   glBindBuffer(m_type, 0);
+}
+
+void OpenGLBuffer::set_binding_point(int point) const
+{
+  glBindBufferBase(m_type, point, id());
 }
 
 OpenGLBuffer::~OpenGLBuffer()

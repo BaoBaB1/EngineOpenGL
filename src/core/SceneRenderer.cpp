@@ -10,6 +10,7 @@
 #include "CursorPositionHandler.hpp"
 #include "MouseInputHandler.hpp"
 #include "ShaderStorage.hpp"
+#include "BindGuard.hpp"
 #include "ge/Cube.hpp"
 #include "ge/Icosahedron.hpp"
 #include "ge/Polyline.hpp"
@@ -43,6 +44,15 @@ namespace
     ".\\.\\src\\textures\\skybox\\front.jpg",
     ".\\.\\src\\textures\\skybox\\back.jpg"
   };
+  constexpr std::string_view PIPELINE_BUFFERS_MAIN_RECORD_NAME = "MAIN";
+  constexpr std::string_view PIPELINE_BUFFERS_NORMALS_RECORD_NAME = "NORMALS";
+  void set_default_vertex_attributes(VertexArrayObject& vao)
+  {
+    vao.link_attrib(0, 3, GL_FLOAT, sizeof(Vertex), nullptr);                        // position
+    vao.link_attrib(1, 3, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 3));   // normal
+    vao.link_attrib(2, 4, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 6));   // color
+    vao.link_attrib(3, 2, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 10));  // texture
+  }
 }
 
 SceneRenderer::SceneRenderer(WindowGLFW* window) : m_window(window)
@@ -50,6 +60,7 @@ SceneRenderer::SceneRenderer(WindowGLFW* window) : m_window(window)
   const int w = window->width();
   const int h = window->height();
   m_ui.init(this, m_window);
+  m_ui.on_visible_normals_button_pressed += new InstanceListener(this, &::SceneRenderer::handle_visible_normals_click);
   m_camera.set_screen_size({ w, h });
   m_camera.set_position(glm::vec3(-4.f, 2.f, 3.f));
   m_camera.look_at(glm::vec3(2.f, 0.5f, 0.5f));
@@ -71,9 +82,23 @@ SceneRenderer::SceneRenderer(WindowGLFW* window) : m_window(window)
 
   m_skybox = Cubemap(skybox_faces);
   m_screen_quad.set_texture_id(main_scene_fbo.texture()->id());
-  //m_gpu_buffers.vbo.resize(4'000'000);
-  m_uniform_buffer.resize(sizeof(glm::mat4) * 2);
-  m_uniform_buffer.set_binding_point(1);
+
+  {
+    PipelineBuffersRecord& main_record = PipelineBuffersManager::instance().get(PIPELINE_BUFFERS_MAIN_RECORD_NAME.data());
+    UniformBuffer& ubo = main_record.ubos.emplace_back();
+    ubo.resize(sizeof(glm::mat4) * 2);
+    ubo.set_binding_point(1);
+    BindChainFIFO bind_chain({ &main_record.vao, &main_record.vbo });
+    ::set_default_vertex_attributes(main_record.vao);
+  }
+
+  {
+    PipelineBuffersRecord& normals_record = PipelineBuffersManager::instance().get(PIPELINE_BUFFERS_NORMALS_RECORD_NAME.data());
+    SSBO& ssbo = normals_record.ssbos.emplace_back();
+    ssbo.set_binding_point(2);
+    BindChainFIFO bind_chain({ &normals_record.vao, &normals_record.vbo });
+    ::set_default_vertex_attributes(normals_record.vao);
+  }
 }
 
 SceneRenderer::~SceneRenderer()
@@ -94,14 +119,6 @@ void SceneRenderer::render()
   }
   const auto& main_fbo = m_fbos.at("main");
 
-  m_gpu_buffers.bind_all();
-  auto& vao = m_gpu_buffers.vao;
-  vao.link_attrib(0, 3, GL_FLOAT, sizeof(Vertex), nullptr);                        // position
-  vao.link_attrib(1, 3, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 3));   // normal
-  vao.link_attrib(2, 4, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 6));   // color
-  vao.link_attrib(3, 2, GL_FLOAT, sizeof(Vertex), (void*)(sizeof(GLfloat) * 10));  // texture
-  m_gpu_buffers.unbind_all();
-  
   while (!glfwWindowShouldClose(gl_window))
   {
     glfwPollEvents();
@@ -133,14 +150,16 @@ void SceneRenderer::render()
 void SceneRenderer::render_scene()
 {
   Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::MAIN);
-  shader->bind();
+  shader->bind(); 
   shader->set_vec3("viewPos", m_camera.position());
   shader->set_int("defaultTexture", 0);
   shader->set_int("ambientTex", 1);
   shader->set_int("diffuseTex", 2);
   shader->set_int("specularTex", 3);
   const VertexLayout vlayout = shader->vertex_layout();
-  m_gpu_buffers.bind_all();
+
+  PipelineBuffersRecord& rec = PipelineBuffersManager::instance().get(PIPELINE_BUFFERS_MAIN_RECORD_NAME.data());
+  BindChainFIFO bind_chain({ &rec.vao, &rec.vbo, &rec.ebo });
   for (const auto& pobj : m_drawables)
   {
     shader->set_matrix4f("modelMatrix", pobj->model_matrix());
@@ -206,7 +225,7 @@ void SceneRenderer::render_scene()
         shader->set_bool("hasSpecularTex", false);
       }
 
-      auto& vbo = m_gpu_buffers.vbo;
+      auto& vbo = rec.vbo;
       const std::vector<Vertex>& vertices = mesh.vertices();
       vbo.set_data(vertices.data(), sizeof(Vertex) * vertices.size(), 0);
 
@@ -225,7 +244,7 @@ void SceneRenderer::render_scene()
       if (render_config.use_indices)
       {
         const std::vector<GLuint>& indices = mesh.faces_as_indices();
-        auto& ebo = m_gpu_buffers.ebo;
+        auto& ebo = rec.ebo;
         ebo.set_data(indices.data(), sizeof(GLuint) * indices.size(), 0);
         glDrawElements(render_config.mode, (GLsizei)(indices.size()), GL_UNSIGNED_INT, nullptr);
       }
@@ -243,7 +262,6 @@ void SceneRenderer::render_scene()
       }
     }
   }
-  m_gpu_buffers.unbind_all();
   shader->unbind();
 }
 
@@ -256,7 +274,8 @@ void SceneRenderer::render_selected_objects()
   //glDisable(GL_DEPTH_TEST);
   glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
   glStencilMask(0x00);
-  m_gpu_buffers.bind_all();
+  PipelineBuffersRecord& rec = PipelineBuffersManager::instance().get(PIPELINE_BUFFERS_MAIN_RECORD_NAME.data());
+  BindChainFIFO bind_chain({ &rec.vao, &rec.vbo, &rec.ebo });
   for (auto& pobj : m_drawables)
   {
     if (pobj->is_selected() && pobj->has_surface())
@@ -268,14 +287,14 @@ void SceneRenderer::render_selected_objects()
       for (size_t i = 0; i < mesh_count; i++)
       {
         const Mesh& mesh = pobj->get_mesh(i);
-        auto& vbo = m_gpu_buffers.vbo;
+        auto& vbo = rec.vbo;
         const std::vector<Vertex>& vertices = mesh.vertices();
         vbo.set_data(vertices.data(), sizeof(Vertex) * vertices.size(), 0);
         const auto& render_config = pobj->get_render_config();
         if (render_config.use_indices)
         {
           const std::vector<GLuint>& indices = mesh.faces_as_indices();
-          auto& ebo = m_gpu_buffers.ebo;
+          auto& ebo = rec.ebo;
           ebo.set_data(indices.data(), sizeof(GLuint) * indices.size(), 0);
           glDrawElements(render_config.mode, (GLsizei)(indices.size()), GL_UNSIGNED_INT, nullptr);
         }
@@ -287,7 +306,6 @@ void SceneRenderer::render_selected_objects()
       pobj->scale(glm::vec3(old_scale));
     }
   }
-  m_gpu_buffers.unbind_all();
   glStencilMask(0xFF);
   glStencilFunc(GL_ALWAYS, 0, 0xFF);
   glEnable(GL_DEPTH_TEST);
@@ -299,10 +317,10 @@ void SceneRenderer::render_lines()
   Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::LINES);
   shader->bind();
   shader->set_vec3("lineColor", glm::vec3(0.f, 1.f, 0.f));
-  const VertexLayout vlayout = shader->vertex_layout();
-  auto& vbo = m_gpu_buffers.vbo;
-  auto& ebo = m_gpu_buffers.ebo;
-  m_gpu_buffers.bind_all();
+  PipelineBuffersRecord& rec = PipelineBuffersManager::instance().get(PIPELINE_BUFFERS_MAIN_RECORD_NAME.data());
+  BindChainFIFO bind_chain({ &rec.vao, &rec.vbo, &rec.ebo });
+  auto& vbo = rec.vbo;
+  auto& ebo = rec.ebo;
   for (const auto& pobj : m_drawables)
   {
     if (pobj->is_bbox_visible())
@@ -326,34 +344,71 @@ void SceneRenderer::render_lines()
       glDrawElements(GL_LINES, (GLsizei)indices.size(), GL_UNSIGNED_INT, nullptr);
     }
   }
-  m_gpu_buffers.unbind_all();
   shader->unbind();
 }
 
 void SceneRenderer::render_normals()
 {
+  struct RenderNormalsCommand
+  {
+    glm::mat4 modelMatrix;
+  };
+  static_assert(sizeof(RenderNormalsCommand) == 64);
+
+  static std::vector<RenderNormalsCommand> commands;
+  static std::vector<GLsizei> voffsets;
+  static std::vector<GLsizei> vcounts;
+  PipelineBuffersRecord& rec = PipelineBuffersManager::instance().get(PIPELINE_BUFFERS_NORMALS_RECORD_NAME.data());
+  BindChainFIFO bind_chain({ &rec.vao, &rec.vbo });
+
+  if (m_need_normal_data_update)
+  {
+    commands.clear();
+    voffsets.clear();
+    vcounts.clear();
+    commands.reserve(m_drawables.size());
+    voffsets.reserve(m_drawables.size());
+    vcounts.reserve(m_drawables.size());
+    size_t offset_bytes = 0;
+
+    for (const Object3D* drawable : m_objects_with_visible_normals)
+    {
+      if (drawable->is_normals_visible())
+      {
+        const size_t mesh_count = drawable->mesh_count();
+        for (size_t i = 0; i < mesh_count; i++)
+        {
+          const Mesh& mesh = drawable->get_mesh(i);
+          const size_t vsize_bytes = sizeof(Vertex) * mesh.vertices().size();
+          rec.vbo.set_data(mesh.vertices().data(), vsize_bytes, offset_bytes);
+          voffsets.push_back(static_cast<GLsizei>(offset_bytes / sizeof(Vertex)));
+          vcounts.push_back(static_cast<GLsizei>(mesh.vertices().size()));
+          offset_bytes += vsize_bytes;
+          commands.emplace_back(RenderNormalsCommand{ drawable->model_matrix() });
+        }
+      }
+    }
+
+    const size_t commands_size = sizeof(RenderNormalsCommand) * commands.size();
+    SSBO& ssbo = rec.ssbos[0];
+    if (ssbo.get_size() < commands_size)
+    {
+      ssbo.resize(commands_size);
+    }
+    ssbo.bind();
+    ssbo.set_data(commands.data(), commands_size, 0);
+    ssbo.unbind();
+
+    m_need_normal_data_update = false;
+  }
+
+  if (commands.empty())
+    return;
+
   Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::NORMALS);
   shader->bind();
   shader->set_vec3("normalColor", glm::vec3(0, 1, 1));
-  const VertexLayout vlayout = shader->vertex_layout();
-  m_gpu_buffers.bind_all();
-  for (const auto& pobj : m_drawables)
-  {
-    if (pobj->is_normals_visible())
-    {
-      shader->set_matrix4f("modelMatrix", pobj->model_matrix());
-      auto& vbo = m_gpu_buffers.vbo;
-      const size_t mesh_count = pobj->mesh_count();
-      for (size_t i = 0; i < mesh_count; i++)
-      {
-        const Mesh& mesh = pobj->get_mesh(i);
-        vbo.set_data(mesh.vertices().data(), sizeof(Vertex) * mesh.vertices().size(), 0);
-        // TODO: batch everything into same buffer
-        glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(mesh.vertices().size()));
-      }
-    }
-  }
-  m_gpu_buffers.unbind_all();
+  glMultiDrawArrays(GL_POINTS, voffsets.data(), vcounts.data(), static_cast<GLsizei>(commands.size()));
   shader->unbind();
 }
 
@@ -461,6 +516,75 @@ void SceneRenderer::handle_keyboard_input(KeyboardHandler::InputKey key, Keyboar
       m_camera.unfreeze();
       glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     }
+  }
+}
+
+void SceneRenderer::handle_visible_normals_click(Object3D* obj, bool is_selected)
+{
+  if (is_selected)
+  {
+    assert(m_objects_with_visible_normals.count(obj) == 0);
+    m_objects_with_visible_normals.insert(obj);
+  }
+  else
+  {
+    assert(m_objects_with_visible_normals.count(obj) != 0);
+    m_objects_with_visible_normals.erase(obj);
+  }
+  m_need_normal_data_update = true;
+}
+
+void SceneRenderer::prepare_pipeline_buffers()
+{
+  size_t total_vertices = 0;
+  size_t total_indices = 0;
+  size_t total_visible_normals = 0;
+  for (const auto& drawable : m_drawables)
+  {
+    const size_t mesh_count = drawable->mesh_count();
+    for (size_t i = 0; i < mesh_count; i++)
+    {
+      const Mesh& mesh = drawable->get_mesh(i);
+      total_vertices += mesh.vertices().size();
+      if (drawable->get_render_config().use_indices)
+      {
+        total_indices += mesh.faces_as_indices().size();
+      }
+      if (drawable->is_normals_visible())
+      {
+        total_visible_normals += mesh.vertices().size();
+      }
+    }
+  }
+
+  // setup main buffers
+  PipelineBuffersRecord& main_record = PipelineBuffersManager::instance().get(PIPELINE_BUFFERS_MAIN_RECORD_NAME.data());
+  if (total_vertices * sizeof(Vertex) > main_record.vbo.get_size())
+  {
+    main_record.vao.bind();
+    main_record.vbo.bind();
+    main_record.vbo.resize(total_vertices * sizeof(Vertex));
+    main_record.vao.unbind();
+    main_record.vbo.unbind();
+  }
+  if (total_indices * sizeof(Vertex) > main_record.ebo.get_size())
+  {
+    main_record.vao.bind();
+    main_record.ebo.bind();
+    main_record.ebo.resize(total_indices * sizeof(Vertex));
+    main_record.vao.unbind();
+    main_record.ebo.unbind();
+  }
+
+  // setup buffers for other passes
+  auto& normals_record = PipelineBuffersManager::instance().get(PIPELINE_BUFFERS_NORMALS_RECORD_NAME.data());
+  if (total_visible_normals * sizeof(Vertex) > normals_record.vbo.get_size())
+  {
+    normals_record.vao.bind();
+    normals_record.vbo.bind();
+    normals_record.vbo.resize(total_visible_normals * sizeof(Vertex));
+    normals_record.vao.unbind();
+    normals_record.vbo.unbind();
   }
 }
 
@@ -578,10 +702,13 @@ void SceneRenderer::tick()
   UserInputHandler* h = m_window->get_input_handler(UserInputHandler::CURSOR_POSITION);
   static_cast<CursorPositionHandler*>(h)->update_current_pos(x, y);
 
-  m_uniform_buffer.bind();
-  m_uniform_buffer.set_data(&m_camera.view_matrix(), sizeof(glm::mat4), 0);
-  m_uniform_buffer.set_data(&m_camera.get_projection_matrix(), sizeof(glm::mat4), sizeof(glm::mat4));
-  m_uniform_buffer.unbind();
+  PipelineBuffersRecord& rec = PipelineBuffersManager::instance().get(PIPELINE_BUFFERS_MAIN_RECORD_NAME.data());
+  rec.ubos[0].bind();
+  rec.ubos[0].set_data(&m_camera.view_matrix(), sizeof(glm::mat4), 0);
+  rec.ubos[0].set_data(&m_camera.get_projection_matrix(), sizeof(glm::mat4), sizeof(glm::mat4));
+  rec.ubos[0].unbind();
+
+  prepare_pipeline_buffers();
 }
 
 namespace

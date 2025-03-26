@@ -107,7 +107,6 @@ void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::f
         material.diffuse.r = ai_color.r;
         material.diffuse.g = ai_color.g;
         material.diffuse.b = ai_color.b;
-        model.set_has_material(true);
       }
 
       if (ai_material->Get(AI_MATKEY_COLOR_AMBIENT, ai_color) == aiReturn_SUCCESS)
@@ -115,7 +114,6 @@ void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::f
         material.ambient.r = ai_color.r;
         material.ambient.g = ai_color.g;
         material.ambient.b = ai_color.b;
-        model.set_has_material(true);
       }
 
       if (ai_material->Get(AI_MATKEY_COLOR_SPECULAR, ai_color) == aiReturn_SUCCESS)
@@ -123,7 +121,6 @@ void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::f
         material.specular.r = ai_color.r;
         material.specular.g = ai_color.g;
         material.specular.b = ai_color.b;
-        model.set_has_material(true);
       }
 
       float shininess;
