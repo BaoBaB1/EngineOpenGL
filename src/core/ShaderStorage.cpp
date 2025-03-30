@@ -24,8 +24,8 @@ void ShaderStorage::init()
     descriptions.reserve(ShaderStorage::LAST_ITEM + 1);
     {
       ShaderDescription d;
-      d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//shader.vert" });
-      d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//shader.frag" });
+      d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//default.vert" });
+      d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//default.frag" });
       d.vertex_layout = VertexLayout(0, 1, 2, 3);
       descriptions.push_back(d);
     }

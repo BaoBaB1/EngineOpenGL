@@ -5,7 +5,7 @@ layout (location = 1) in vec3 aNormal;
 layout (location = 2) in vec4 aColor;
 layout (location = 3) in vec2 aTextCoord;
 
-layout (std140, binding = 1) uniform CameraData
+layout (std140, binding = 0) uniform CameraData
 {
 	mat4 viewMatrix;
 	mat4 projectionMatrix;

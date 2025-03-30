@@ -20,7 +20,7 @@ public:
 	BindGuard(const T* bindable) { m_bindable = bindable; m_bindable->bind(); }
 	~BindGuard() { m_bindable->unbind(); }
 private:
-	T* m_bindable;
+	const T* m_bindable;
 };
 
 class BindChainFIFO

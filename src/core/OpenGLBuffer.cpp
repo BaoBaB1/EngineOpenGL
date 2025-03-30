@@ -30,6 +30,12 @@ void OpenGLBuffer::resize(size_t new_size)
   unbind();
 }
 
+void OpenGLBuffer::resize_if_smaller(size_t new_size)
+{
+  if (m_size < new_size)
+    resize(new_size);
+}
+
 void OpenGLBuffer::bind() const
 {
   glBindBuffer(m_type, m_id);

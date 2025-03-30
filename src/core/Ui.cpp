@@ -115,7 +115,8 @@ void Ui::render()
         std::optional<Object3D> m = loader.load(selected_file, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices | aiProcess_GenBoundingBoxes /*| aiProcess_GenSmoothNormals*/);
         if (m)
         {
-          scene->m_drawables.push_back(std::make_unique<Object3D>(std::move(*m)));
+          scene->m_drawables.push_back(std::move(*m));
+          scene->on_new_object_added.notify(&scene->m_drawables.back());
         }
       }
 
@@ -210,18 +211,21 @@ void Ui::render()
           //obj->m_rotation_axis = glm::axis(rotation);
         }
         obj->m_model_mat = model_mat;
+        ObjectChangeInfo info;
+        info.is_transformation_change = true;
+        on_object_change.notify(obj, info);
       }
     }
 
     if (ImGui::BeginListBox("##ListBox"))
     {
       int idx = 0;
-      for (const auto& obj : scene->m_drawables)
+      for (auto& obj : scene->m_drawables)
       {
-        bool selected = obj->is_selected();
-        if (ImGui::Selectable((obj->get_name() + std::to_string(idx + 1)).c_str(), &selected))
+        bool selected = obj.is_selected();
+        if (ImGui::Selectable((obj.get_name() + std::to_string(idx + 1)).c_str(), &selected))
         {
-          scene->select_object(obj.get(), true);
+          scene->select_object(&obj, true);
         }
         ++idx;
       }
@@ -367,14 +371,22 @@ void Ui::render_object_properties(Object3D& drawable)
     ImGui::PushItemWidth(-1);
     ImGui::Text("Color");
     if (ImGui::ColorEdit4("##Color", &drawable.m_color.x))
+    {
       drawable.set_color(drawable.m_color);
+      ObjectChangeInfo info;
+      info.is_vertex_change = true;
+      on_object_change.notify(&drawable, info);
+    }
     ImGui::PopItemWidth();
 
     ImGui::Separator();
     ImGui::Text("Miscellaneous");
     bool is_bbox_visible = drawable.is_bbox_visible();
     if (ImGui::Checkbox("Show bounding box", &is_bbox_visible))
+    {
       drawable.visible_bbox(is_bbox_visible);
+      on_visible_bbox_button_pressed.notify(&drawable, is_bbox_visible);
+    }
 
     // TODO: rewrite later as e.g. 2D Circle has surface but it won't be derived from Model class
     if (drawable.has_surface())

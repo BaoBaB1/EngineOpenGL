@@ -8,7 +8,7 @@ class ShaderStorage
 public:
   enum ShaderType
   {
-    MAIN,
+    DEFAULT,
     OUTLINING,
     SKYBOX,
     SCREEN_QUAD,

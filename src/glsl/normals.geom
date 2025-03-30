@@ -9,7 +9,7 @@ in VS_OUT
   mat4 modelMat;
 } gs_in[];
 
-layout (std140, binding = 1) uniform CameraData
+layout (std140, binding = 0) uniform CameraData
 {
 	mat4 viewMatrix;
 	mat4 projectionMatrix;

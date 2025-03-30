@@ -11,6 +11,21 @@
 #include <list>
 #include <map>
 
+struct MeshGeometryMetadata
+{
+  size_t vert_count = 0;
+  size_t idx_count = 0;
+  const Vertex* vdata = nullptr;
+  const GLuint* idx_data = nullptr;
+};
+
+struct ObjectGeometryMetadata
+{
+  size_t vert_count_total = 0;
+  size_t idx_count_total = 0;
+  std::vector<MeshGeometryMetadata> meshes_data;
+};
+
 class Object3D : public Entity, public IRayHittable
 {
 public:
@@ -34,6 +49,7 @@ public:
   virtual void apply_shading(ShadingMode mode);
   virtual void set_color(const glm::vec4& color);
   virtual bool has_surface() const { return true; }
+  ObjectGeometryMetadata get_geometry_metadata() const;
   std::optional<RayHit> hit(const Ray& ray) const override;
   glm::vec3 center() const;
   void set_shading_mode(ShadingMode mode) { m_shading_mode = mode; }

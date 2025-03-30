@@ -11,7 +11,7 @@ out VS_OUT
   mat4 modelMat;
 } vs_out;
 
-layout (std430, binding = 2) buffer RenderCommand
+layout (std430, binding = 1) buffer ModelMatrices
 {
   mat4 modelMatrices[];
 };

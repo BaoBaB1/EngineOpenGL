@@ -86,6 +86,26 @@ std::optional<RayHit> Object3D::hit(const Ray& ray) const
   return rhit;
 }
 
+ObjectGeometryMetadata Object3D::get_geometry_metadata() const
+{
+  ObjectGeometryMetadata res;
+  for (const auto& mesh : *m_meshes)
+  {
+    MeshGeometryMetadata& mesh_data = res.meshes_data.emplace_back();
+    res.vert_count_total += mesh.vertices().size();
+    mesh_data.vert_count = mesh.vertices().size();
+    if (m_render_config.use_indices)
+    {
+      assert(m_render_config.mode == GL_TRIANGLES);
+      res.idx_count_total += mesh.faces().size() * 3;
+      mesh_data.idx_count = mesh.faces().size() * 3;
+      mesh_data.vdata = mesh.vertices().data();
+      mesh_data.idx_data = mesh.faces_as_indices().data();
+    }
+  }
+  return res;
+}
+
 void Object3D::add_mesh(Mesh&& mesh)
 {
   set_flag(GEOMETRY_MODIFIED, true);

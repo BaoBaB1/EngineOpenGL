@@ -6,25 +6,19 @@
 #include "SSBO.hpp"
 #include "UniformBuffer.hpp"
 #include <unordered_map>
-#include <vector>
+#include <string>
 
-struct PipelineBuffersRecord
-{
-	VertexArrayObject vao;
-	VertexBufferObject vbo;
-	ElementBufferObject ebo;
-	std::vector<SSBO> ssbos;
-	std::vector<UniformBuffer> ubos;
-};
-
+template<typename T>
 class PipelineBuffersManager
 {
 public:
-	static PipelineBuffersManager& instance() { static PipelineBuffersManager m; return m; }
-	PipelineBuffersRecord& get(const std::string& name) { return records[name]; }
-	std::unordered_map<std::string, PipelineBuffersRecord>& get_records() { return records; }
-	bool contains(const std::string& name) { return records.count(name) != 0; }
+	static T& get(const std::string& name) { return records[name]; }
 private:
-	PipelineBuffersManager() = default;
-	inline static std::unordered_map<std::string, PipelineBuffersRecord> records;
+	inline static std::unordered_map<std::string, T> records;
 };
+
+using PipelineVAOManager = PipelineBuffersManager<VertexArrayObject>;
+using PipelineVBOManager = PipelineBuffersManager<VertexBufferObject>;
+using PipelineEBOManager = PipelineBuffersManager<ElementBufferObject>;
+using PipelineSSBOManager = PipelineBuffersManager<SSBO>;
+using PipelineUBOManager = PipelineBuffersManager<UniformBuffer>;
