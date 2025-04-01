@@ -4,9 +4,9 @@
 #include "ge/Mesh.hpp"
 #include "ge/BoundingBox.hpp"
 #include "ge/IRayHittable.hpp"
+#include "ge/ShadingProcessor.hpp"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <unordered_map>
 #include <optional>
 #include <list>
 #include <map>
@@ -29,13 +29,7 @@ struct ObjectGeometryMetadata
 class Object3D : public Entity, public IRayHittable
 {
 public:
-  enum ShadingMode
-  {
-    NO_SHADING,
-    FLAT_SHADING,
-    SMOOTH_SHADING,
-    LAST_ITEM
-  };
+  using ShadingMode = ShadingProcessor::ShadingMode;
   struct RenderConfig
   {
     int mode = GL_TRIANGLES;
@@ -46,12 +40,12 @@ public:
   static T* cast_to(Object3D* obj) { return static_cast<T*>(obj); }
   Object3D();
   Object3D(const std::string& name);
-  virtual void apply_shading(ShadingMode mode);
   virtual void set_color(const glm::vec4& color);
   virtual bool has_surface() const { return true; }
   ObjectGeometryMetadata get_geometry_metadata() const;
   std::optional<RayHit> hit(const Ray& ray) const override;
   glm::vec3 center() const;
+  void apply_shading(ShadingMode mode);
   void set_shading_mode(ShadingMode mode) { m_shading_mode = mode; }
   void set_delta_time(float delta_time) { m_delta_time = delta_time; }
   void set_render_config(const RenderConfig& cfg) { m_render_config = cfg; }
@@ -72,11 +66,13 @@ public:
   void visible_normals(bool val) { set_flag(VISIBLE_NORMALS, val); }
   void visible_bbox(bool val) { set_flag(VISIBLE_BBOX, val); }
   void select(bool val) { set_flag(IS_SELECTED, val); }
+  void set_is_fixed_shading(bool val) { set_flag(IS_FIXED_SHADING, val); }
   bool is_normals_visible() const { return get_flag(VISIBLE_NORMALS); }
   bool is_rotating() const { return get_flag(ROTATE_EACH_FRAME); }
   bool is_light_source() const { return get_flag(LIGHT_SOURCE); }
   bool is_bbox_visible() const { return get_flag(VISIBLE_BBOX); }
   bool is_selected() const { return get_flag(IS_SELECTED); }
+  bool is_fixed_shading() const { return get_flag(IS_FIXED_SHADING); }
   std::shared_ptr<std::vector<Mesh>> get_meshes_data() { return m_meshes; }
   const std::shared_ptr<std::vector<Mesh>>& get_meshes_data() const { return m_meshes; }
   ShadingMode shading_mode() const { return m_shading_mode; }
@@ -99,34 +95,10 @@ protected:
     LIGHT_SOURCE = (1 << 2),
     VISIBLE_BBOX = (1 << 3),
     IS_SELECTED = (1 << 4),
-    GEOMETRY_MODIFIED = (1 << 5)
-  };
-  struct WrappedVertex {
-    explicit WrappedVertex(const Vertex& vertex) {
-      this->vertex = vertex;
-    }
-    bool operator==(const WrappedVertex& other) const { return other.vertex.position == this->vertex.position; }
-    Vertex vertex;
-  };
-  struct VertexHasher {
-    size_t operator()(const WrappedVertex& wrapped) const {
-      std::hash<float> hasher;
-      return hasher(wrapped.vertex.position.x) + hasher(wrapped.vertex.position.y) ^ hasher(wrapped.vertex.position.z);
-    }
-  };
-  struct VertexFinder {
-    using iter = std::unordered_map<WrappedVertex, GLuint, VertexHasher, std::equal_to<WrappedVertex>>::iterator;
-    iter end() { return m_map_vert.end(); }
-    iter find_vertex(const Vertex& v) {
-      return m_map_vert.find(WrappedVertex(v));
-    }
-    void add_vertex(const Vertex& v, GLuint index) {
-      m_map_vert.insert(std::make_pair(WrappedVertex(v), index));
-    }
-    std::unordered_map<WrappedVertex, GLuint, VertexHasher, std::equal_to<WrappedVertex>> m_map_vert; // vertex, index
+    GEOMETRY_MODIFIED = (1 << 5),
+    IS_FIXED_SHADING = (1 << 6)
   };
 protected:
-  void calc_normals(Mesh&, ShadingMode);
   void set_flag(Flag flag, bool value) { value ? set_flag(flag) : clear_flag(flag); }
   void set_flag(Flag flag) { m_flags |= flag; }
   void clear_flag(Flag flag) { m_flags &= ~flag; }
@@ -141,7 +113,6 @@ protected:
   glm::vec3 m_rotation_axis = glm::vec3(0.f);
   uint32_t m_flags = 0;
   ShadingMode m_shading_mode = ShadingMode::NO_SHADING;
-  VertexFinder m_vertex_finder;
   BoundingBox m_bbox;             // bounding box which covers all meshes
   RenderConfig m_render_config;
   std::array<std::shared_ptr<std::vector<Mesh>>, ShadingMode::LAST_ITEM + 1> m_cached_meshes;

@@ -18,8 +18,9 @@ std::optional<Object3D> ModelLoader::load(const std::string& filename, unsigned 
     size_t vcount = 0, fcount = 0;
     process(scene->mRootNode, scene, std::filesystem::path(filename).parent_path(), model, vcount, fcount);
     center_around_origin(model);
-    // TODO: fix this hack
-    model.set_shading_mode(Object3D::SMOOTH_SHADING);
+    // set some shading mode so that textures will be applied (if present) during rendering
+    model.set_shading_mode(ShadingProcessor::ShadingMode::SMOOTH_SHADING);
+    model.set_is_fixed_shading(true);
     return model;
   }
 }

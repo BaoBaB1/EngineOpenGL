@@ -62,6 +62,10 @@ void GeometryPass::handle_object_change(Object3D* obj, const ObjectChangeInfo& i
       }
     }
   }
+  else if (info.is_shading_mode_change)
+  {
+    update();
+  }
 }
 
 void GeometryPass::allocate_memory_for_buffers()
@@ -466,14 +470,23 @@ void NormalsPass::handle_visible_normals_toggle(Object3D* obj, bool is_visible)
 
 void NormalsPass::handle_object_change(Object3D* obj, const ObjectChangeInfo& info)
 {
-  // if we moved object and we rendered normals for this object
-  if (info.is_transformation_change && m_object_offsets.count(obj) != 0)
+  // if we have already rendered normals for this object
+  if (m_object_offsets.count(obj) != 0)
   {
-    // update model matrix
-    ObjectRenderOffsets& info = m_object_offsets.at(obj);
-    m_model_matrices_ssbo.bind();
-    m_model_matrices_ssbo.set_data(glm::value_ptr(obj->model_matrix()), sizeof(glm::mat4), info.internal_idx * sizeof(glm::mat4));
-    m_model_matrices_ssbo.unbind();
+    // if we moved object 
+    if (info.is_transformation_change)
+    {
+      // update model matrix
+      ObjectRenderOffsets& info = m_object_offsets.at(obj);
+      m_model_matrices_ssbo.bind();
+      m_model_matrices_ssbo.set_data(glm::value_ptr(obj->model_matrix()), sizeof(glm::mat4), info.internal_idx * sizeof(glm::mat4));
+      m_model_matrices_ssbo.unbind();
+    }
+    // shading mode has changed
+    else if (info.is_shading_mode_change)
+    {
+      update();
+    }
   }
 }
 

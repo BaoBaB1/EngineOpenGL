@@ -251,6 +251,7 @@ void SceneRenderer::create_scene()
   sun.light_source(true);
   sun.translate(glm::vec3(0.f, 0.5f, 2.f));
   sun.set_color(glm::vec4(1.f, 1.f, 0.f, 1.f));
+  sun.set_is_fixed_shading(true);
   sun.scale(glm::vec3(0.3f));
   sun.subdivide_triangles(4);
   sun.project_points_on_sphere();

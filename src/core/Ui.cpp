@@ -415,28 +415,36 @@ void Ui::render_object_properties(Object3D& drawable)
         on_visible_normals_button_pressed.notify(&drawable, is_normals_visible);
       }
 
-      // shading modes
-      std::vector<std::pair<Object3D::ShadingMode, std::string>> modes(3);
-      for (int i = 0; i < 3; i++)
+      if (!drawable.is_fixed_shading())
       {
-        Object3D::ShadingMode mode = static_cast<Object3D::ShadingMode>(i);
-        modes[i] = std::make_pair(mode, ::shading_mode_to_str(mode));
-      }
-      std::string current_mode = ::shading_mode_to_str(drawable.shading_mode());
-      ImGui::SetNextItemWidth(win_space_for_items_x / 2);
-      if (ImGui::BeginCombo("Shading mode", current_mode.c_str()))
-      {
+        // shading modes
+        std::vector<std::pair<Object3D::ShadingMode, std::string>> modes(3);
         for (int i = 0; i < 3; i++)
         {
-          bool selected = (current_mode == modes[i].second);
-          if (ImGui::Selectable(modes[i].second.c_str(), &selected))
-            drawable.apply_shading(modes[i].first);
-          if (selected)
-            ImGui::SetItemDefaultFocus();
+          Object3D::ShadingMode mode = static_cast<Object3D::ShadingMode>(i);
+          modes[i] = std::make_pair(mode, ::shading_mode_to_str(mode));
         }
-        ImGui::EndCombo();
+        std::string current_mode = ::shading_mode_to_str(drawable.shading_mode());
+        ImGui::SetNextItemWidth(win_space_for_items_x / 2);
+        if (ImGui::BeginCombo("Shading mode", current_mode.c_str()))
+        {
+          for (int i = 0; i < 3; i++)
+          {
+            bool selected = (current_mode == modes[i].second);
+            if (ImGui::Selectable(modes[i].second.c_str(), &selected))
+            {
+              drawable.apply_shading(modes[i].first);
+              ObjectChangeInfo info;
+              info.is_shading_mode_change = true;
+              on_object_change.notify(&drawable, info);
+            }
+            if (selected)
+              ImGui::SetItemDefaultFocus();
+          }
+          ImGui::EndCombo();
+        }
+        ImGui::Separator();
       }
-      ImGui::Separator();
     }
     ImGui::TreePop();
   }
