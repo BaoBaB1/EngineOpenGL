@@ -185,6 +185,5 @@ void ModelLoader::center_around_origin(Object3D& model)
     }
   }
   // also offset bbox bounds according to new vertex positions
-  model.bbox().set_min(bbox.min() - bbox_center);
-  model.bbox().set_max(bbox.max() - bbox_center);
+  model.bbox().init(bbox.min() - bbox_center, bbox.max() - bbox_center);
 }

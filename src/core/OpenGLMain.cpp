@@ -1,5 +1,6 @@
 #include "SceneRenderer.hpp"
 #include "WindowGLFW.hpp"
+#include <GLFW/glfw3.h>
 
 int main() 
 {

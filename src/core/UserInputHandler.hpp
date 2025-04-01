@@ -25,7 +25,6 @@ public:
   void notify(bool _enable) override;
   bool disabled() const { return m_disabled; }
   HandlerType type() const { return m_type; }
-  ~UserInputHandler();
 protected:
   UserInputHandler(WindowGLFW* window, HandlerType input_type);
 protected:

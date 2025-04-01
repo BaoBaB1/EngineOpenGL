@@ -133,8 +133,7 @@ void Object3D::calculate_bbox(bool force)
       max = glm::max(max, v.position);
     }
   }
-  m_bbox.set_min(min);
-  m_bbox.set_max(max);
+  m_bbox.init(min, max);
 }
 
 void Object3D::set_color(const glm::vec4& color)

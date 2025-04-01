@@ -1,8 +1,7 @@
-#include <glm/glm.hpp>
-#include <chrono>
-#include <utility>
 #include "Icosahedron.hpp"
 #include "./core/Debug.hpp"
+#include <glm/glm.hpp>
+#include <utility>
 
 Icosahedron::Icosahedron() : Object3D("Icosahedron")
 {

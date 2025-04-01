@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Shader.hpp"
 #include "Camera.hpp"
 #include "FrameBufferObject.hpp"
 #include "KeyboardHandler.hpp"

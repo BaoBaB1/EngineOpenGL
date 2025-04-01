@@ -1,50 +1,37 @@
 #pragma once
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
 #include "UserInputHandler.hpp"
 #include "Event.hpp"
+#include <list>
+#include <map>
 
 class KeyboardHandler : public UserInputHandler
 {
 public:
-  // TODO: remap them
   enum InputKey : uint16_t
   {
-    W = GLFW_KEY_W,
-    A = GLFW_KEY_A,
-    S = GLFW_KEY_S,
-    D = GLFW_KEY_D,
-    T = GLFW_KEY_T,
-    R = GLFW_KEY_R,
-    ARROW_UP = GLFW_KEY_UP,
-    ARROW_DOWN = GLFW_KEY_DOWN,
-    ARROW_LEFT = GLFW_KEY_LEFT,
-    ARROW_RIGHT = GLFW_KEY_RIGHT,
-    LEFT_SHIFT = GLFW_KEY_LEFT_SHIFT,
-    SPACE = GLFW_KEY_SPACE,
-    LEFT_CTRL = GLFW_KEY_LEFT_CONTROL,
-    ESC = GLFW_KEY_ESCAPE,
-    UNKNOWN = 0xFFFF
+    W, A, S, D, T, R,
+    ARROW_UP,
+    ARROW_DOWN,
+    ARROW_LEFT,
+    ARROW_RIGHT,
+    LEFT_SHIFT,
+    SPACE,
+    LEFT_CTRL,
+    ESC,
+    LAST
   };
 
   enum KeyState
   {
     PRESSED,
     RELEASED,
-    NO_STATE
-  };
-
-  static constexpr InputKey registered_keys[] = {
-    W, A, S, D, ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT, LEFT_SHIFT,
-    ESC, T, R, SPACE, LEFT_CTRL
   };
 
   OnlyMovable(KeyboardHandler)
   KeyboardHandler(WindowGLFW* window);
   KeyboardHandler::KeyState get_keystate(KeyboardHandler::InputKey key) const;
   void disable() override;
-  void reset_state(InputKey key);
   const std::list<InputKey>& get_pressed_keys() const { return m_pressed_keys; }
   Event<InputKey, KeyState> on_key_state_change;
 private:

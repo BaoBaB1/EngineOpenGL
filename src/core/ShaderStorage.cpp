@@ -1,8 +1,6 @@
 #include "ShaderStorage.hpp"
 #include <vector>
-#include <utility>
 #include <string>
-#include <array>
 
 namespace
 {
@@ -17,8 +15,7 @@ std::map<ShaderStorage::ShaderType, Shader> ShaderStorage::shaders;
 
 void ShaderStorage::init()
 {
-  static bool once = true;
-  if (once)
+  if (shaders.empty())
   {
     std::vector<ShaderDescription> descriptions;
     descriptions.reserve(ShaderStorage::LAST_ITEM + 1);
@@ -76,7 +73,6 @@ void ShaderStorage::init()
     {
       shaders.emplace(static_cast<ShaderStorage::ShaderType>(i), Shader(descriptions[i].sources, descriptions[i].vertex_layout));
     }
-    once = false;
   }
 }
 

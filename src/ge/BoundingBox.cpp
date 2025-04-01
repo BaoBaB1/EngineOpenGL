@@ -1,19 +1,22 @@
 #include "utils/Constants.hpp"
 #include "BoundingBox.hpp"
-#include "Vertex.hpp"
 
 static constexpr float g_fmin = OpenGLEngineUtils::limits::fmin;
 static constexpr float g_fmax = OpenGLEngineUtils::limits::fmax;
 
 BoundingBox::BoundingBox() : Entity("Bounding box")
 {
-  m_min = glm::vec3(g_fmin, g_fmin, g_fmin);
-  m_max = glm::vec3(g_fmax, g_fmax, g_fmax);
+  init(glm::vec3(g_fmax), glm::vec3(g_fmin));
+}
+
+BoundingBox::BoundingBox(const glm::vec3& min, const glm::vec3& max) : Entity("Bounding box")
+{
+  init(min, max);
 }
 
 bool BoundingBox::is_empty() const
 {
-  return m_min == glm::vec3(g_fmin, g_fmin, g_fmin) && m_max == glm::vec3(g_fmax, g_fmax, g_fmax);
+  return m_min == glm::vec3(g_fmax) && m_max == glm::vec3(g_fmin);
 }
 
 std::optional<RayHit> BoundingBox::hit(const Ray& ray) const
@@ -28,21 +31,24 @@ bool BoundingBox::contains(const glm::vec3& point) const
     (point.z >= m_min.z && point.z <= m_max.z);
 }
 
-std::array<glm::vec3, 8> BoundingBox::points() const
+void BoundingBox::init(const glm::vec3& min, const glm::vec3& max)
 {
-  std::array<glm::vec3, 8> points;
+  m_min = min;
+  m_max = max;
+
+  m_points.clear();
+  m_points.resize(8);
   // llc - left lower corner, rtc - right top corner ...
   // front quad (llc -> rlc -> rtc -> ltc) 
-  points[0] = m_min;
-  points[1] = glm::vec3(m_max.x, m_min.y, m_min.z);
-  points[2] = glm::vec3(m_max.x, m_max.y, m_min.z);
-  points[3] = glm::vec3(m_min.x, m_max.y, m_min.z);
+  m_points[0] = m_min;
+  m_points[1] = glm::vec3(m_max.x, m_min.y, m_min.z);
+  m_points[2] = glm::vec3(m_max.x, m_max.y, m_min.z);
+  m_points[3] = glm::vec3(m_min.x, m_max.y, m_min.z);
   // back quad (llc -> rlc -> rtc -> ltc)
-  points[4] = glm::vec3(m_min.x, m_min.y, m_max.z);
-  points[5] = glm::vec3(m_max.x, m_min.y, m_max.z);
-  points[6] = m_max;
-  points[7] = glm::vec3(m_min.x, m_max.y, m_max.z);
-  return points;
+  m_points[4] = glm::vec3(m_min.x, m_min.y, m_max.z);
+  m_points[5] = glm::vec3(m_max.x, m_min.y, m_max.z);
+  m_points[6] = m_max;
+  m_points[7] = glm::vec3(m_min.x, m_max.y, m_max.z);
 }
 
 const std::array<GLuint, 24>& BoundingBox::lines_indices()

@@ -132,8 +132,6 @@ void SceneRenderer::render_skybox()
   glDepthFunc(GL_LEQUAL);
   Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::SKYBOX);
   shader->bind();
-  shader->set_matrix4f("viewMatrix", m_camera.view_matrix());
-  shader->set_matrix4f("projectionMatrix", m_camera.get_projection_matrix());
   glActiveTexture(GL_TEXTURE0);
   m_skybox.render();
   shader->unbind();

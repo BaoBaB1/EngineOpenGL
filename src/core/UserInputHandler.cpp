@@ -30,10 +30,6 @@ UserInputHandler::UserInputHandler(WindowGLFW* window, HandlerType type)
   m_disabled = false;
 }
 
-UserInputHandler::~UserInputHandler()
-{
-}
-
 void UserInputHandler::notify(bool _enable)
 {
   if (_enable)

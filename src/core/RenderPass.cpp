@@ -505,13 +505,8 @@ void LinesPass::update()
   for (size_t i = 0; i < m_objects_with_visible_bboxes.size(); i++)
   {
     const Object3D* drawable = m_objects_with_visible_bboxes[i];
-    std::array<glm::vec3, 8> bbox_points = drawable->bbox().points();
-    std::array<Vertex, 8> converted;
-    for (size_t j = 0; j < 8; j++)
-    {
-      converted[j] = Vertex(bbox_points[j]);
-    }
-    m_vbo.set_data(converted.data(), bbox_vsize_bytes, i * bbox_vsize_bytes);
+    const std::vector<Vertex>& points = drawable->bbox().points();
+    m_vbo.set_data(points.data(), bbox_vsize_bytes, i * bbox_vsize_bytes);
   }
 }
 
