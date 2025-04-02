@@ -141,19 +141,13 @@ void Ui::render()
     st_gui_opened = !st_gui_opened;
     if (st_gui_opened)
     {
+      // disable any camera movement
+      m_scene->get_camera().freeze();
       glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-      // disable everything except mouse clicks to enable object selection in editing mode
-      for (int i = 0; i < static_cast<int>(UserInputHandler::LAST_ITEM); i++)
-      {
-        if (i != UserInputHandler::MOUSE_INPUT)
-        {
-          m_window->get_input_handler(static_cast<UserInputHandler::HandlerType>(i))->notify(false);
-        }
-      }
     }
     else
     {
-      m_window->notify_all(true);
+      m_scene->get_camera().unfreeze();
       glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     }
   }
