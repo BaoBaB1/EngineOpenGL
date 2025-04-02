@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ITickable.hpp"
-#include "KeyboardHandler.hpp"
+#include "input/KeyboardHandler.hpp"
 #include "utils/Macro.hpp"
 
 class KeyboardHandler;

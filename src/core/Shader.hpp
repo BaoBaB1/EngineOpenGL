@@ -1,10 +1,10 @@
 #pragma once
 
+#include "opengl/OpenGLObject.hpp"
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include "OpenGLObject.hpp"
 #include <vector>
 #include <string_view>
 

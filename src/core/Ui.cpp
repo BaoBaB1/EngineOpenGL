@@ -15,7 +15,7 @@
 #include "WindowGLFW.hpp"
 #include "ModelLoader.hpp"
 #include "./ge/Object3D.hpp"
-#include "KeyboardHandler.hpp"
+#include "input/KeyboardHandler.hpp"
 
 #include <vector>
 #include <string>

@@ -4,7 +4,7 @@
 #include "ge/Vertex.hpp"
 #include "ge/Face.hpp"
 #include "ge/BoundingBox.hpp"
-#include "core/Texture2D.hpp"
+#include "core/opengl/Texture2D.hpp"
 #include "core/Material.hpp"
 #include <vector>
 #include <memory>

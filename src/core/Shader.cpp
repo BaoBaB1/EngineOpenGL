@@ -1,5 +1,6 @@
 #include "Shader.hpp"
 #include "Logger.hpp"
+#include "Debug.hpp"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <string>

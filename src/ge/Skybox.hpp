@@ -1,8 +1,8 @@
 #pragma once
 
-#include "core/Cubemap.hpp"
-#include "core/VertexArrayObject.hpp"
-#include "core/VertexBufferObject.hpp"
+#include "core/opengl/Cubemap.hpp"
+#include "core/opengl/VertexArrayObject.hpp"
+#include "core/opengl/VertexBufferObject.hpp"
 
 class Skybox
 {

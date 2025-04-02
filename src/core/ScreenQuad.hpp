@@ -1,7 +1,7 @@
 #pragma once
 
-#include "VertexArrayObject.hpp"
-#include "VertexBufferObject.hpp"
+#include "opengl/VertexArrayObject.hpp"
+#include "opengl/VertexBufferObject.hpp"
 #include "ITickable.hpp"
 
 class ScreenQuad : public ITickable

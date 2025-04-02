@@ -1,7 +1,7 @@
 #pragma once
 
 #include "UserInputHandler.hpp"
-#include "Event.hpp"
+#include "core/Event.hpp"
 
 class CursorPositionHandler : public UserInputHandler
 {

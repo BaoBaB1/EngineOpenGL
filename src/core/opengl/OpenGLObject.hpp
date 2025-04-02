@@ -1,7 +1,6 @@
 #pragma once
 
 #include <glad/glad.h>
-#include "Debug.hpp"
 #include "./utils/Macro.hpp"
 
 template<typename T>

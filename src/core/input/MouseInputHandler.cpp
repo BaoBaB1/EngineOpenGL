@@ -1,6 +1,6 @@
 #include <GLFW/glfw3.h>
 #include "MouseInputHandler.hpp"
-#include "WindowGLFW.hpp"
+#include "core/WindowGLFW.hpp"
 #include <cassert>
 
 MouseInputHandler::MouseInputHandler(WindowGLFW* window) : UserInputHandler(window, HandlerType::MOUSE_INPUT)

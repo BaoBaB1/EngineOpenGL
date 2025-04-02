@@ -1,5 +1,5 @@
 #include "UserInputHandler.hpp"
-#include "WindowGLFW.hpp"
+#include "core/WindowGLFW.hpp"
 #include <iostream>
 #include <stdexcept>
 

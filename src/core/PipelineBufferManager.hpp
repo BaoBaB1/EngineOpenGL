@@ -1,10 +1,10 @@
 #pragma once
 
-#include "VertexArrayObject.hpp"
-#include "VertexBufferObject.hpp"
-#include "ElementBufferObject.hpp"
-#include "SSBO.hpp"
-#include "UniformBuffer.hpp"
+#include "opengl/VertexArrayObject.hpp"
+#include "opengl/VertexBufferObject.hpp"
+#include "opengl/ElementBufferObject.hpp"
+#include "opengl/SSBO.hpp"
+#include "opengl/UniformBuffer.hpp"
 #include <unordered_map>
 #include <string>
 

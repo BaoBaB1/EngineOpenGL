@@ -1,6 +1,6 @@
 #include "CameraController.hpp"
-#include "CursorPositionHandler.hpp"
-#include "KeyboardHandler.hpp"
+#include "input/CursorPositionHandler.hpp"
+#include "input/KeyboardHandler.hpp"
 #include "Logger.hpp"
 #include "Camera.hpp"
 #include <iostream>

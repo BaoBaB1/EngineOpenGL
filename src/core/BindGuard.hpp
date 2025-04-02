@@ -1,6 +1,6 @@
 #pragma once
 
-#include "OpenGLObject.hpp"
+#include "opengl/OpenGLObject.hpp"
 #include <initializer_list>
 
 template<typename T>
@@ -28,7 +28,7 @@ class BindChainFIFO
 public:
 	BindChainFIFO(std::initializer_list<OpenGLObject*> bindables)
 	{
-		m_bindables = std::move(bindables);
+		m_bindables = bindables;
 		for (const auto bindable : bindables)
 		{
 			bindable->bind();

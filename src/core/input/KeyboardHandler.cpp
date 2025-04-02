@@ -1,4 +1,4 @@
-#include "WindowGLFW.hpp"
+#include "core/WindowGLFW.hpp"
 #include "KeyboardHandler.hpp"
 #include <GLFW/glfw3.h>
 #include <cassert>

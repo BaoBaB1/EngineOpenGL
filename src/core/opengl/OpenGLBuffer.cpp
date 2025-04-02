@@ -1,5 +1,5 @@
 #include "OpenGLBuffer.hpp"
-#include "Logger.hpp"
+#include "core/Logger.hpp"
 
 OpenGLBuffer::OpenGLBuffer(int type) : m_type(type)
 {

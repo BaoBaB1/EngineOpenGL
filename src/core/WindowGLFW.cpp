@@ -1,7 +1,7 @@
 #include "WindowGLFW.hpp"
-#include "KeyboardHandler.hpp"
-#include "CursorPositionHandler.hpp"
-#include "MouseInputHandler.hpp"
+#include "input/KeyboardHandler.hpp"
+#include "input/CursorPositionHandler.hpp"
+#include "input/MouseInputHandler.hpp"
 #include "Debug.hpp"
 #include "Logger.hpp"
 #include <glad/glad.h>

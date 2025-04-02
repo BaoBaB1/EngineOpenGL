@@ -1,10 +1,10 @@
 #pragma once
 
 #include "ITickable.hpp"
-#include "VertexArrayObject.hpp"
-#include "VertexBufferObject.hpp"
-#include "ElementBufferObject.hpp"
-#include "SSBO.hpp"
+#include "opengl/VertexArrayObject.hpp"
+#include "opengl/VertexBufferObject.hpp"
+#include "opengl/ElementBufferObject.hpp"
+#include "opengl/SSBO.hpp"
 #include "glm/glm.hpp"
 #include "glad/glad.h"
 #include <vector>

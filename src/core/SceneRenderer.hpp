@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Camera.hpp"
-#include "FrameBufferObject.hpp"
-#include "KeyboardHandler.hpp"
+#include "opengl/FrameBufferObject.hpp"
+#include "input/KeyboardHandler.hpp"
 #include "CameraController.hpp"
 #include "Ui.hpp"
 #include "ScreenQuad.hpp"

@@ -3,7 +3,7 @@
 #include <glad/glad.h>
 #include <optional>
 #include "Texture2D.hpp"
-#include "Shader.hpp"
+#include "core/Shader.hpp"
 
 class FrameBufferObject : public OpenGLObject
 {

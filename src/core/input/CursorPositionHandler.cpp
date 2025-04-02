@@ -1,6 +1,6 @@
 #include "CursorPositionHandler.hpp"
-#include "SceneRenderer.hpp"
-#include "WindowGLFW.hpp"
+#include "core/SceneRenderer.hpp"
+#include "core/WindowGLFW.hpp"
 #include <GLFW/glfw3.h>
 
 extern int ignore_frames;

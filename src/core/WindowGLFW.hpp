@@ -1,7 +1,7 @@
 #pragma once
 
 #include "utils/Macro.hpp"
-#include "UserInputHandler.hpp"
+#include "input/UserInputHandler.hpp"
 #include "Event.hpp"
 #include <map>
 #include <memory>
