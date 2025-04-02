@@ -1,5 +1,5 @@
 #include "Icosahedron.hpp"
-#include "./core/Debug.hpp"
+#include "core/Logger.hpp"
 #include <glm/glm.hpp>
 #include <utility>
 
@@ -95,6 +95,5 @@ void Icosahedron::allocate_memory_before_subdivision(int subdivision_depth, int 
   size_t new_vert_count = new_face_count* 3;
   mesh.vertices().reserve(new_vert_count);
   mesh.faces().reserve(new_face_count);
-  DEBUG("preallocating memory for " << new_vert_count << " icosahedron points\n");
-  DEBUG("preallocating memory for " << new_face_count << " icosahedron faces\n");
+  Logger::debug("Preallocaing memory for {} icosahedron points and {} faces.", new_vert_count, new_face_count);
 }

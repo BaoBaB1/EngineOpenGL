@@ -1,6 +1,6 @@
 #include "ElementBufferObject.hpp"
 
-ElementBufferObject::ElementBufferObject() : ElementBufferObject(GL_ELEMENT_ARRAY_BUFFER)
+ElementBufferObject::ElementBufferObject() : OpenGLBuffer(GL_ELEMENT_ARRAY_BUFFER)
 {
 }
 

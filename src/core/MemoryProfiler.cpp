@@ -1,4 +1,5 @@
 #include "MemoryProfiler.hpp"
+#include "Logger.hpp"
 
 _CrtMemState MemoryProfiler::m_first;
 _CrtMemState MemoryProfiler::m_second;
@@ -33,11 +34,11 @@ MemoryProfiler::DumpResult MemoryProfiler::dump() {
   _CrtMemState diff;
   if (_CrtMemDifference(&diff, &m_first, &m_second)) // if there is a difference
   {
-    DEBUG("-----------_CrtMemDumpStatistics ---------\n");
+    Logger::debug("-----------_CrtMemDumpStatistics ---------");
     _CrtMemDumpStatistics(&diff);
-    DEBUG("-----------_CrtMemDumpAllObjectsSince ---------\n");
+    Logger::debug("-----------_CrtMemDumpAllObjectsSince ---------");
     _CrtMemDumpAllObjectsSince(&m_first);
-    DEBUG("-----------_CrtDumpMemoryLeaks ---------\n");
+    Logger::debug("-----------_CrtDumpMemoryLeaks ---------");
     _CrtDumpMemoryLeaks();
     return DumpResult::eExistMemoryLeaks;
   }

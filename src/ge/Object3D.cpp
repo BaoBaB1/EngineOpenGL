@@ -1,4 +1,5 @@
 #include "Object3D.hpp"
+#include "core/Logger.hpp"
 
 Object3D::Object3D() : Entity("Object")
 {
@@ -80,7 +81,7 @@ std::optional<RayHit> Object3D::hit(const Ray& ray) const
     }
     else
     {
-      std::cerr << "Bounding box is intersected, but could not test if object is actually hit. Primitives are not triangles\n";
+      Logger::info("Bounding box is intersected, but could not test if object is actually hit. Primitives are not triangles");
     }
   }
   return rhit;

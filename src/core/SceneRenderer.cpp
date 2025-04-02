@@ -12,6 +12,7 @@
 #include "ShaderStorage.hpp"
 #include "BindGuard.hpp"
 #include "PipelineBufferManager.hpp"
+#include "Logger.hpp"
 #include "ge/Cube.hpp"
 #include "ge/Icosahedron.hpp"
 #include "ge/Polyline.hpp"
@@ -312,7 +313,7 @@ void SceneRenderer::select_object(Object3D* obj, bool click_from_menu_item)
     return;
   // for now support only single object selection
   assert(m_selected_objects.size() == 0 || m_selected_objects.size() == 1);
-  std::cout << obj->get_name() << " selected\n";
+  Logger::debug("{} selected", obj->get_name());
   if (m_selected_objects.size())
   {
     m_selected_objects.back()->select(false);

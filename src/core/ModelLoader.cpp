@@ -1,4 +1,5 @@
 #include "ModelLoader.hpp"
+#include "Logger.hpp"
 
 std::optional<Object3D> ModelLoader::load(const std::string& filename, unsigned int flags)
 {
@@ -7,7 +8,7 @@ std::optional<Object3D> ModelLoader::load(const std::string& filename, unsigned 
 
   if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
   {
-    DEBUG("Failed to load file " << filename << ". Assimp error " << importer.GetErrorString() << '\n');
+    Logger::error("Failed to load file {}. Assimp error {}.", filename, importer.GetErrorString());
     return std::nullopt;
   }
   else
@@ -140,7 +141,7 @@ void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::f
 
   if (root == scene->mRootNode)
   {
-    std::cout << "Model has been loaded. Vertex count: " << vcount << ", face count " << fcount << '\n';
+    Logger::info("Model has been loaded. Vertex count: {}, face count {}", vcount, fcount);
   }
 }
 

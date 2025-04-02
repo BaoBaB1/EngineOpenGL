@@ -1,6 +1,7 @@
+#include "Shader.hpp"
+#include "Logger.hpp"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include "Shader.hpp"
 #include <string>
 #include <fstream>
 #include <exception>
@@ -10,7 +11,7 @@ static bool read_shader_file_content(const char* const file, std::string& conten
 {
   if (!std::filesystem::exists(file))
   {
-    std::cerr << "File " << file << " does not exist\n";
+    Logger::error("File {} does not exist", file);
     return false;
   }
   content.clear();
@@ -38,7 +39,7 @@ void Shader::load(const std::vector<std::pair<ShaderStage, std::string_view>>& d
 {
   if (description.size() < 2)
   {
-    std::cerr << "Invalid shader description (size < 2).\n";
+    Logger::error("Invalid shader description (size < 2).");
     return;
   }
   if (m_id != 0)

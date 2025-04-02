@@ -1,4 +1,5 @@
 #include "OpenGLBuffer.hpp"
+#include "Logger.hpp"
 
 OpenGLBuffer::OpenGLBuffer(int type) : m_type(type)
 {
@@ -15,7 +16,7 @@ void OpenGLBuffer::set_data(const void* data, size_t size_in_bytes, size_t offse
 {
   if (offset + size_in_bytes > m_size)
   {
-    std::cerr << "Could not set VBO data. offset + size_in_bytes >= m_size\n";
+    Logger::error("Could not set VBO data. offset + size_in_bytes >= m_size");
     return;
   }
   glBufferSubData(m_type, offset, size_in_bytes, data);

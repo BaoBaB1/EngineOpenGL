@@ -1,10 +1,11 @@
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
 #include "WindowGLFW.hpp"
 #include "KeyboardHandler.hpp"
 #include "CursorPositionHandler.hpp"
 #include "MouseInputHandler.hpp"
 #include "Debug.hpp"
+#include "Logger.hpp"
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
 
 // TODO: ignore frames for each window !!!
 extern int ignore_frames = 3;
@@ -42,7 +43,7 @@ void WindowGLFW::init(int width, int height, const char* title)
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   m_window = glfwCreateWindow(width, height, title, nullptr, glfwGetCurrentContext());
   if (m_window == nullptr) {
-    DEBUG("Failed to create GLFW window" << std::endl);
+    Logger::critical("Failed to create GLFW window");
     return;
   }
   glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);

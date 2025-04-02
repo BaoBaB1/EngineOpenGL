@@ -14,11 +14,14 @@ file(GLOB_RECURSE SOURCES
 	"src/glsl/*.*"
 	)
 
+if (NOT WIN32)
+	list(FILTER SOURCES	EXCLUDE	REGEX ".*MemoryProfiler.*")
+endif()
+
 add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/src/core/OpenGLMain.cpp ${SOURCES})
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
-target_compile_definitions(glm PUBLIC GLM_ENABLE_EXPERIMENTAL)
-target_link_libraries(${PROJECT_NAME} PUBLIC glfw glad glm imgui assimp ImGuiFileDialog ImGuizmo stb)
+target_link_libraries(${PROJECT_NAME} PUBLIC glfw glad glm imgui assimp ImGuiFileDialog ImGuizmo stb spdlog)
 set_target_properties(${PROJECT_NAME} PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${ROOT_DIR})
 
 add_subdirectory(tests)

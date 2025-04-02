@@ -9,3 +9,5 @@ FetchContent_Declare(
 
 set(GLM_ENABLE_CXX_17 ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(glm)
+
+target_compile_definitions(glm PUBLIC GLM_ENABLE_EXPERIMENTAL)

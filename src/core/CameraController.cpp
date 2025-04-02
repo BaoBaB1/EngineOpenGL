@@ -1,6 +1,7 @@
 #include "CameraController.hpp"
 #include "CursorPositionHandler.hpp"
 #include "KeyboardHandler.hpp"
+#include "Logger.hpp"
 #include "Camera.hpp"
 #include <iostream>
 #include <exception>
@@ -59,13 +60,15 @@ void CameraController::init(Camera* camera, KeyboardHandler* keyboard_handler, C
 {
 	if (!camera)
 	{
-		throw std::runtime_error("Camera for camera controller is null\n");
+		constexpr auto msg = "Camera for camera controller is null";
+		Logger::critical(msg);
+		throw std::runtime_error(msg);
 	}
 	m_camera = camera;
 
 	if (!keyboard_handler)
 	{
-		std::cout << "Camera controller is missing keyboard handler\n";
+		Logger::warn("Camera controller is missing keyboard handler");
 	}
 	else
 	{
@@ -74,7 +77,7 @@ void CameraController::init(Camera* camera, KeyboardHandler* keyboard_handler, C
 
 	if (!cursor_handler)
 	{
-		std::cout << "Camera controller is missing cursor position handler\n";
+		Logger::warn("Camera controller is missing cursor position handler");
 	}
 	else
 	{
