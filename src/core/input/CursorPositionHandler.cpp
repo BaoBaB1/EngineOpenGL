@@ -3,35 +3,38 @@
 #include "core/WindowGLFW.hpp"
 #include <GLFW/glfw3.h>
 
-extern int ignore_frames;
-
-CursorPositionHandler::CursorPositionHandler(WindowGLFW* window) : UserInputHandler(window, HandlerType::CURSOR_POSITION)
+namespace fury
 {
-  auto callback = [](GLFWwindow* window, double xpos, double ypos)
-    {
-      WindowGLFW* window_glfw = static_cast<WindowGLFW*>(glfwGetWindowUserPointer(window));
-      static_cast<CursorPositionHandler*>(window_glfw->get_input_handler(HandlerType::CURSOR_POSITION))->callback(xpos, ypos);
-    };
-  glfwSetCursorPosCallback(m_window->gl_window(), callback);
-  glfwGetCursorPos(m_window->gl_window(), &m_cur_pos[0], &m_cur_pos[1]);
-  m_prev_pos[0] = m_prev_pos[1] = 0;
-}
+  extern int ignore_frames;
 
-void CursorPositionHandler::callback(double xpos, double ypos)
-{
-  if (!m_disabled)
+  CursorPositionHandler::CursorPositionHandler(WindowGLFW* window) : UserInputHandler(window, HandlerType::CURSOR_POSITION)
   {
-    // workaround for large x,y offsets after window gets focus. seems to be a glfw bug
-    // https://github.com/glfw/glfw/issues/2523
-    if (ignore_frames > 0)
-    {
-      --ignore_frames;
-      return;
-    }
-    m_prev_pos[0] = m_cur_pos[0];
-    m_prev_pos[1] = m_cur_pos[1];
-    m_cur_pos[0] = xpos;
-    m_cur_pos[1] = ypos;
-    on_cursor_position_change.notify(m_cur_pos[0], m_cur_pos[1], m_prev_pos[0], m_prev_pos[1]);
+    auto callback = [](GLFWwindow* window, double xpos, double ypos)
+      {
+        WindowGLFW* window_glfw = static_cast<WindowGLFW*>(glfwGetWindowUserPointer(window));
+        static_cast<CursorPositionHandler*>(window_glfw->get_input_handler(HandlerType::CURSOR_POSITION))->callback(xpos, ypos);
+      };
+    glfwSetCursorPosCallback(m_window->gl_window(), callback);
+    glfwGetCursorPos(m_window->gl_window(), &m_cur_pos[0], &m_cur_pos[1]);
+    m_prev_pos[0] = m_prev_pos[1] = 0;
   }
-}
+
+  void CursorPositionHandler::callback(double xpos, double ypos)
+  {
+    if (!m_disabled)
+    {
+      // workaround for large x,y offsets after window gets focus. seems to be a glfw bug
+      // https://github.com/glfw/glfw/issues/2523
+      if (ignore_frames > 0)
+      {
+        --ignore_frames;
+        return;
+      }
+      m_prev_pos[0] = m_cur_pos[0];
+      m_prev_pos[1] = m_cur_pos[1];
+      m_cur_pos[0] = xpos;
+      m_cur_pos[1] = ypos;
+      on_cursor_position_change.notify(m_cur_pos[0], m_cur_pos[1], m_prev_pos[0], m_prev_pos[1]);
+    }
+  }
+};

@@ -3,25 +3,28 @@
 #include "core/WindowGLFW.hpp"
 #include <cassert>
 
-MouseInputHandler::MouseInputHandler(WindowGLFW* window) : UserInputHandler(window, HandlerType::MOUSE_INPUT)
+namespace fury
 {
-  auto click_callback = [](GLFWwindow* window, int button, int action, int mods)
-    {
-      WindowGLFW* window_glfw = static_cast<WindowGLFW*>(glfwGetWindowUserPointer(window));
-      static_cast<MouseInputHandler*>(window_glfw->get_input_handler(HandlerType::MOUSE_INPUT))->click_callback(window, button, action, mods);
-    };
-  glfwSetMouseButtonCallback(m_window->gl_window(), click_callback);
-}
-
-void MouseInputHandler::click_callback(GLFWwindow* window, int button, int action, int mods) const
-{
-  if (!disabled())
+  MouseInputHandler::MouseInputHandler(WindowGLFW* window) : UserInputHandler(window, HandlerType::MOUSE_INPUT)
   {
-    if (action == GLFW_PRESS)
+    auto click_callback = [](GLFWwindow* window, int button, int action, int mods)
+      {
+        WindowGLFW* window_glfw = static_cast<WindowGLFW*>(glfwGetWindowUserPointer(window));
+        static_cast<MouseInputHandler*>(window_glfw->get_input_handler(HandlerType::MOUSE_INPUT))->click_callback(window, button, action, mods);
+      };
+    glfwSetMouseButtonCallback(m_window->gl_window(), click_callback);
+  }
+
+  void MouseInputHandler::click_callback(GLFWwindow* window, int button, int action, int mods) const
+  {
+    if (!disabled())
     {
-      double x, y;
-      glfwGetCursorPos(window, &x, &y);
-      on_button_click.notify(button, static_cast<int>(x), static_cast<int>(y));
+      if (action == GLFW_PRESS)
+      {
+        double x, y;
+        glfwGetCursorPos(window, &x, &y);
+        on_button_click.notify(button, static_cast<int>(x), static_cast<int>(y));
+      }
     }
   }
 }

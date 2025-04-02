@@ -2,10 +2,13 @@
 
 #include "OpenGLBuffer.hpp"
 
-class UniformBuffer : public OpenGLBuffer
+namespace fury
 {
-public:
-  OnlyMovable(UniformBuffer)
-  UniformBuffer();
-  UniformBuffer(size_t size);
-};
+	class UniformBuffer : public OpenGLBuffer
+	{
+	public:
+		OnlyMovable(UniformBuffer)
+			UniformBuffer();
+		UniformBuffer(size_t size);
+	};
+}

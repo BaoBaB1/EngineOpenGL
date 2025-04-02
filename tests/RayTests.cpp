@@ -2,6 +2,8 @@
 #include "ge/Ray.hpp"
 #include "ge/BoundingBox.hpp"
 
+using namespace fury;
+
 TEST(RayTest, TestGetters)
 {
 	Ray r(glm::vec3(), glm::vec3(0, 0, -1));

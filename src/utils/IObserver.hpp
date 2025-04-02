@@ -1,6 +1,6 @@
 #pragma once
 
-namespace OpenGLEngineUtils 
+namespace furyutils 
 {
   class IObserver
   {

@@ -1,8 +1,11 @@
 #pragma once
 
-class ITickable
+namespace fury
 {
-public:
-	virtual void tick() = 0;
-	virtual ~ITickable() = default;
-};
+	class ITickable
+	{
+	public:
+		virtual void tick() = 0;
+		virtual ~ITickable() = default;
+	};
+}

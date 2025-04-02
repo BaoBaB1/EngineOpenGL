@@ -8,17 +8,20 @@
 #include <unordered_map>
 #include <string>
 
-template<typename T>
-class PipelineBuffersManager
+namespace fury
 {
-public:
-	static T& get(const std::string& name) { return records[name]; }
-private:
-	inline static std::unordered_map<std::string, T> records;
-};
+	template<typename T>
+	class PipelineBuffersManager
+	{
+	public:
+		static T& get(const std::string& name) { return records[name]; }
+	private:
+		inline static std::unordered_map<std::string, T> records;
+	};
 
-using PipelineVAOManager = PipelineBuffersManager<VertexArrayObject>;
-using PipelineVBOManager = PipelineBuffersManager<VertexBufferObject>;
-using PipelineEBOManager = PipelineBuffersManager<ElementBufferObject>;
-using PipelineSSBOManager = PipelineBuffersManager<SSBO>;
-using PipelineUBOManager = PipelineBuffersManager<UniformBuffer>;
+	using PipelineVAOManager = PipelineBuffersManager<VertexArrayObject>;
+	using PipelineVBOManager = PipelineBuffersManager<VertexBufferObject>;
+	using PipelineEBOManager = PipelineBuffersManager<ElementBufferObject>;
+	using PipelineSSBOManager = PipelineBuffersManager<SSBO>;
+	using PipelineUBOManager = PipelineBuffersManager<UniformBuffer>;
+}

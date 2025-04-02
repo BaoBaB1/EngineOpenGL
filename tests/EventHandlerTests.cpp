@@ -1,6 +1,8 @@
 #include "core/Event.hpp"
 #include "gtest/gtest.h"
 
+using namespace fury;
+
 namespace
 {
 	int g_a = 0;

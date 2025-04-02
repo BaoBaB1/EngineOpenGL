@@ -2,9 +2,12 @@
 
 #include "Ray.hpp"
 
-class IRayHittable
+namespace fury
 {
-public:
-	virtual std::optional<RayHit> hit(const Ray& ray) const = 0;
-	virtual ~IRayHittable() = default;
-};
+	class IRayHittable
+	{
+	public:
+		virtual std::optional<RayHit> hit(const Ray& ray) const = 0;
+		virtual ~IRayHittable() = default;
+	};
+}

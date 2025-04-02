@@ -2,10 +2,13 @@
 
 #include "OpenGLBuffer.hpp"
 
-class VertexBufferObject : public OpenGLBuffer
+namespace fury
 {
-public:
-  OnlyMovable(VertexBufferObject)
-  VertexBufferObject();
-  VertexBufferObject(size_t size);
-};
+	class VertexBufferObject : public OpenGLBuffer
+	{
+	public:
+		OnlyMovable(VertexBufferObject)
+			VertexBufferObject();
+		VertexBufferObject(size_t size);
+	};
+}

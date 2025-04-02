@@ -5,6 +5,7 @@
 
 namespace
 {
+  using namespace fury;
   // glfw key code -> InputKey
   std::map<int, KeyboardHandler::InputKey> mapped_keys =
   {
@@ -25,59 +26,62 @@ namespace
   };
 }
 
-KeyboardHandler::KeyboardHandler(WindowGLFW* window) : UserInputHandler(window, HandlerType::KEYBOARD)
+namespace fury
 {
-  auto key_callback = [](GLFWwindow* window, int key, int scancode, int action, int mods)
-    {
-      WindowGLFW* window_glfw = static_cast<WindowGLFW*>(glfwGetWindowUserPointer(window));
-      static_cast<KeyboardHandler*>(window_glfw->get_input_handler(HandlerType::KEYBOARD))->key_callback(key, scancode, action, mods);
-    };
-  for (int i = 0; i < static_cast<int>(InputKey::LAST); i++)
+  KeyboardHandler::KeyboardHandler(WindowGLFW* window) : UserInputHandler(window, HandlerType::KEYBOARD)
   {
-    m_keystate[static_cast<InputKey>(i)] = KeyState::RELEASED;
-  }
-  glfwSetKeyCallback(m_window->gl_window(), key_callback);
-}
-
-void KeyboardHandler::key_callback(int key, int scancode, int action, int mods)
-{
-  if (!disabled())
-  {
-    auto iter = ::mapped_keys.find(key);
-    if (iter != ::mapped_keys.end())
-    {
-      InputKey ckey = iter->second;
-      switch (action)
+    auto key_callback = [](GLFWwindow* window, int key, int scancode, int action, int mods)
       {
-      case GLFW_RELEASE:
-        m_keystate[ckey] = KeyState::RELEASED;
-        m_pressed_keys.erase(m_pressed_key_map[ckey]);
-        m_pressed_key_map.erase(ckey);
-        on_key_state_change.notify(ckey, KeyState::RELEASED);
-        break;
-      case GLFW_PRESS:
-        m_keystate[ckey] = KeyState::PRESSED;
-        m_pressed_keys.push_back(ckey);
-        m_pressed_key_map.emplace(std::make_pair(ckey, std::prev(m_pressed_keys.end())));
-        on_key_state_change.notify(ckey, KeyState::PRESSED);
-        break;
+        WindowGLFW* window_glfw = static_cast<WindowGLFW*>(glfwGetWindowUserPointer(window));
+        static_cast<KeyboardHandler*>(window_glfw->get_input_handler(HandlerType::KEYBOARD))->key_callback(key, scancode, action, mods);
+      };
+    for (int i = 0; i < static_cast<int>(InputKey::LAST); i++)
+    {
+      m_keystate[static_cast<InputKey>(i)] = KeyState::RELEASED;
+    }
+    glfwSetKeyCallback(m_window->gl_window(), key_callback);
+  }
+
+  void KeyboardHandler::key_callback(int key, int scancode, int action, int mods)
+  {
+    if (!disabled())
+    {
+      auto iter = ::mapped_keys.find(key);
+      if (iter != ::mapped_keys.end())
+      {
+        InputKey ckey = iter->second;
+        switch (action)
+        {
+        case GLFW_RELEASE:
+          m_keystate[ckey] = KeyState::RELEASED;
+          m_pressed_keys.erase(m_pressed_key_map[ckey]);
+          m_pressed_key_map.erase(ckey);
+          on_key_state_change.notify(ckey, KeyState::RELEASED);
+          break;
+        case GLFW_PRESS:
+          m_keystate[ckey] = KeyState::PRESSED;
+          m_pressed_keys.push_back(ckey);
+          m_pressed_key_map.emplace(std::make_pair(ckey, std::prev(m_pressed_keys.end())));
+          on_key_state_change.notify(ckey, KeyState::PRESSED);
+          break;
+        }
       }
     }
   }
-}
 
-KeyboardHandler::KeyState KeyboardHandler::get_keystate(InputKey key) const
-{
-  return m_keystate.at(key);
-}
-
-void KeyboardHandler::disable()
-{
-  m_disabled = true;
-  m_pressed_keys.clear();
-  m_pressed_key_map.clear();
-  for (int i = 0; i < static_cast<int>(InputKey::LAST); i++)
+  KeyboardHandler::KeyState KeyboardHandler::get_keystate(InputKey key) const
   {
-    m_keystate[static_cast<InputKey>(i)] = RELEASED;
+    return m_keystate.at(key);
   }
-}
+
+  void KeyboardHandler::disable()
+  {
+    m_disabled = true;
+    m_pressed_keys.clear();
+    m_pressed_key_map.clear();
+    for (int i = 0; i < static_cast<int>(InputKey::LAST); i++)
+    {
+      m_keystate[static_cast<InputKey>(i)] = RELEASED;
+    }
+  }
+};

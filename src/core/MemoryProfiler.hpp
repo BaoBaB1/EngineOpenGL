@@ -9,17 +9,20 @@
 #define new DEBUG_NEW
 #endif
 
-class MemoryProfiler {
-public:
-  enum DumpResult {
-    eNoMemoryLeaks = 1, 
-    eExistMemoryLeaks,
-    eNoMemorySnapshot
+namespace fury
+{
+  class MemoryProfiler {
+  public:
+    enum DumpResult {
+      eNoMemoryLeaks = 1,
+      eExistMemoryLeaks,
+      eNoMemorySnapshot
+    };
+    static void make_memory_snapshot();
+    static DumpResult dump();
+  private:
+    static void init();
+    static _CrtMemState m_first;
+    static _CrtMemState m_second;
   };
-  static void make_memory_snapshot();
-  static DumpResult dump();
-private:
-  static void init();
-  static _CrtMemState m_first;
-  static _CrtMemState m_second;
-};
+}

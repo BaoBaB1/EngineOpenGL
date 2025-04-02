@@ -2,10 +2,13 @@
 
 #include "OpenGLBuffer.hpp"
 
-class SSBO : public OpenGLBuffer
+namespace fury
 {
-public:
-  OnlyMovable(SSBO)
-  SSBO();
-  SSBO(size_t size);
-};
+	class SSBO : public OpenGLBuffer
+	{
+	public:
+		OnlyMovable(SSBO)
+			SSBO();
+		SSBO(size_t size);
+	};
+}

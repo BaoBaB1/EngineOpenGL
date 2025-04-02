@@ -22,14 +22,17 @@ struct fmt::formatter<glm::vec4> : fmt::formatter<std::string>
   }
 };
 
-inline int init_logger()
+namespace fury
 {
-  spdlog::default_logger()->set_level(spdlog::level::debug);
-  return 1;
-}
+  inline int init_logger()
+  {
+    spdlog::default_logger()->set_level(spdlog::level::debug);
+    return 1;
+  }
 
-namespace Logger
-{
-  inline int dummy = init_logger();
-  using namespace spdlog;
+  namespace Logger
+  {
+    inline int dummy = init_logger();
+    using namespace spdlog;
+  }
 }

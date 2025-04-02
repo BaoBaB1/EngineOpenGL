@@ -3,23 +3,26 @@
 #include "./core/Shader.hpp"
 #include <map>
 
-class ShaderStorage
+namespace fury
 {
-public:
-  enum ShaderType
+  class ShaderStorage
   {
-    DEFAULT,
-    OUTLINING,
-    SKYBOX,
-    SCREEN_QUAD,
-    DEPTH_PICKING,
-    LINES,
-    NORMALS,
-    LAST_ITEM
+  public:
+    enum ShaderType
+    {
+      DEFAULT,
+      OUTLINING,
+      SKYBOX,
+      SCREEN_QUAD,
+      DEPTH_PICKING,
+      LINES,
+      NORMALS,
+      LAST_ITEM
+    };
+    static void init();
+    static Shader& get(ShaderType type) { return shaders[type]; }
+    static Shader* get(unsigned int id);
+  private:
+    static std::map<ShaderType, Shader> shaders;
   };
-  static void init();
-  static Shader& get(ShaderType type) { return shaders[type]; }
-  static Shader* get(unsigned int id);
-private:
-  static std::map<ShaderType, Shader> shaders;
-};
+}

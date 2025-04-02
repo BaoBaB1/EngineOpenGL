@@ -14,40 +14,43 @@
 #include <map>
 #include <unordered_set>
 
-class Object3D;
-class Skybox;
-
-class SceneRenderer : public ITickable
+namespace fury
 {
-public:
-  SceneRenderer(WindowGLFW* window);
-  ~SceneRenderer();
-  Camera& get_camera() { return m_camera; }
-  std::unordered_set<int>& get_light_sources() { return m_light_sources; }
-  std::vector<Object3D>& get_drawables() { return m_drawables; }
-  Ui& get_ui() { return m_ui; }
-  void render();
-  Event<Object3D*> on_new_object_added;
-private:
-  void tick() override;
-  void create_scene();
-  void select_object(Object3D* obj, bool click_from_menu_item);  // temporary function. remove when selection of multiple elements is supported
-  void render_skybox();
-  void handle_mouse_click(int button, int x, int y);
-  void handle_window_size_change(int width, int height);
-  void handle_keyboard_input(KeyboardHandler::InputKey key, KeyboardHandler::KeyState state);
-  friend class Ui;
-private:
-  std::vector<Object3D> m_drawables;
-  std::vector<Object3D*> m_selected_objects;
-  std::vector<std::unique_ptr<RenderPass>> m_render_passes;
-  std::unordered_set<int> m_light_sources;
-  ScreenQuad m_screen_quad;
-  Skybox m_skybox;
-  WindowGLFW* m_window;
-  Ui m_ui;
-  CameraController m_cam_controller;
-  Camera m_camera;
-  std::map<std::string, FrameBufferObject> m_fbos;
-  GLint m_polygon_mode = GL_FILL;
-};
+  class Object3D;
+  class Skybox;
+
+  class SceneRenderer : public ITickable
+  {
+  public:
+    SceneRenderer(WindowGLFW* window);
+    ~SceneRenderer();
+    Camera& get_camera() { return m_camera; }
+    std::unordered_set<int>& get_light_sources() { return m_light_sources; }
+    std::vector<Object3D>& get_drawables() { return m_drawables; }
+    Ui& get_ui() { return m_ui; }
+    void render();
+    Event<Object3D*> on_new_object_added;
+  private:
+    void tick() override;
+    void create_scene();
+    void select_object(Object3D* obj, bool click_from_menu_item);  // temporary function. remove when selection of multiple elements is supported
+    void render_skybox();
+    void handle_mouse_click(int button, int x, int y);
+    void handle_window_size_change(int width, int height);
+    void handle_keyboard_input(KeyboardHandler::InputKey key, KeyboardHandler::KeyState state);
+    friend class Ui;
+  private:
+    std::vector<Object3D> m_drawables;
+    std::vector<Object3D*> m_selected_objects;
+    std::vector<std::unique_ptr<RenderPass>> m_render_passes;
+    std::unordered_set<int> m_light_sources;
+    ScreenQuad m_screen_quad;
+    Skybox m_skybox;
+    WindowGLFW* m_window;
+    Ui m_ui;
+    CameraController m_cam_controller;
+    Camera m_camera;
+    std::map<std::string, FrameBufferObject> m_fbos;
+    GLint m_polygon_mode = GL_FILL;
+  };
+}

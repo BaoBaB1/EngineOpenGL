@@ -2,7 +2,7 @@
 
 #include <limits>
 
-namespace OpenGLEngineUtils 
+namespace furyutils
 {
   namespace limits
   {

@@ -2,13 +2,16 @@
 
 #include <string>
 
-class Entity
+namespace fury
 {
-public:
-  void set_name(const std::string& name) { m_name = name; }
-  const std::string& get_name() const { return m_name; }
-protected:
-  Entity(const std::string& name) : m_name(name) {}
-private:
-  std::string m_name;
-};
+  class Entity
+  {
+  public:
+    void set_name(const std::string& name) { m_name = name; }
+    const std::string& get_name() const { return m_name; }
+  protected:
+    Entity(const std::string& name) : m_name(name) {}
+  private:
+    std::string m_name;
+  };
+}
