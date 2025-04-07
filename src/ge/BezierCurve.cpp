@@ -2,32 +2,16 @@
 
 namespace fury
 {
-  BezierCurve::BezierCurve(Type type, const Vertex& start_pnt, const Vertex& end_pnt)
+  BezierCurve::BezierCurve(BezierCurveType type, const Vertex& start_pnt, const Vertex& end_pnt)
     : Curve(start_pnt, end_pnt)
   {
     m_type = type;
   }
 
-  void BezierCurve::set_control_points(const std::vector<Vertex>& c_points)
+  void BezierCurve::set_control_points(const std::array<Vertex, 2>& c_points)
   {
-    // TODO: instead of throwing exception make class like ErrorDialog or maybe return error code? 
-    switch (m_type)
-    {
-    case BezierCurve::Type::Quadratic:
-      if (c_points.size() != 1)
-        throw std::exception("For quadratic Bezier curve n of control points must be 1");
-      break;
-    case BezierCurve::Type::Cubic:
-      if (c_points.size() != 2)
-        throw std::exception("For qubic Bezier curve n of control points must be 2");
-      break;
-    default:
-      throw std::exception("Unsupported Bezier curve type");
-      break;
-    }
-
-    Mesh& mesh = get_mesh(0);
     m_control_points = c_points;
+    Mesh& mesh = get_mesh(0);
     mesh.vertices().clear();
     mesh.faces().clear();
 
@@ -35,7 +19,7 @@ namespace fury
     std::vector<Vertex>& vertices = mesh.vertices();
     vertices.reserve(static_cast<size_t>(1. / step));
 
-    if (m_type == BezierCurve::Type::Quadratic)
+    if (m_type == BezierCurveType::Quadratic)
     {
       // B(t) = (1-t)^2 * P0 + 2t(1-t) * P1 + t^2 * P2 , where 
       // P0 - start point 
@@ -74,5 +58,12 @@ namespace fury
         vertices.push_back(res);
       }
     }
+  }
+
+  std::pair<const Vertex*, int> BezierCurve::get_control_points() const
+  {
+    if (m_type == BezierCurveType::Quadratic)
+      return { &m_control_points[0], 1 };
+    return { &m_control_points[0], 2 };
   }
 }

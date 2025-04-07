@@ -1,25 +1,29 @@
 #pragma once
 
 #include "ge/Curve.hpp"
+#include <array>
 
 namespace fury
 {
+  enum class BezierCurveType
+  {
+    Quadratic = 1,
+    Cubic
+  };
+
   class BezierCurve : public Curve
   {
   public:
-    enum class Type
-    {
-      Quadratic = 1,
-      Cubic,
-    };
+
   public:
-    BezierCurve(Type type) : m_type(type) {}
-    BezierCurve(Type type, const Vertex& start_pnt, const Vertex& end_pnt);
-    void set_control_points(const std::vector<Vertex>& c_points);
-    std::vector<Vertex>& control_points() { return m_control_points; }
-    const std::vector<Vertex>& control_points() const { return m_control_points; }
-    Type type() const { return m_type; }
+    BezierCurve(BezierCurveType type) : m_type(type) {}
+    BezierCurve(BezierCurveType type, const Vertex& start_pnt, const Vertex& end_pnt);
+    void set_control_points(const std::array<Vertex, 2>& c_points);
+    std::pair<const Vertex*, int> get_control_points() const;
+    BezierCurveType type() const { return m_type; }
   private:
-    Type m_type;
+    BezierCurveType m_type = BezierCurveType::Quadratic;
+    // 1 or 2
+    std::array<Vertex, 2> m_control_points;
   };
 }

@@ -22,7 +22,8 @@ namespace
     {GLFW_KEY_LEFT_SHIFT, KeyboardHandler::InputKey::LEFT_SHIFT},
     {GLFW_KEY_SPACE, KeyboardHandler::InputKey::SPACE},
     {GLFW_KEY_LEFT_CONTROL, KeyboardHandler::InputKey::LEFT_CTRL},
-    {GLFW_KEY_ESCAPE, KeyboardHandler::InputKey::ESC}
+    {GLFW_KEY_ESCAPE, KeyboardHandler::InputKey::ESC},
+    {GLFW_KEY_GRAVE_ACCENT, KeyboardHandler::InputKey::GRAVE_ACCENT}
   };
 }
 

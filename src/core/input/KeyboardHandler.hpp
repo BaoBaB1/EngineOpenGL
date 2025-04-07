@@ -21,6 +21,7 @@ namespace fury
       SPACE,
       LEFT_CTRL,
       ESC,
+      GRAVE_ACCENT, // tilde
       LAST
     };
 

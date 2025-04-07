@@ -1,5 +1,6 @@
 #include "RenderPass.hpp"
 #include "ge/Object3D.hpp"
+#include "ObjectChangeInfo.hpp"
 #include "BindGuard.hpp"
 #include "Shader.hpp"
 #include "ShaderStorage.hpp"
@@ -31,8 +32,8 @@ namespace fury
     ::set_default_vertex_attributes(m_vao_arrays);
     // TODO: remove listener in dctor
     scene->on_new_object_added += new InstanceListener(this, &GeometryPass::on_new_scene_object);
-    Ui& ui = scene->get_ui();
-    ui.on_object_change += new InstanceListener(this, &GeometryPass::handle_object_change);
+    SceneInfo* scene_info_component = scene->get_ui().get_component<SceneInfo>("SceneInfo");
+    scene_info_component->on_object_change += new InstanceListener(this, &GeometryPass::handle_object_change);
   }
 
   void GeometryPass::on_new_scene_object(Object3D* obj)
@@ -75,10 +76,10 @@ namespace fury
     size_t vcount_vbo_indices = 0;
     size_t vcount_vbo_arrays = 0;
     size_t idx_count = 0;
-    for (const Object3D& obj : m_scene->get_drawables())
+    for (const auto& obj : m_scene->get_drawables())
     {
-      ObjectGeometryMetadata meta = obj.get_geometry_metadata();
-      if (obj.get_render_config().use_indices)
+      ObjectGeometryMetadata meta = obj->get_geometry_metadata();
+      if (obj->get_render_config().use_indices)
       {
         vcount_vbo_indices += meta.vert_count_total;
         idx_count += meta.idx_count_total;
@@ -102,15 +103,15 @@ namespace fury
     const auto& drawables = m_scene->get_drawables();
     m_objects_indices_rendering_mode.reserve(drawables.size());
     m_objects_arrays_rendering_mode.reserve(drawables.size());
-    for (const Object3D& obj : drawables)
+    for (const auto& obj : drawables)
     {
-      if (obj.get_render_config().use_indices)
+      if (obj->get_render_config().use_indices)
       {
-        m_objects_indices_rendering_mode.push_back(&obj);
+        m_objects_indices_rendering_mode.push_back(obj.get());
       }
       else
       {
-        m_objects_arrays_rendering_mode.push_back(&obj);
+        m_objects_arrays_rendering_mode.push_back(obj.get());
       }
     }
   }
@@ -120,7 +121,7 @@ namespace fury
     Camera& camera = m_scene->get_camera();
     std::unordered_set<int>& lights_sources = m_scene->get_light_sources();
     assert(lights_sources.size() == 1);
-    const Object3D& light_source = m_scene->get_drawables()[*lights_sources.begin()];
+    const Object3D& light_source = *(m_scene->get_drawables()[*lights_sources.begin()]);
 
     Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::DEFAULT);
     shader->bind();
@@ -263,20 +264,20 @@ namespace fury
     // we can store selected drawables inside split_objects() function, but then there is no convenient way to update them.
     // calling update() each time for that is wasteful since it updates many internal states.
 
-    for (Object3D& obj : m_scene->get_drawables())
+    for (Object3D* obj : m_scene->get_selected_objects())
     {
-      if (obj.is_selected() && obj.has_surface())
+      if (obj->has_surface())
       {
-        const glm::vec3 old_scale = obj.scale();
-        obj.scale(glm::vec3(old_scale + 0.05f));
-        shader->set_matrix4f("modelMatrix", obj.model_matrix());
-        const auto& render_config = obj.get_render_config();
-        const size_t mesh_count = obj.mesh_count();
-        const std::vector<MeshRenderOffsets>& meshes_offsets = m_render_offsets.at(&obj);
+        const glm::vec3 old_scale = obj->scale();
+        obj->scale(glm::vec3(old_scale + 0.05f));
+        shader->set_matrix4f("modelMatrix", obj->model_matrix());
+        const auto& render_config = obj->get_render_config();
+        const size_t mesh_count = obj->mesh_count();
+        const std::vector<MeshRenderOffsets>& meshes_offsets = m_render_offsets.at(obj);
         for (size_t i = 0; i < mesh_count; i++)
         {
           const MeshRenderOffsets& mesh_offsets = meshes_offsets[i];
-          const Mesh& mesh = obj.get_mesh(i);
+          const Mesh& mesh = obj->get_mesh(i);
           if (render_config.use_indices)
           {
             BindGuard bg(m_vao_indices);
@@ -288,7 +289,7 @@ namespace fury
             glDrawArrays(render_config.mode, static_cast<GLint>(mesh_offsets.vbo_arrays_offset), static_cast<GLsizei>(mesh.vertices().size()));
           }
         }
-        obj.scale(glm::vec3(old_scale));
+        obj->scale(glm::vec3(old_scale));
       }
     }
     glStencilMask(0xFF);
@@ -313,16 +314,16 @@ namespace fury
     size_t ebo_offset = 0;
     size_t basev = 0;
 
-    for (const Object3D& obj : m_scene->get_drawables())
+    for (const auto& obj : m_scene->get_drawables())
     {
-      const size_t mesh_count = obj.mesh_count();
-      const auto& render_config = obj.get_render_config();
+      const size_t mesh_count = obj->mesh_count();
+      const auto& render_config = obj->get_render_config();
       size_t model_vertices_within_indices = 0;
-      std::vector<MeshRenderOffsets>& meshes_offsets = m_render_offsets[&obj];
+      std::vector<MeshRenderOffsets>& meshes_offsets = m_render_offsets[obj.get()];
       for (size_t i = 0; i < mesh_count; i++)
       {
         MeshRenderOffsets& mesh_offsets = meshes_offsets.emplace_back();
-        const Mesh& mesh = obj.get_mesh(i);
+        const Mesh& mesh = obj->get_mesh(i);
         const size_t vsize = mesh.vertices().size() * sizeof(Vertex);
         const size_t idx_size = mesh.faces_as_indices().size() * sizeof(GLuint);
         if (render_config.use_indices)
@@ -362,10 +363,10 @@ namespace fury
 
   NormalsPass::NormalsPass(SceneRenderer* scene) : RenderPass(scene)
   {
-    Ui& ui = scene->get_ui();
     // TODO: remove listener in dctor
-    ui.on_visible_normals_button_pressed += new InstanceListener(this, &NormalsPass::handle_visible_normals_toggle);
-    ui.on_object_change += new InstanceListener(this, &NormalsPass::handle_object_change);
+    SceneInfo* scene_info_component = scene->get_ui().get_component<SceneInfo>("SceneInfo");
+    scene_info_component->on_visible_normals_button_pressed += new InstanceListener(this, &NormalsPass::handle_visible_normals_toggle);
+    scene_info_component->on_object_change += new InstanceListener(this, &NormalsPass::handle_object_change);
     BindChainFIFO bc({ &m_vao, &m_vbo });
     ::set_default_vertex_attributes(m_vao);
     m_model_matrices_ssbo.set_binding_point(1);
@@ -386,23 +387,23 @@ namespace fury
 
     size_t vbo_size = 0;
     std::for_each(drawables.begin(), drawables.end(),
-      [&](const Object3D& obj)
+      [&](const std::unique_ptr<Object3D>& obj)
       {
-        vbo_size += obj.is_normals_visible() * obj.get_geometry_metadata().vert_count_total * sizeof(Vertex);
+        vbo_size += obj->is_normals_visible() * obj->get_geometry_metadata().vert_count_total * sizeof(Vertex);
       });
     m_vbo.resize_if_smaller(vbo_size);
 
     BindChainFIFO bc({ &m_vao, &m_vbo });
     size_t vbo_offset = 0;
     size_t idx = 0;
-    for (const Object3D& obj : drawables)
+    for (const auto& obj : drawables)
     {
-      if (!obj.is_normals_visible())
+      if (!obj->is_normals_visible())
         continue;
-      m_objects_with_visible_normals.insert(&obj);
-      m_model_matrices.emplace_back(obj.model_matrix());
-      const ObjectGeometryMetadata& meta = obj.get_geometry_metadata();
-      ObjectRenderOffsets& obj_offsets = m_object_offsets[&obj];
+      m_objects_with_visible_normals.insert(obj.get());
+      m_model_matrices.emplace_back(obj->model_matrix());
+      const ObjectGeometryMetadata& meta = obj->get_geometry_metadata();
+      ObjectRenderOffsets& obj_offsets = m_object_offsets[obj.get()];
       m_voffsets.push_back(vbo_offset / sizeof(Vertex));
       m_vcounts.push_back(meta.vert_count_total);
       obj_offsets.vcount = meta.vert_count_total;
@@ -494,9 +495,9 @@ namespace fury
 
   LinesPass::LinesPass(SceneRenderer* scene) : RenderPass(scene)
   {
-    Ui& ui = scene->get_ui();
+    SceneInfo* scene_info_component = scene->get_ui().get_component<SceneInfo>("SceneInfo");
     // TODO: remove listener in dctor
-    ui.on_visible_bbox_button_pressed += new InstanceListener(this, &LinesPass::handle_visible_bbox_toggle);
+    scene_info_component->on_visible_bbox_button_pressed += new InstanceListener(this, &LinesPass::handle_visible_bbox_toggle);
     m_ebo.resize(BoundingBox::lines_indices().size() * sizeof(GLuint));
     BindChainFIFO bc({ &m_vao, &m_vbo, &m_ebo });
     ::set_default_vertex_attributes(m_vao);
@@ -508,10 +509,10 @@ namespace fury
     m_objects_with_visible_bboxes.clear();
     m_objects_with_visible_bboxes.reserve(m_scene->get_drawables().size());
     constexpr int bbox_vsize_bytes = sizeof(Vertex) * 8;
-    for (const Object3D& drawable : m_scene->get_drawables())
+    for (const auto& drawable : m_scene->get_drawables())
     {
-      if (drawable.is_bbox_visible())
-        m_objects_with_visible_bboxes.push_back(&drawable);
+      if (drawable->is_bbox_visible())
+        m_objects_with_visible_bboxes.push_back(drawable.get());
     }
     // 8 vertices for each bbox
     m_vbo.resize_if_smaller(m_objects_with_visible_bboxes.size() * bbox_vsize_bytes);

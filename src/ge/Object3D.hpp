@@ -53,6 +53,7 @@ namespace fury
     void set_render_config(const RenderConfig& cfg) { m_render_config = cfg; }
     void set_meshes_data(const std::shared_ptr<std::vector<Mesh>>& meshes) { m_meshes = meshes; }
     void rotate(float angle, const glm::vec3& axis);
+    void set_rotation_angle(float angle) { m_rotation_angle = angle; }
     void scale(const glm::vec3& scale);
     void translate(const glm::vec3& translation);
     void add_mesh(Mesh&& mesh);
@@ -87,8 +88,6 @@ namespace fury
     const Mesh& get_mesh(size_t idx) const { return (*m_meshes)[idx]; }
     const BoundingBox& bbox() const { return m_bbox; }
     BoundingBox bbox() { return m_bbox; }
-    friend class SceneRenderer;
-    friend class Ui;
   protected:
     enum Flag
     {

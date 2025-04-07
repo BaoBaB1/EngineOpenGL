@@ -54,7 +54,9 @@ namespace fury
   {
     const int w = window->width();
     const int h = window->height();
-    m_ui.init(this, m_window);
+    m_ui.init(this);
+    SceneInfo* scene_info_component = m_ui.get_component<SceneInfo>("SceneInfo");
+    scene_info_component->on_polygon_mode_change += new InstanceListener(this, &SceneRenderer::change_polygon_mode);
     m_camera.set_screen_size({ w, h });
     m_camera.set_position(glm::vec3(-4.f, 2.f, 3.f));
     m_camera.look_at(glm::vec3(2.f, 0.5f, 0.5f));
@@ -123,7 +125,7 @@ namespace fury
       {
         rp->tick();
       }
-      m_ui.render();
+      m_ui.tick();
       main_fbo.unbind();
       m_screen_quad.tick();
       glfwSwapBuffers(gl_window);
@@ -153,11 +155,11 @@ namespace fury
 #endif
       for (const auto& d : m_drawables)
       {
-        const glm::mat4 inv_model_mat = glm::inverse(d.model_matrix());
+        const glm::mat4 inv_model_mat = glm::inverse(d->model_matrix());
         Ray ray_local = Ray(inv_model_mat * glm::vec4(ray.get_origin(), 1), inv_model_mat * glm::vec4(ray.get_direction(), 0));
-        if (auto hit = d.hit(ray_local))
+        if (auto hit = d->hit(ray_local))
         {
-          const glm::vec3 ray_hit_pos_world = d.model_matrix() * glm::vec4(hit->position, 1);
+          const glm::vec3 ray_hit_pos_world = d->model_matrix() * glm::vec4(hit->position, 1);
 #if DEBUG_RAY
           Polyline poly;
           poly.add(ray.get_origin());
@@ -172,10 +174,10 @@ namespace fury
           if (hit_info.second > hit_distance_world)
           {
             hit_info.second = hit_distance_world;
-            hit_info.first = const_cast<Object3D*>(&d);
+            hit_info.first = const_cast<Object3D*>(d.get());
           }
+        }
       }
-    }
       if (hit_info.first)
       {
         select_object(hit_info.first, false);
@@ -186,8 +188,8 @@ namespace fury
         scene.m_drawables.push_back(std::make_unique<Polyline>(r));
       }
 #endif
+    }
   }
-}
 
   void SceneRenderer::handle_window_size_change(int width, int height)
   {
@@ -224,6 +226,11 @@ namespace fury
           obj->select(false);
         }
       }
+      else if (key == Key::LEFT_SHIFT)
+      {
+        m_camera.freeze();
+        glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+      }
     }
     else if (state == State::RELEASED)
     {
@@ -235,6 +242,11 @@ namespace fury
     }
   }
 
+  void SceneRenderer::change_polygon_mode(int new_mode)
+  {
+    m_polygon_mode = new_mode;
+  }
+
   void SceneRenderer::create_scene()
   {
     Vertex arr[6];
@@ -244,64 +256,64 @@ namespace fury
     arr[3].position = glm::vec3(1.f, 0.f, 0.f), arr[3].color = glm::vec4(1.f, 0.f, 0.f, 1.f);
     arr[4].position = glm::vec3(0.f, 0.f, 0.f), arr[4].color = glm::vec4(0.f, 0.f, 1.f, 1.f);
     arr[5].position = glm::vec3(0.f, 0.f, 1.f), arr[5].color = glm::vec4(0.f, 0.f, 1.f, 1.f);
-    Polyline origin;
+    auto origin = std::make_unique<Polyline>();
     for (int i = 0; i < 6; i++) {
-      origin.add(arr[i]);
+      origin->add(arr[i]);
     }
     m_drawables.push_back(std::move(origin));
 
-    Icosahedron sun;
-    sun.light_source(true);
-    sun.translate(glm::vec3(0.f, 0.5f, 2.f));
-    sun.set_color(glm::vec4(1.f, 1.f, 0.f, 1.f));
-    sun.set_is_fixed_shading(true);
-    sun.scale(glm::vec3(0.3f));
-    sun.subdivide_triangles(4);
-    sun.project_points_on_sphere();
+    auto& sun = std::make_unique<Icosahedron>();
+    sun->light_source(true);
+    sun->translate(glm::vec3(0.f, 0.5f, 2.f));
+    sun->set_color(glm::vec4(1.f, 1.f, 0.f, 1.f));
+    sun->set_is_fixed_shading(true);
+    sun->scale(glm::vec3(0.3f));
+    sun->subdivide_triangles(4);
+    sun->project_points_on_sphere();
     m_drawables.push_back(std::move(sun));
     m_light_sources.insert(1);
 
-    Icosahedron sphere;
-    sphere.translate(glm::vec3(2.5f, 0.5f, 2.f));
-    sphere.set_color(glm::vec4(1.f, 0.f, 0.f, 1.f));
-    sphere.subdivide_triangles(4);
-    sphere.project_points_on_sphere();
-    sphere.scale(glm::vec3(0.3f));
-    sphere.apply_shading(Object3D::ShadingMode::SMOOTH_SHADING);
+    auto& sphere = std::make_unique<Icosahedron>();
+    sphere->translate(glm::vec3(2.5f, 0.5f, 2.f));
+    sphere->set_color(glm::vec4(1.f, 0.f, 0.f, 1.f));
+    sphere->subdivide_triangles(4);
+    sphere->project_points_on_sphere();
+    sphere->scale(glm::vec3(0.3f));
+    sphere->apply_shading(Object3D::ShadingMode::SMOOTH_SHADING);
     m_drawables.push_back(std::move(sphere));
 
-    Cube c;
-    c.translate(glm::vec3(0.25f));
-    c.scale(glm::vec3(0.5f));
-    c.apply_shading(Object3D::ShadingMode::FLAT_SHADING);
-    c.get_mesh(0).set_texture(std::make_shared<Texture2D>(std::string(".\\.\\src\\textures\\brick.jpg")), TextureType::GENERIC);
+    auto& c = std::make_unique<Cube>();
+    c->translate(glm::vec3(0.25f));
+    c->scale(glm::vec3(0.5f));
+    c->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
+    c->get_mesh(0).set_texture(std::make_shared<Texture2D>(std::string(".\\.\\src\\textures\\brick.jpg")), TextureType::GENERIC);
     m_drawables.push_back(std::move(c));
 
-    Cube c2;
-    c2.translate(glm::vec3(1.25f, 1.f, 1.f));
-    c2.set_color(glm::vec4(0.4f, 1.f, 0.4f, 1.f));
-    c2.apply_shading(Object3D::ShadingMode::FLAT_SHADING);
-    c2.visible_normals(true);
+    auto& c2 = std::make_unique<Cube>();
+    c2->translate(glm::vec3(1.25f, 1.f, 1.f));
+    c2->set_color(glm::vec4(0.4f, 1.f, 0.4f, 1.f));
+    c2->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
+    c2->visible_normals(true);
     m_drawables.push_back(std::move(c2));
 
-    Pyramid pyr;
-    pyr.translate(glm::vec3(0.75f, 0.65f, 2.25f));
-    pyr.scale(glm::vec3(0.5f));
-    pyr.set_color(glm::vec4(0.976f, 0.212f, 0.98f, 1.f));
-    pyr.apply_shading(Object3D::ShadingMode::FLAT_SHADING);
+    auto& pyr = std::make_unique<Pyramid>();
+    pyr->translate(glm::vec3(0.75f, 0.65f, 2.25f));
+    pyr->scale(glm::vec3(0.5f));
+    pyr->set_color(glm::vec4(0.976f, 0.212f, 0.98f, 1.f));
+    pyr->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
     m_drawables.push_back(std::move(pyr));
 
-    BezierCurve bc(BezierCurve::Type::Quadratic);
-    bc.set_start_point(Vertex());
-    bc.set_end_point(Vertex(2.5f, 0.f, 0.f));
-    bc.set_control_points({ Vertex(1.25f, 2.f, 0.f) });
-    bc.set_color(glm::vec4(1.f, 0.f, 0.f, 1.f));
+    auto& bc = std::make_unique<BezierCurve>(BezierCurveType::Quadratic);
+    bc->set_start_point(Vertex());
+    bc->set_end_point(Vertex(2.5f, 0.f, 0.f));
+    bc->set_control_points({ Vertex(1.25f, 2.f, 0.f) });
+    bc->set_color(glm::vec4(1.f, 0.f, 0.f, 1.f));
     m_drawables.push_back(std::move(bc));
 
-    BezierCurve bc2(BezierCurve::Type::Cubic);
-    bc2.set_start_point(Vertex());
-    bc2.set_end_point(Vertex(0.f, 0.f, -2.5f));
-    bc2.set_control_points({ Vertex(0.f, 2.f, -1.25f), Vertex {0.f, -2.f, -1.75} });
+    auto& bc2 = std::make_unique<BezierCurve>(BezierCurveType::Cubic);
+    bc2->set_start_point(Vertex());
+    bc2->set_end_point(Vertex(0.f, 0.f, -2.5f));
+    bc2->set_control_points({ Vertex(0.f, 2.f, -1.25f), Vertex {0.f, -2.f, -1.75} });
     m_drawables.push_back(std::move(bc2));
   }
 
@@ -331,20 +343,14 @@ namespace fury
     m_camera.scale_speed(io.DeltaTime);
     for (auto& obj : m_drawables)
     {
-      obj.set_delta_time(io.DeltaTime);
-      if (obj.is_rotating())
+      obj->set_delta_time(io.DeltaTime);
+      if (obj->is_rotating())
       {
-        obj.rotate(obj.m_rotation_angle, obj.m_rotation_axis);
+        obj->rotate(obj->rotation_angle(), obj->rotation_axis());
       }
     }
 
     m_cam_controller.tick();
-    KeyboardHandler* kh = static_cast<KeyboardHandler*>(m_window->get_input_handler(UserInputHandler::KEYBOARD));
-    if (kh->get_keystate(KeyboardHandler::InputKey::LEFT_SHIFT) == KeyboardHandler::PRESSED)
-    {
-      m_camera.freeze();
-      glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-    }
 
     double x, y;
     glfwGetCursorPos(m_window->gl_window(), &x, &y);
@@ -359,7 +365,7 @@ namespace fury
     ubo.set_data(&m_camera.get_projection_matrix(), sizeof(glm::mat4), sizeof(glm::mat4));
     ubo.unbind();
   }
-  }
+}
 
 namespace
 {
