@@ -1,6 +1,12 @@
 #include "ModelLoader.hpp"
 #include "Logger.hpp"
 
+namespace
+{
+  void center_around_origin(fury::Object3D& model);
+  float get_max_extent(const aiVector3D& min, const aiVector3D& max);
+}
+
 namespace fury
 {
   std::optional<Object3D> ModelLoader::load(const std::string& filename, unsigned int flags)
@@ -20,7 +26,7 @@ namespace fury
       calc_max_extent(scene->mRootNode, scene);
       size_t vcount = 0, fcount = 0;
       process(scene->mRootNode, scene, std::filesystem::path(filename).parent_path(), model, vcount, fcount);
-      center_around_origin(model);
+      ::center_around_origin(model);
       // set some shading mode so that textures will be applied (if present) during rendering
       model.set_shading_mode(ShadingProcessor::ShadingMode::SMOOTH_SHADING);
       model.set_is_fixed_shading(true);
@@ -87,6 +93,10 @@ namespace fury
 
         if (ambient_tex_count)
         {
+          if (ambient_tex_count > 1)
+          {
+            Logger::warn("File {} has {} ambient textures, but only first one is taken.", file_path.string(), ambient_tex_count);
+          }
           aiString path;
           ai_material->GetTexture(aiTextureType_AMBIENT, 0, &path);
           outmesh.set_texture(std::make_shared<Texture2D>(file_path / path.C_Str()), TextureType::AMBIENT);
@@ -94,6 +104,10 @@ namespace fury
 
         if (diffuse_tex_count)
         {
+          if (diffuse_tex_count > 1)
+          {
+            Logger::warn("File {} has {} diffuse textures, but only first one is taken.", file_path.string(), diffuse_tex_count);
+          }
           aiString path;
           ai_material->GetTexture(aiTextureType_DIFFUSE, 0, &path);
           outmesh.set_texture(std::make_shared<Texture2D>(file_path / path.C_Str()), TextureType::DIFFUSE);
@@ -101,6 +115,10 @@ namespace fury
 
         if (specular_tex_count)
         {
+          if (specular_tex_count > 1)
+          {
+            Logger::warn("File {} has {} specular textures, but only first one is taken.", file_path.string(), specular_tex_count);
+          }
           aiString path;
           ai_material->GetTexture(aiTextureType_SPECULAR, 0, &path);
           outmesh.set_texture(std::make_shared<Texture2D>(file_path / path.C_Str()), TextureType::SPECULAR);
@@ -153,7 +171,7 @@ namespace fury
     {
       const aiMesh* inmesh = scene->mMeshes[root->mMeshes[i]];
       const auto& bbox = inmesh->mAABB;
-      const float max_extent = get_max_extent(bbox.mMin, bbox.mMax);
+      const float max_extent = ::get_max_extent(bbox.mMin, bbox.mMax);
       m_max_extent = std::max(m_max_extent, max_extent);
     }
     for (unsigned int i = 0; i < root->mNumChildren; i++)
@@ -161,22 +179,17 @@ namespace fury
       calc_max_extent(root->mChildren[i], scene);
     }
   }
+}
 
-  float ModelLoader::get_max_extent(const aiVector3D& min, const aiVector3D& max)
-  {
-    const float x = std::max(std::abs(max.x), std::abs(min.x));
-    const float y = std::max(std::abs(max.y), std::abs(min.y));
-    const float z = std::max(std::abs(max.z), std::abs(min.z));
-    return std::max(x, std::max(y, z));
-  }
-
-  void ModelLoader::center_around_origin(Object3D& model)
+namespace
+{
+  using namespace fury;
+  void center_around_origin(Object3D& model)
   {
     // to make outlining work properly if model's origin is at it's base and not 0,0,0
     model.calculate_bbox();
     const auto& bbox = model.bbox();
     glm::vec3 bbox_center = (bbox.min() + bbox.max()) * 0.5f;
-    bbox_center /= m_max_extent;
     if (bbox_center != glm::vec3(0.f))
     {
       for (size_t i = 0; i < model.mesh_count(); i++)
@@ -190,5 +203,13 @@ namespace fury
     }
     // also offset bbox bounds according to new vertex positions
     model.bbox().init(bbox.min() - bbox_center, bbox.max() - bbox_center);
+  }
+
+  float get_max_extent(const aiVector3D& min, const aiVector3D& max)
+  {
+    const float x = std::max(std::abs(max.x), std::abs(min.x));
+    const float y = std::max(std::abs(max.y), std::abs(min.y));
+    const float z = std::max(std::abs(max.z), std::abs(min.z));
+    return std::max(x, std::max(y, z));
   }
 }

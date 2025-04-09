@@ -88,7 +88,7 @@ namespace fury
     const RenderConfig& get_render_config() const { return m_render_config; }
     const Mesh& get_mesh(size_t idx) const { return (*m_meshes)[idx]; }
     const BoundingBox& bbox() const { return m_bbox; }
-    BoundingBox bbox() { return m_bbox; }
+    BoundingBox& bbox() { return m_bbox; }
   protected:
     enum Flag
     {
