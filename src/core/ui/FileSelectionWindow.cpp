@@ -22,9 +22,13 @@ namespace fury
       return;
     }
 
+    const bool is_scene_info_visible = m_scene->get_ui().get_component("SceneInfo")->is_visible();
     // file selection mode
     WindowGLFW* window = m_scene->get_window();
-    m_scene->get_camera().freeze();
+    if (!is_scene_info_visible)
+    {
+      m_scene->get_camera().freeze();
+    }
     // show cursor
     glfwSetInputMode(window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
@@ -51,9 +55,9 @@ namespace fury
         }
       }
 
-      m_scene->get_camera().unfreeze();
-      if (!m_scene->get_ui().get_component("SceneInfo")->is_visible())
+      if (!is_scene_info_visible)
       {
+        m_scene->get_camera().unfreeze();
         glfwSetInputMode(window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
       }
       ImGuiFileDialog::Instance()->Close();
