@@ -18,7 +18,7 @@ namespace fury
   }
 
   void Gizmo::tick()
-	{
+  {
     // Gizmo
     if (!m_scene->get_selected_objects().empty() && m_scene->get_ui().get_component("SceneInfo")->is_visible())
     {
@@ -47,7 +47,7 @@ namespace fury
       ImGuizmo::MODE gizmo_mode = ImGuizmo::MODE::LOCAL;
 
       glm::mat4 model_mat = obj->model_matrix();
-      ImGuizmo::Manipulate(glm::value_ptr(cam.view_matrix()), glm::value_ptr(m_scene->get_camera().get_projection_matrix()), 
+      ImGuizmo::Manipulate(glm::value_ptr(cam.view_matrix()), glm::value_ptr(m_scene->get_camera().get_projection_matrix()),
         static_cast<ImGuizmo::OPERATION>(m_guizmo_operation), gizmo_mode, glm::value_ptr(model_mat));
       if (ImGuizmo::IsUsing())
       {
@@ -66,5 +66,5 @@ namespace fury
         on_object_change.notify(obj, info);
       }
     }
-	}
+  }
 }

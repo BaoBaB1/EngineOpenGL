@@ -402,7 +402,7 @@ namespace fury
         continue;
       m_objects_with_visible_normals.insert(obj.get());
       m_model_matrices.emplace_back(obj->model_matrix());
-      const ObjectGeometryMetadata& meta = obj->get_geometry_metadata();
+      ObjectGeometryMetadata meta = obj->get_geometry_metadata();
       ObjectRenderOffsets& obj_offsets = m_object_offsets[obj.get()];
       m_voffsets.push_back(vbo_offset / sizeof(Vertex));
       m_vcounts.push_back(meta.vert_count_total);

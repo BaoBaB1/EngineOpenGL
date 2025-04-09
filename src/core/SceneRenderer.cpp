@@ -98,6 +98,11 @@ namespace fury
       assert(fbo.is_complete());
       fbo.unbind();
     }
+    for (auto& drawable : m_drawables)
+    {
+      // init bbox and center
+      drawable->update();
+    }
   }
 
   SceneRenderer::~SceneRenderer()
@@ -322,9 +327,19 @@ namespace fury
     // do not select object that is behind imgui's menu, but select it when we are clicking on obj name inside menu itself
     ImGuiIO& io = ImGui::GetIO();
     if (!click_from_menu_item && io.WantCaptureMouse)
+    {
       return;
+    }
+    if (click_from_menu_item)
+    {
+      // look at selected object
+      m_camera.look_at(obj->center() + glm::vec3(obj->model_matrix()[3]));
+    }
     if (obj->is_selected())
+    {
       return;
+    }
+    
     // for now support only single object selection
     assert(m_selected_objects.size() == 0 || m_selected_objects.size() == 1);
     Logger::debug("{} selected", obj->get_name());

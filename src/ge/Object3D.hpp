@@ -47,6 +47,7 @@ namespace fury
     ObjectGeometryMetadata get_geometry_metadata() const;
     std::optional<RayHit> hit(const Ray& ray) const override;
     glm::vec3 center() const;
+    void update();
     void apply_shading(ShadingMode mode);
     void set_shading_mode(ShadingMode mode) { m_shading_mode = mode; }
     void set_delta_time(float delta_time) { m_delta_time = delta_time; }
@@ -58,7 +59,7 @@ namespace fury
     void translate(const glm::vec3& translation);
     void add_mesh(Mesh&& mesh);
     void add_mesh(const Mesh& mesh);
-    Mesh& emplace_mesh() { set_flag(GEOMETRY_MODIFIED, true); return m_meshes->emplace_back(); }
+    Mesh& emplace_mesh() { return m_meshes->emplace_back(); }
     void calculate_bbox(bool force = false);
     float rotation_angle() const { return m_rotation_angle; }
     glm::vec3 rotation_axis() const { return m_rotation_axis; }
@@ -96,8 +97,7 @@ namespace fury
       LIGHT_SOURCE = (1 << 2),
       VISIBLE_BBOX = (1 << 3),
       IS_SELECTED = (1 << 4),
-      GEOMETRY_MODIFIED = (1 << 5),
-      IS_FIXED_SHADING = (1 << 6)
+      IS_FIXED_SHADING = (1 << 5)
     };
   protected:
     void set_flag(Flag flag, bool value) { value ? set_flag(flag) : clear_flag(flag); }
@@ -111,6 +111,7 @@ namespace fury
     glm::vec4 m_color = glm::vec4(1.f);
     float m_rotation_angle = 0.f;
     float m_delta_time = 0.f;
+    bool m_need_update = false;
     glm::vec3 m_rotation_axis = glm::vec3(0.f);
     uint32_t m_flags = 0;
     ShadingMode m_shading_mode = ShadingMode::NO_SHADING;

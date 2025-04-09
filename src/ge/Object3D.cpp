@@ -111,13 +111,11 @@ namespace fury
 
   void Object3D::add_mesh(Mesh&& mesh)
   {
-    set_flag(GEOMETRY_MODIFIED, true);
     m_meshes->push_back(std::move(mesh));
   }
 
   void Object3D::add_mesh(const Mesh& mesh)
   {
-    set_flag(GEOMETRY_MODIFIED, true);
     m_meshes->push_back(mesh);
   }
 
@@ -168,7 +166,7 @@ namespace fury
 
   glm::vec3 Object3D::center() const
   {
-    if (!get_flag(GEOMETRY_MODIFIED))
+    if (!m_need_update)
     {
       return m_center;
     }
@@ -183,9 +181,15 @@ namespace fury
       }
     }
     m_center = (min + max) * 0.5f;
-    // TODO: get rid of this stupidity. need more elegant way of handling geometry changes
-    const_cast<Object3D&>(*this).set_flag(GEOMETRY_MODIFIED, false);
     return m_center;
+  }
+
+  void Object3D::update()
+  {
+    m_need_update = true;
+    center();
+    calculate_bbox(true);
+    m_need_update = false;
   }
 
   void Object3D::apply_shading(ShadingProcessor::ShadingMode mode)
