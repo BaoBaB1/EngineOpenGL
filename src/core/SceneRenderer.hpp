@@ -11,6 +11,7 @@
 #include "RenderPass.hpp"
 #include <vector>
 #include <memory>
+#include <string>
 #include <map>
 #include <unordered_set>
 
@@ -31,6 +32,8 @@ namespace fury
     WindowGLFW* get_window() { return m_window; }
     Ui& get_ui() { return m_ui; }
     void render();
+    void save(const std::string& file) const;
+    void load(const std::string& file);
     Event<Object3D*> on_new_object_added;
   private:
     void tick() override;

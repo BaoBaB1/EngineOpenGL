@@ -7,7 +7,9 @@ namespace fury
   class Icosahedron : public Object3D
   {
   public:
+    inline constexpr static int32_t type = 2;
     Icosahedron();
+    int32_t get_type() const override { return type; }
     void subdivide_triangles(int subdivision_depth);
     void project_points_on_sphere();
   private:

@@ -72,7 +72,7 @@ namespace fury
         aiFace face = inmesh->mFaces[fidx];
         // all must be triangulated for now
         assert(face.mNumIndices == 3);
-        Face myface(face.mNumIndices);
+        Face myface;
         for (unsigned int i = 0; i < face.mNumIndices; i++)
         {
           myface.data[i] = face.mIndices[i];

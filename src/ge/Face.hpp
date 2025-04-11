@@ -1,26 +1,23 @@
 #pragma once
 
-#include <vector>
 #include <glad/glad.h>
+#include <array>
 
 namespace fury
 {
-  struct Face {
-
-    Face() = default;
-    Face(GLuint sz) { resize(sz); }
-    Face(const std::initializer_list<GLuint>& indices);
-    Face(const std::vector<GLuint>& indices);
-    Face(const Face& other);
-    Face& operator=(const Face& other);
-    Face(Face&& other) noexcept;
-    Face& operator=(Face&& other) noexcept;
-    const uint32_t& operator[](GLuint idx) const { return data[idx]; }
-    uint32_t& operator[](GLuint idx) { return data[idx]; }
-    void resize(int size);
-    ~Face();
-
-    uint32_t size = 0;
-    GLuint* data = nullptr;  // can use vector instead but, every Face will be increased by sizeof(vector)
+  template<int N>
+  struct FaceN
+  {
+    constexpr static int size = N;
+    FaceN() = default;
+    FaceN(const std::array<GLuint, N>& indices);
+    FaceN(const FaceN& other);
+    FaceN& operator=(const FaceN& other);
+    const uint32_t operator[](GLuint idx) const { return data[idx]; }
+    uint32_t operator[](GLuint idx) { return data[idx]; }
+    GLuint data[N] = {};
   };
+  using Face = FaceN<3>;
+  using Face3 = FaceN<3>;
+  using Face4 = FaceN<4>;
 }

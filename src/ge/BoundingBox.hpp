@@ -13,10 +13,10 @@ namespace fury
   class BoundingBox : public Entity, public IRayHittable
   {
   public:
+    static const std::array<GLuint, 24>& lines_indices();
     BoundingBox();
     BoundingBox(const glm::vec3& min, const glm::vec3& max);
     void init(const glm::vec3& min, const glm::vec3& max);
-    static const std::array<GLuint, 24>& lines_indices();
     std::optional<RayHit> hit(const Ray& ray) const override;
     const std::vector<Vertex>& points() const { return m_points; }
     bool is_empty() const;

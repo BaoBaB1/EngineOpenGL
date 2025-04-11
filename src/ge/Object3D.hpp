@@ -5,6 +5,7 @@
 #include "ge/BoundingBox.hpp"
 #include "ge/IRayHittable.hpp"
 #include "ge/ShadingProcessor.hpp"
+#include "core/ISerializable.hpp"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <optional>
@@ -28,7 +29,7 @@ namespace fury
     std::vector<MeshGeometryMetadata> meshes_data;
   };
 
-  class Object3D : public Entity, public IRayHittable
+  class Object3D : public Entity, public IRayHittable, public ISerializable
   {
   public:
     using ShadingMode = ShadingProcessor::ShadingMode;
@@ -38,12 +39,16 @@ namespace fury
       bool use_indices = true;
     };
   public:
+    inline constexpr static int32_t type = 0;
     template<typename T>
     static T* cast_to(Object3D* obj) { return static_cast<T*>(obj); }
     Object3D();
     Object3D(const std::string& name);
+    void read(std::ifstream&) override;
+    void write(std::ofstream&) const override;
     virtual void set_color(const glm::vec4& color);
     virtual bool has_surface() const { return true; }
+    virtual int32_t get_type() const { return type; }
     ObjectGeometryMetadata get_geometry_metadata() const;
     std::optional<RayHit> hit(const Ray& ray) const override;
     glm::vec3 center() const;

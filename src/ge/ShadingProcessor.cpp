@@ -12,7 +12,7 @@ namespace fury
       for (auto& mesh : meshes)
       {
         vertex_finder.m_map_vert.clear();
-        std::vector<GLuint> indices(3);
+        std::array<GLuint, 3> indices = {};
         std::vector<Face>& faces = mesh.faces(), new_faces;
         assert(faces.size() > 0);
         for (const auto& face : faces)

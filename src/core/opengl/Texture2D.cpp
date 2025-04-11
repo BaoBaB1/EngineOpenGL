@@ -10,7 +10,7 @@ namespace fury
   Texture2D::Texture2D(const std::string& filename)
   {
     stbi_set_flip_vertically_on_load(true);
-    resize(filename);
+    init(filename);
   }
 
   Texture2D::Texture2D(const std::filesystem::path& file) : Texture2D(file.string())
@@ -31,11 +31,12 @@ namespace fury
     unbind();
   }
 
-  void Texture2D::resize(const std::string& filename)
+  void Texture2D::init(const std::string& filename)
   {
     m_internal_fmt = m_fmt = GL_RGB;
     m_pixel_data_type = GL_UNSIGNED_BYTE;
     m_disabled = false;
+    m_file = filename;
     bind();
     auto data = Texture::load(filename.c_str());
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m_width, m_height, 0, GL_RGB, GL_UNSIGNED_BYTE, data.get());

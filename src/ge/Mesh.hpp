@@ -25,7 +25,7 @@ namespace fury
     const std::vector<GLuint>& Mesh::faces_as_indices() const;
     void set_texture(const std::shared_ptr<Texture2D>& tex, TextureType type) { m_textures[static_cast<int>(type)] = tex; }
     const std::shared_ptr<Texture2D> get_texture(TextureType type) const { return m_textures[static_cast<int>(type)]; }
-    bool has_texture() const;
+    std::vector<std::pair<TextureType, Texture2D*>> get_present_textures() const;
     BoundingBox& bbox() { return m_bbox; }
     const BoundingBox& bbox() const { return m_bbox; }
     Material& material() { return m_material; }

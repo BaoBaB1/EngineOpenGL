@@ -2,8 +2,6 @@
 
 #include <glad/glad.h>
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 #include "ge/Ray.hpp"
 
 namespace fury
@@ -58,4 +56,6 @@ namespace fury
     glm::mat4 m_projection_mat;
     glm::vec2 m_screen_size;
   };
+
+  static_assert(sizeof(Camera) == 132);
 };

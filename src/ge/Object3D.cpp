@@ -11,6 +11,119 @@ namespace fury
   {
   }
 
+  void Object3D::read(std::ifstream& ifs)
+  {
+    m_meshes->clear();
+    for (auto& m : m_cached_meshes)
+    {
+      if (m)
+        m->clear();
+    }
+
+    // read general info
+    ifs.read(reinterpret_cast<char*>(&m_center), sizeof(glm::vec3));
+    ifs.read(reinterpret_cast<char*>(&m_model_mat), sizeof(glm::mat4));
+    ifs.read(reinterpret_cast<char*>(&m_color), sizeof(glm::vec4));
+    ifs.read(reinterpret_cast<char*>(&m_rotation_axis), sizeof(glm::vec3));
+    ifs.read(reinterpret_cast<char*>(&m_rotation_angle), sizeof(float));
+    ifs.read(reinterpret_cast<char*>(&m_need_update), sizeof(bool));
+    ifs.read(reinterpret_cast<char*>(&m_flags), sizeof(decltype(m_flags)));
+    ifs.read(reinterpret_cast<char*>(&m_shading_mode), sizeof(decltype(m_shading_mode)));
+    ifs.read(reinterpret_cast<char*>(&m_render_config), sizeof(RenderConfig));
+    ifs.read(reinterpret_cast<char*>(&m_bbox.min()), sizeof(glm::vec3));
+    ifs.read(reinterpret_cast<char*>(&m_bbox.max()), sizeof(glm::vec3));
+
+    // read geometry data
+    size_t meshes_count = 0;
+    ifs.read(reinterpret_cast<char*>(&meshes_count), sizeof(size_t));
+    m_meshes->reserve(meshes_count);
+    for (size_t i = 0; i < meshes_count; i++)
+    {
+      Mesh& mesh = m_meshes->emplace_back();
+
+      // read vertices
+      size_t vcount = 0;
+      ifs.read(reinterpret_cast<char*>(&vcount), sizeof(size_t));
+      mesh.vertices().resize(vcount);
+      ifs.read(reinterpret_cast<char*>(mesh.vertices().data()), vcount * sizeof(Vertex));
+
+      // read faces
+      size_t fcount = 0;
+      ifs.read(reinterpret_cast<char*>(&fcount), sizeof(size_t));
+      mesh.faces().resize(fcount);
+      ifs.read(reinterpret_cast<char*>(mesh.faces().data()), fcount * sizeof(Face));
+
+      // material
+      ifs.read(reinterpret_cast<char*>(&mesh.material()), sizeof(Material));
+      
+      // textures
+      size_t tex_count = 0;
+      ifs.read(reinterpret_cast<char*>(&tex_count), sizeof(size_t));
+      for (size_t j = 0; j < tex_count; j++)
+      {
+        TextureType ttype;
+        size_t filesize;
+        ifs.read(reinterpret_cast<char*>(&ttype), sizeof(TextureType));
+        ifs.read(reinterpret_cast<char*>(&filesize), sizeof(size_t));
+        std::string file(filesize, ' ');
+        ifs.read(reinterpret_cast<char*>(file.data()), filesize);
+        mesh.set_texture(std::make_shared<Texture2D>(file), ttype);
+      }
+
+      // mesh bbox
+      ifs.read(reinterpret_cast<char*>(&mesh.bbox().min()), sizeof(glm::vec3));
+      ifs.read(reinterpret_cast<char*>(&mesh.bbox().max()), sizeof(glm::vec3));
+    }
+  }
+
+  void Object3D::write(std::ofstream& ofs) const
+  {
+    // write general info
+    int32_t type = get_type();
+    ofs.write(reinterpret_cast<const char*>(&type), sizeof(decltype(type)));
+    ofs.write(reinterpret_cast<const char*>(&m_center), sizeof(glm::vec3));
+    ofs.write(reinterpret_cast<const char*>(&m_model_mat), sizeof(glm::mat4));
+    ofs.write(reinterpret_cast<const char*>(&m_color), sizeof(glm::vec4));
+    ofs.write(reinterpret_cast<const char*>(&m_rotation_axis), sizeof(glm::vec3));
+    ofs.write(reinterpret_cast<const char*>(&m_rotation_angle), sizeof(float));
+    ofs.write(reinterpret_cast<const char*>(&m_need_update), sizeof(bool));
+    ofs.write(reinterpret_cast<const char*>(&m_flags), sizeof(decltype(m_flags)));
+    ofs.write(reinterpret_cast<const char*>(&m_shading_mode), sizeof(decltype(m_shading_mode)));
+    ofs.write(reinterpret_cast<const char*>(&m_render_config), sizeof(RenderConfig));
+    ofs.write(reinterpret_cast<const char*>(&m_bbox.min()), sizeof(glm::vec3));
+    ofs.write(reinterpret_cast<const char*>(&m_bbox.max()), sizeof(glm::vec3));
+
+    // write geometry data
+    const size_t meshes_count = m_meshes->size();
+    ofs.write(reinterpret_cast<const char*>(&meshes_count), sizeof(size_t));
+    for (const Mesh& mesh : *m_meshes)
+    {
+      const size_t vcount = mesh.vertices().size();
+      ofs.write(reinterpret_cast<const char*>(&vcount), sizeof(size_t));
+      ofs.write(reinterpret_cast<const char*>(mesh.vertices().data()), sizeof(Vertex) * mesh.vertices().size());
+      const size_t fcount = mesh.faces().size();
+      ofs.write(reinterpret_cast<const char*>(&fcount), sizeof(size_t));
+      // here we write triangle faces only. now quad faces are not used at all, but there is FaceN<4>.
+      ofs.write(reinterpret_cast<const char*>(mesh.faces().data()), sizeof(Face) * mesh.faces().size());
+      ofs.write(reinterpret_cast<const char*>(&mesh.material()), sizeof(Material));
+      const auto textures = mesh.get_present_textures();
+      const size_t tex_count = textures.size();
+      ofs.write(reinterpret_cast<const char*>(&tex_count), sizeof(size_t));
+      for (const auto& [ttype, tex] : textures)
+      {
+        // type + file
+        // TODO: add option for embedding texture directly into binary instead for saving just path
+        const std::string& file = tex->get_file();
+        const size_t filesize = file.size();
+        ofs.write(reinterpret_cast<const char*>(&ttype), sizeof(TextureType));
+        ofs.write(reinterpret_cast<const char*>(&filesize), sizeof(size_t));
+        ofs.write(reinterpret_cast<const char*>(file.data()), filesize);
+      }
+      ofs.write(reinterpret_cast<const char*>(&mesh.bbox().min()), sizeof(glm::vec3));
+      ofs.write(reinterpret_cast<const char*>(&mesh.bbox().max()), sizeof(glm::vec3));
+    }
+  }
+
   void Object3D::rotate(float angle, const glm::vec3& axis)
   {
     if (axis == glm::vec3())

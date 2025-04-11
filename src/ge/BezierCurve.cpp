@@ -2,10 +2,10 @@
 
 namespace fury
 {
-  BezierCurve::BezierCurve(BezierCurveType type, const Vertex& start_pnt, const Vertex& end_pnt)
+  BezierCurve::BezierCurve(BezierCurveType curve_type, const Vertex& start_pnt, const Vertex& end_pnt)
     : Curve(start_pnt, end_pnt)
   {
-    m_type = type;
+    m_curve_type = curve_type;
   }
 
   void BezierCurve::set_control_points(const std::array<Vertex, 2>& c_points)
@@ -19,7 +19,7 @@ namespace fury
     std::vector<Vertex>& vertices = mesh.vertices();
     vertices.reserve(static_cast<size_t>(1. / step));
 
-    if (m_type == BezierCurveType::Quadratic)
+    if (m_curve_type == BezierCurveType::Quadratic)
     {
       // B(t) = (1-t)^2 * P0 + 2t(1-t) * P1 + t^2 * P2 , where 
       // P0 - start point 
@@ -62,7 +62,7 @@ namespace fury
 
   std::pair<const Vertex*, int> BezierCurve::get_control_points() const
   {
-    if (m_type == BezierCurveType::Quadratic)
+    if (m_curve_type == BezierCurveType::Quadratic)
       return { &m_control_points[0], 1 };
     return { &m_control_points[0], 2 };
   }

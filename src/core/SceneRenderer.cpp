@@ -19,6 +19,7 @@
 #include "ge/Pyramid.hpp"
 #include "ge/BezierCurve.hpp"
 #include "ge/Skybox.hpp"
+#include "ge/GeometryFactory.hpp"
 
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -31,6 +32,7 @@
 #include <glm/gtx/norm.hpp>
 
 #include <cassert>
+#include <fstream>
 
 #define DEBUG_RAY 0
 
@@ -50,6 +52,8 @@ namespace
 
 namespace fury
 {
+  extern int ignore_frames;
+
   SceneRenderer::SceneRenderer(WindowGLFW* window) : m_window(window)
   {
     const int w = window->width();
@@ -135,6 +139,81 @@ namespace fury
       m_screen_quad.tick();
       glfwSwapBuffers(gl_window);
     }
+  }
+
+  void SceneRenderer::save(const std::string& file) const
+  {
+    std::ofstream ofs(file, std::ios_base::binary);
+    if (!ofs.is_open())
+    {
+      Logger::error("Save failed to open file {}.", file);
+      return;
+    }
+    ofs.write(reinterpret_cast<const char*>(&m_polygon_mode), sizeof(GLint));
+    ofs.write(reinterpret_cast<const char*>(&m_camera), sizeof(Camera));
+    const size_t drawables_count = m_drawables.size();
+    ofs.write(reinterpret_cast<const char*>(&drawables_count), sizeof(size_t));
+    for (const auto& drawable : m_drawables)
+    {
+      drawable->write(ofs);
+    }
+    ofs.close();
+  }
+
+  void SceneRenderer::load(const std::string& file)
+  {
+    std::ifstream ifs(file, std::ios_base::binary);
+    if (!ifs.is_open())
+    {
+      Logger::error("Load failed to open file {}.", file);
+      return;
+    }
+
+    // cleanup current scene
+    m_drawables.clear();
+    m_selected_objects.clear();
+    m_light_sources.clear();
+
+    ifs.read(reinterpret_cast<char*>(&m_polygon_mode), sizeof(GLint));
+    ifs.read(reinterpret_cast<char*>(&m_camera), sizeof(Camera));
+    size_t drawables_count = 0;
+    ifs.read(reinterpret_cast<char*>(&drawables_count), sizeof(size_t));
+    m_drawables.reserve(drawables_count);
+    for (size_t i = 0; i < drawables_count; i++)
+    {
+      int32_t obj_type;
+      ifs.read(reinterpret_cast<char*>(&obj_type), sizeof(int32_t));
+      std::unique_ptr<Object3D> obj = GeometryFactory::create_from_type(obj_type);
+      obj->read(ifs);
+      m_drawables.push_back(std::move(obj));
+    }
+    ifs.close();
+
+    // fill scene's structs
+    for (size_t i = 0; i < m_drawables.size(); i++)
+    {
+      auto& drawable = m_drawables[i];
+      if (drawable->is_light_source())
+      {
+        m_light_sources.insert(i);
+      }
+      if (drawable->is_selected())
+      {
+        m_selected_objects.push_back(drawable.get());
+      }
+      // calculate object center + bbox
+      drawable->update();
+    }
+
+    // update render passes in accordance with the new scene
+    for (auto& render_pass : m_render_passes)
+    {
+      render_pass->update();
+    }
+    
+    // fix to avoid camera jumps ???
+    // again, cursor pos in handler can have huge offset difference at this point
+    ignore_frames = 3;
   }
 
   void SceneRenderer::render_skybox()
