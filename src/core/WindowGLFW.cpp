@@ -7,17 +7,13 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-namespace fury
-{
-  // TODO: ignore frames for each window !!!
-  extern int ignore_frames = 3;
-}
-
 static void window_focus_callback(GLFWwindow* window, int focused)
 {
   if (focused)
   {
-    fury::ignore_frames = 3;
+    fury::WindowGLFW* winglfw = static_cast<fury::WindowGLFW*>(glfwGetWindowUserPointer(window));
+    fury::CursorPositionHandler* cp = static_cast<fury::CursorPositionHandler*>(winglfw->get_input_handler(fury::UserInputHandler::CURSOR_POSITION));
+    cp->update_ignore_frames();
   }
 }
 

@@ -52,8 +52,6 @@ namespace
 
 namespace fury
 {
-  extern int ignore_frames;
-
   SceneRenderer::SceneRenderer(WindowGLFW* window) : m_window(window)
   {
     const int w = window->width();
@@ -213,7 +211,7 @@ namespace fury
     
     // fix to avoid camera jumps ???
     // again, cursor pos in handler can have huge offset difference at this point
-    ignore_frames = 3;
+    static_cast<CursorPositionHandler*>(m_window->get_input_handler(UserInputHandler::CURSOR_POSITION))->update_ignore_frames();
   }
 
   void SceneRenderer::render_skybox()

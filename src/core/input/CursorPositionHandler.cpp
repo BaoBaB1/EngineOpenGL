@@ -5,8 +5,6 @@
 
 namespace fury
 {
-  extern int ignore_frames;
-
   CursorPositionHandler::CursorPositionHandler(WindowGLFW* window) : UserInputHandler(window, HandlerType::CURSOR_POSITION)
   {
     auto callback = [](GLFWwindow* window, double xpos, double ypos)
@@ -25,9 +23,9 @@ namespace fury
     {
       // workaround for large x,y offsets after window gets focus. seems to be a glfw bug
       // https://github.com/glfw/glfw/issues/2523
-      if (ignore_frames > 0)
+      if (m_ignore_frames > 0)
       {
-        --ignore_frames;
+        --m_ignore_frames;
         return;
       }
       m_prev_pos[0] = m_cur_pos[0];
