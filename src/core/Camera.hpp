@@ -18,6 +18,11 @@ namespace fury
       UP,
       DOWN
     };
+    enum ProjectionMode : uint8_t
+    {
+      PERSPECTIVE,
+      ORTHOGRAPHIC
+    };
   public:
     Camera();
     glm::vec3 position() { return m_position; }
@@ -30,8 +35,10 @@ namespace fury
     Ray cast_ray(uint32_t x, uint32_t y) const;
     glm::vec2 get_screen_size() const { return m_screen_size; }
     glm::mat4 view_matrix() const;
-    glm::mat4& get_projection_matrix() { return m_projection_mat; }
-    const glm::mat4& get_projection_matrix() const { return m_projection_mat; }
+    glm::mat4& get_projection_matrix() { return m_projection_mat[m_mode]; }
+    const glm::mat4& get_projection_matrix() const { return m_projection_mat[m_mode]; }
+    ProjectionMode get_projection_mode() const { return m_mode; }
+    void set_projection_mode(ProjectionMode mode) { m_mode = mode; }
     void freeze() { m_freezed = true; }
     void unfreeze() { m_freezed = false; }
     void set_screen_size(const glm::vec2& screen_size);
@@ -53,9 +60,10 @@ namespace fury
     glm::vec3 m_up;      // vector
     glm::vec3 m_target;  // vector
     glm::vec3 m_position; // point
-    glm::mat4 m_projection_mat;
+    glm::mat4 m_projection_mat[2] = {};
     glm::vec2 m_screen_size;
+    ProjectionMode m_mode = ProjectionMode::PERSPECTIVE;
   };
 
-  static_assert(sizeof(Camera) == 132);
+  static_assert(sizeof(Camera) == 200);
 };

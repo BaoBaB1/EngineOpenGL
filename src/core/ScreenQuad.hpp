@@ -3,6 +3,7 @@
 #include "opengl/VertexArrayObject.hpp"
 #include "opengl/VertexBufferObject.hpp"
 #include "ITickable.hpp"
+#include <array>
 
 namespace fury
 {
@@ -10,13 +11,14 @@ namespace fury
   {
   public:
     ScreenQuad();
-    ScreenQuad(GLuint tex_id);
+    void init(GLuint texture_id, bool is_single_channel = false);
+    void init(const std::array<float, 24>& data, GLuint texture_id, bool is_single_channel = false);
     void tick() override;
-    void set_texture_id(GLuint id) { m_tex_id = id; }
     GLuint get_texture_id() const { return m_tex_id; }
   private:
     VertexArrayObject vao;
     VertexBufferObject vbo;
     GLuint m_tex_id = 0;
+    bool m_is_single_channel = false;
   };
 }

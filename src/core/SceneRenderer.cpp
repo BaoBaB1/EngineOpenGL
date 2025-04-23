@@ -36,6 +36,9 @@
 
 #define DEBUG_RAY 0
 
+constexpr int SHADOWMAP_WIDTH = 1024;
+constexpr int SHADOWMAP_HEIGHT = 1024;
+
 namespace
 {
   void setup_opengl();
@@ -48,6 +51,27 @@ namespace
     ".\\.\\src\\textures\\skybox\\front.jpg",
     ".\\.\\src\\textures\\skybox\\back.jpg"
   };
+
+  constexpr std::array<float, 24> init_shadow_map_data()
+  {
+    constexpr float xmin = -1.f;
+    constexpr float xmax = -0.4f;
+    constexpr float ymin = -1.f;
+    constexpr float ymax = -0.15f;
+    // bottom left window corner
+    constexpr std::array shadow_map_data =
+    {
+      // positions   // texCoords
+      xmin, ymax,  0.0f, 1.0f,
+      xmin, ymin,  0.0f, 0.0f,
+      xmax, ymin,  1.0f, 0.0f,
+      xmin, ymax,  0.0f, 1.0f,
+      xmax, ymin,  1.0f, 0.0f,
+      xmax, ymax,  1.0f, 1.0f
+    };
+    return shadow_map_data;
+  };
+  constexpr std::array shadow_map_data = init_shadow_map_data();
 }
 
 namespace fury
@@ -58,6 +82,8 @@ namespace fury
     const int h = window->height();
     m_ui.init(this);
     SceneInfo* scene_info_component = m_ui.get_component<SceneInfo>("SceneInfo");
+    Gizmo* gizmo_component = m_ui.get_component<Gizmo>("Gizmo");
+    gizmo_component->on_object_change += new InstanceListener(this, &SceneRenderer::handle_object_change);
     scene_info_component->on_polygon_mode_change += new InstanceListener(this, &SceneRenderer::change_polygon_mode);
     m_camera.set_screen_size({ w, h });
     m_camera.set_position(glm::vec3(-4.f, 2.f, 3.f));
@@ -78,33 +104,54 @@ namespace fury
     main_scene_fbo.attach_renderbuffer(w, h, GL_DEPTH24_STENCIL8, GL_DEPTH_STENCIL_ATTACHMENT);
     main_scene_fbo.unbind();
 
-    m_skybox = Cubemap(skybox_faces);
-    m_screen_quad.set_texture_id(main_scene_fbo.texture()->id());
+    auto& shadows_fbo = m_fbos["shadowMap"];
+    shadows_fbo.bind();
+    shadows_fbo.attach_texture(SHADOWMAP_WIDTH, SHADOWMAP_HEIGHT, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT, false);
+    shadows_fbo.unbind();
 
-    UniformBuffer& ubo = PipelineUBOManager::get("cameraData");
-    ubo.resize(sizeof(glm::mat4) * 2);
-    ubo.set_binding_point(0);
-
-    ::setup_opengl();
-    create_scene();
-    m_render_passes.emplace_back(std::make_unique<GeometryPass>(this));
-    m_render_passes.emplace_back(std::make_unique<NormalsPass>(this));
-    m_render_passes.emplace_back(std::make_unique<LinesPass>(this));
-    for (auto& rp : m_render_passes)
-    {
-      rp->update();
-    }
     for (const auto& [name, fbo] : m_fbos)
     {
       fbo.bind();
       assert(fbo.is_complete());
       fbo.unbind();
     }
+
+    m_skybox.set_cubemap(Cubemap(skybox_faces));
+    m_screen_quad.init(main_scene_fbo.texture()->id());
+    m_shadow_map_quad.init(shadow_map_data, shadows_fbo.texture()->id(), true);
+
+    UniformBuffer& ubo = PipelineUBOManager::get("cameraData");
+    ubo.bind();
+    ubo.resize(sizeof(glm::mat4) * 2);
+    ubo.set_binding_point(0);
+    ubo.unbind();
+
+    ::setup_opengl();
+    create_scene();
     for (auto& drawable : m_drawables)
     {
       // init bbox and center
       drawable->update();
     }
+    calculate_scene_bbox();
+
+    const glm::vec3 dir_light_position = glm::vec3(-0.7f, 1.f, 3.f);
+    const glm::vec3 dir_light_target = (m_bbox.min() + m_bbox.max()) / 2.f;
+    m_directional_light.proj_matrix = glm::ortho(-3.f, 3.f, -2.f, 2.f, 0.1f, 10.f);
+    m_directional_light.view_matrix = glm::lookAt(dir_light_position, dir_light_target, glm::vec3(0, 1, 0));
+    m_directional_light.direction = glm::normalize(dir_light_target - dir_light_position);
+
+    m_render_passes.emplace_back(std::make_unique<GeometryPass>(this, shadows_fbo.texture()->id()));
+    m_render_passes.emplace_back(std::make_unique<NormalsPass>(this));
+    m_render_passes.emplace_back(std::make_unique<LinesPass>(this));
+    m_shadows_pass = std::make_unique<ShadowsPass>(this, static_cast<GeometryPass*>(m_render_passes[0].get()));
+    
+    for (auto& rp : m_render_passes)
+    {
+      rp->update();
+    }
+
+    update_shadow_map();
   }
 
   SceneRenderer::~SceneRenderer()
@@ -114,6 +161,7 @@ namespace fury
   void SceneRenderer::render()
   {
     const auto& main_fbo = m_fbos.at("main");
+    const auto& shadows_fbo = m_fbos.at("shadowMap");
     GLFWwindow* gl_window = m_window->gl_window();
     while (!glfwWindowShouldClose(gl_window))
     {
@@ -123,11 +171,13 @@ namespace fury
 
       // render to a custom framebuffer
       main_fbo.bind();
+      glViewport(0, 0, m_window->width(), m_window->height());
       glClearColor(0.07f, 0.13f, 0.17f, 1.0f);
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
       glEnable(GL_DEPTH_TEST);
       // render scene before gui to make sure that imgui window always will be on top of drawn entities
-      render_skybox();
+      if (m_camera.get_projection_mode() == Camera::ProjectionMode::PERSPECTIVE)
+        render_skybox();
       for (auto& rp : m_render_passes)
       {
         rp->tick();
@@ -135,6 +185,8 @@ namespace fury
       m_ui.tick();
       main_fbo.unbind();
       m_screen_quad.tick();
+      if (m_show_shadow_map)
+        m_shadow_map_quad.tick();
       glfwSwapBuffers(gl_window);
     }
   }
@@ -313,6 +365,16 @@ namespace fury
         m_camera.freeze();
         glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
       }
+      else if (key == Key::O)
+      {
+        m_show_shadow_map = !m_show_shadow_map;
+      }
+      else if (key == Key::P)
+      {
+        Camera::ProjectionMode current_mode = m_camera.get_projection_mode();
+        m_camera.set_projection_mode(current_mode == Camera::ProjectionMode::ORTHOGRAPHIC ? 
+          Camera::ProjectionMode::PERSPECTIVE : Camera::ProjectionMode::ORTHOGRAPHIC);
+      }
     }
     else if (state == State::RELEASED)
     {
@@ -327,6 +389,49 @@ namespace fury
   void SceneRenderer::change_polygon_mode(int new_mode)
   {
     m_polygon_mode = new_mode;
+  }
+
+  void SceneRenderer::handle_new_added_object(Object3D* obj)
+  {
+    calculate_scene_bbox();
+  }
+
+  void SceneRenderer::handle_object_change(Object3D* obj, const ObjectChangeInfo& info)
+  {
+    if (info.is_transformation_change)
+    {
+      calculate_scene_bbox();
+      update_shadow_map();
+      m_fbos.at("main").bind();
+    }
+  }
+
+  void SceneRenderer::calculate_scene_bbox()
+  {
+    m_bbox.reset();
+    for (auto& drawable : m_drawables)
+    {
+      if (drawable->bbox().is_empty())
+        drawable->calculate_bbox();
+      // in world space
+      glm::vec3 min_world = drawable->model_matrix() * glm::vec4(drawable->bbox().min(), 1);
+      glm::vec3 max_world = drawable->model_matrix() * glm::vec4(drawable->bbox().max(), 1);
+      m_bbox.grow(min_world, max_world);
+    }
+  }
+
+  void SceneRenderer::update_shadow_map()
+  {
+    auto& shadows_fbo = m_fbos.at("shadowMap");
+    shadows_fbo.bind();
+    glEnable(GL_DEPTH_TEST);
+    glCullFace(GL_FRONT);
+    glViewport(0, 0, SHADOWMAP_WIDTH, SHADOWMAP_HEIGHT);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    m_shadows_pass->update();
+    glCullFace(GL_BACK);
+    shadows_fbo.unbind();
+    glViewport(0, 0, m_window->width(), m_window->height());
   }
 
   void SceneRenderer::create_scene()
@@ -346,7 +451,7 @@ namespace fury
 
     auto& sun = std::make_unique<Icosahedron>();
     sun->light_source(true);
-    sun->translate(glm::vec3(0.f, 0.5f, 2.f));
+    sun->translate(glm::vec3(0.f, 0.6f, 2.f));
     sun->set_color(glm::vec4(1.f, 1.f, 0.f, 1.f));
     sun->set_is_fixed_shading(true);
     sun->scale(glm::vec3(0.3f));

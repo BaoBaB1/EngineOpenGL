@@ -1,5 +1,6 @@
 #include "RenderPass.hpp"
 #include "ge/Object3D.hpp"
+#include "WindowGLFW.hpp"
 #include "ObjectChangeInfo.hpp"
 #include "BindGuard.hpp"
 #include "Shader.hpp"
@@ -24,8 +25,9 @@ namespace fury
   {
   }
 
-  GeometryPass::GeometryPass(SceneRenderer* scene) : RenderPass(scene)
+  GeometryPass::GeometryPass(SceneRenderer* scene, int shadow_map_texture) : RenderPass(scene)
   {
+    m_shadow_map_texture = shadow_map_texture;
     BindChainFIFO bind_chain({ &m_vao_indices, &m_vbo_indices });
     ::set_default_vertex_attributes(m_vao_indices);
     BindChainFIFO bind_chain2({ &m_vao_arrays, &m_vbo_arrays });
@@ -89,9 +91,15 @@ namespace fury
         vcount_vbo_arrays += meta.vert_count_total;
       }
     }
+    m_vbo_arrays.bind();
     m_vbo_arrays.resize_if_smaller(vcount_vbo_arrays * sizeof(Vertex));
+    m_vbo_arrays.unbind();
+    m_vbo_indices.bind();
     m_vbo_indices.resize_if_smaller(vcount_vbo_indices * sizeof(Vertex));
+    m_vbo_indices.unbind();
+    m_ebo.bind();
     m_ebo.resize_if_smaller(idx_count * sizeof(GLuint));
+    m_ebo.unbind();
   }
 
   void GeometryPass::split_objects()
@@ -130,9 +138,18 @@ namespace fury
     shader->set_int("ambientTex", 1);
     shader->set_int("diffuseTex", 2);
     shader->set_int("specularTex", 3);
+    shader->set_int("shadowMap", 4);
+    const DirectionalLight& dir_light = m_scene->get_directional_light();
+    shader->set_matrix4f("lightSpaceVPMatrix", dir_light.proj_matrix * dir_light.view_matrix);
+
     // center in world space
-    shader->set_vec3("lightPos", light_source.center() + glm::vec3(light_source.model_matrix()[3]));
+    shader->set_vec3("lightPos", light_source.model_matrix() * glm::vec4(light_source.center(), 1));
+    shader->set_vec3("lightDirGlobal", dir_light.direction);
     shader->set_vec3("lightColor", glm::vec3(1.f));
+
+    // set shadow map
+    glActiveTexture(GL_TEXTURE0 + 4);
+    glBindTexture(GL_TEXTURE_2D, m_shadow_map_texture);
 
     for (int i = 0; i < 2; i++)
     {
@@ -155,9 +172,9 @@ namespace fury
         ppobj = m_objects_arrays_rendering_mode.data();
       }
 
-      for (size_t i = 0; i < size; i++)
+      for (size_t obj_i = 0; obj_i < size; obj_i++)
       {
-        const Object3D* obj = ppobj[i];
+        const Object3D* obj = ppobj[obj_i];
         shader->set_matrix4f("modelMatrix", obj->model_matrix());
         shader->set_bool("applyShading", obj->shading_mode() != Object3D::ShadingMode::NO_SHADING && !obj->is_light_source());
 
@@ -172,10 +189,10 @@ namespace fury
         const size_t mesh_count = obj->mesh_count();
         const std::vector<MeshRenderOffsets>& meshes_offsets = m_render_offsets.at(obj);
 
-        for (size_t i = 0; i < mesh_count; i++)
+        for (size_t mesh_i = 0; mesh_i < mesh_count; mesh_i++)
         {
-          const MeshRenderOffsets& mesh_offsets = meshes_offsets[i];
-          const Mesh& mesh = obj->get_mesh(i);
+          const MeshRenderOffsets& mesh_offsets = meshes_offsets[mesh_i];
+          const Mesh& mesh = obj->get_mesh(mesh_i);
 
           // bind textures
           if (auto tex = mesh.get_texture(TextureType::GENERIC))
@@ -352,8 +369,7 @@ namespace fury
 
   void GeometryPass::tick()
   {
-    const auto& drawables = m_scene->get_drawables();
-    if (drawables.empty())
+    if (m_scene->get_drawables().empty())
     {
       return;
     }
@@ -365,8 +381,10 @@ namespace fury
   {
     // TODO: remove listener in dctor
     SceneInfo* scene_info_component = scene->get_ui().get_component<SceneInfo>("SceneInfo");
+    Gizmo* gizmo_component = scene->get_ui().get_component<Gizmo>("Gizmo");
     scene_info_component->on_visible_normals_button_pressed += new InstanceListener(this, &NormalsPass::handle_visible_normals_toggle);
     scene_info_component->on_object_change += new InstanceListener(this, &NormalsPass::handle_object_change);
+    gizmo_component->on_object_change += new InstanceListener(this, &NormalsPass::handle_object_change);
     BindChainFIFO bc({ &m_vao, &m_vbo });
     ::set_default_vertex_attributes(m_vao);
     m_model_matrices_ssbo.set_binding_point(1);
@@ -385,6 +403,8 @@ namespace fury
     m_voffsets.reserve(drawables.size());
     m_vcounts.reserve(drawables.size());
 
+    BindChainFIFO bc({ &m_vao, &m_vbo });
+
     size_t vbo_size = 0;
     std::for_each(drawables.begin(), drawables.end(),
       [&](const std::unique_ptr<Object3D>& obj)
@@ -393,7 +413,6 @@ namespace fury
       });
     m_vbo.resize_if_smaller(vbo_size);
 
-    BindChainFIFO bc({ &m_vao, &m_vbo });
     size_t vbo_offset = 0;
     size_t idx = 0;
     for (const auto& obj : drawables)
@@ -415,8 +434,8 @@ namespace fury
         vbo_offset += mesh_meta.vert_count * sizeof(Vertex);
       }
     }
-    m_model_matrices_ssbo.resize_if_smaller(sizeof(glm::mat4) * m_model_matrices.size());
     m_model_matrices_ssbo.bind();
+    m_model_matrices_ssbo.resize_if_smaller(sizeof(glm::mat4) * m_model_matrices.size());
     m_model_matrices_ssbo.set_data(m_model_matrices.data(), sizeof(glm::mat4) * m_model_matrices.size(), 0);
     m_model_matrices_ssbo.unbind();
   }
@@ -498,9 +517,10 @@ namespace fury
     SceneInfo* scene_info_component = scene->get_ui().get_component<SceneInfo>("SceneInfo");
     // TODO: remove listener in dctor
     scene_info_component->on_visible_bbox_button_pressed += new InstanceListener(this, &LinesPass::handle_visible_bbox_toggle);
-    m_ebo.resize(BoundingBox::lines_indices().size() * sizeof(GLuint));
+    scene_info_component->on_show_scene_bbox += new InstanceListener(this, &LinesPass::handle_scene_visible_bbox_toggle);
     BindChainFIFO bc({ &m_vao, &m_vbo, &m_ebo });
     ::set_default_vertex_attributes(m_vao);
+    m_ebo.resize(BoundingBox::lines_indices().size() * sizeof(GLuint));
     m_ebo.set_data(BoundingBox::lines_indices().data(), sizeof(GLuint) * BoundingBox::lines_indices().size(), 0);
   }
 
@@ -508,37 +528,45 @@ namespace fury
   {
     m_objects_with_visible_bboxes.clear();
     m_objects_with_visible_bboxes.reserve(m_scene->get_drawables().size());
-    constexpr int bbox_vsize_bytes = sizeof(Vertex) * 8;
+    constexpr static int bbox_vsize_bytes = sizeof(Vertex) * 8;
     for (const auto& drawable : m_scene->get_drawables())
     {
       if (drawable->is_bbox_visible())
         m_objects_with_visible_bboxes.push_back(drawable.get());
     }
-    // 8 vertices for each bbox
-    m_vbo.resize_if_smaller(m_objects_with_visible_bboxes.size() * bbox_vsize_bytes);
 
     BindGuard bg(m_vbo);
+    // 8 vertices for each bbox
+    m_vbo.resize_if_smaller((m_objects_with_visible_bboxes.size() + 1) * bbox_vsize_bytes); // + scene's bbox
     for (size_t i = 0; i < m_objects_with_visible_bboxes.size(); i++)
     {
       const Object3D* drawable = m_objects_with_visible_bboxes[i];
-      const std::vector<Vertex>& points = drawable->bbox().points();
-      m_vbo.set_data(points.data(), bbox_vsize_bytes, i * bbox_vsize_bytes);
+      const std::array<Vertex, 8>& points = drawable->bbox().points();
+      m_vbo.set_data(points.data(), bbox_vsize_bytes, (i + 1) * bbox_vsize_bytes);
     }
   }
 
   void LinesPass::tick()
   {
-    if (m_objects_with_visible_bboxes.empty())
+    if (m_objects_with_visible_bboxes.empty() && !m_is_scene_bbox_visible)
       return;
     Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::LINES);
     BindGuard bg_shader(shader);
     BindGuard bg_vao(m_vao);
     shader->set_vec3("lineColor", glm::vec3(0, 1, 0));
+    if (m_is_scene_bbox_visible)
+    {
+      BindGuard bg_vbo(m_vbo);
+      // at 0 position there is always scene bbox
+      m_vbo.set_data(m_scene->get_bbox().points().data(), sizeof(Vertex) * 8, 0);
+      shader->set_matrix4f("modelMatrix", glm::mat4(1.f));
+      glDrawElementsBaseVertex(GL_LINES, 24, GL_UNSIGNED_INT, 0, 0);
+    }
     for (size_t i = 0; i < m_objects_with_visible_bboxes.size(); i++)
     {
       const Object3D* drawable = m_objects_with_visible_bboxes[i];
       shader->set_matrix4f("modelMatrix", drawable->model_matrix());
-      glDrawElementsBaseVertex(GL_LINES, 24, GL_UNSIGNED_INT, 0, i * 8);
+      glDrawElementsBaseVertex(GL_LINES, 24, GL_UNSIGNED_INT, 0, (i + 1) * 8);
     }
   }
 
@@ -546,5 +574,75 @@ namespace fury
   {
     // TODO: better impl
     update();
+  }
+
+  void LinesPass::handle_scene_visible_bbox_toggle(bool is_visible)
+  {
+    m_is_scene_bbox_visible = is_visible;
+  }
+
+  ShadowsPass::ShadowsPass(SceneRenderer* scene, GeometryPass* gp) : RenderPass(scene)
+  {
+    m_gp = gp;
+  }
+
+  void ShadowsPass::update()
+  {
+    Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::SHADOW_MAP);
+    shader->bind();
+    shader->set_matrix4f("lightViewMatrix", m_scene->get_directional_light().view_matrix);
+    shader->set_matrix4f("lightProjectionMatrix", m_scene->get_directional_light().proj_matrix);
+    for (int i = 0; i < 2; i++)
+    {
+      const Object3D** ppobj = nullptr;
+      size_t size = 0;
+      if (i == 0)
+      {
+        if (m_gp->m_objects_indices_rendering_mode.empty())
+          continue;
+        m_gp->m_vao_indices.bind();
+        size = m_gp->m_objects_indices_rendering_mode.size();
+        ppobj = m_gp->m_objects_indices_rendering_mode.data();
+      }
+      else
+      {
+        if (m_gp->m_objects_arrays_rendering_mode.empty())
+          continue;
+        m_gp->m_vao_arrays.bind();
+        size = m_gp->m_objects_arrays_rendering_mode.size();
+        ppobj = m_gp->m_objects_arrays_rendering_mode.data();
+      }
+
+      for (size_t obj_i = 0; obj_i < size; obj_i++)
+      {
+        const Object3D* obj = ppobj[obj_i];
+        shader->set_matrix4f("modelMatrix", obj->model_matrix());
+
+        const auto& render_config = obj->get_render_config();
+        const size_t mesh_count = obj->mesh_count();
+        const std::vector<GeometryPass::MeshRenderOffsets>& meshes_offsets = m_gp->m_render_offsets.at(obj);
+
+        for (size_t mesh_i = 0; mesh_i < mesh_count; mesh_i++)
+        {
+          const GeometryPass::MeshRenderOffsets& mesh_offsets = meshes_offsets[mesh_i];
+          const Mesh& mesh = obj->get_mesh(mesh_i);
+          if (render_config.use_indices)
+          {
+            glDrawElementsBaseVertex(render_config.mode, mesh.faces_as_indices().size(), GL_UNSIGNED_INT, (void*)mesh_offsets.ebo_offset, mesh_offsets.basev);
+          }
+          else
+          {
+            glDrawArrays(render_config.mode, static_cast<GLint>(mesh_offsets.vbo_arrays_offset), static_cast<GLsizei>(mesh.vertices().size()));
+          }
+        }
+      }
+    }
+    m_gp->m_vao_indices.unbind();
+    m_gp->m_vao_arrays.unbind();
+    shader->unbind();
+  }
+
+  void ShadowsPass::tick()
+  {
   }
 }

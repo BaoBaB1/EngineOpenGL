@@ -53,8 +53,10 @@ namespace fury
   void Camera::set_screen_size(const glm::vec2& screen_size)
   {
     m_screen_size = screen_size;
-    m_projection_mat = glm::mat4(1.f);
-    m_projection_mat = glm::perspective(glm::radians(45.f), screen_size.x / screen_size.y, 0.1f, 100.f);
+    m_projection_mat[ProjectionMode::PERSPECTIVE] = glm::mat4(1.f);
+    m_projection_mat[ProjectionMode::PERSPECTIVE] = glm::perspective(glm::radians(45.f), screen_size.x / screen_size.y, 0.1f, 100.f);
+    // TODO: better setup
+    m_projection_mat[ProjectionMode::ORTHOGRAPHIC] = glm::ortho(-1.5f, 1.5f, -1.5f, 1.5f, 0.1f, 10.f);
   }
 
   glm::mat4 Camera::view_matrix() const
@@ -64,13 +66,19 @@ namespace fury
 
   Ray Camera::cast_ray(uint32_t x, uint32_t y) const
   {
-    glm::vec3 ray_nds = glm::vec3((2.f * x) / m_screen_size.x - 1.f, (2.f * y) / m_screen_size.y - 1.f, 1);
-    glm::vec4 ray_clip = glm::vec4(glm::vec2(ray_nds), -1, 1);
-    glm::vec4 ray_eye = glm::inverse(m_projection_mat) * ray_clip;
-    ray_eye.z = -1;
-    ray_eye.w = 0;
-    glm::vec3 ray_world_dir = glm::normalize(glm::inverse(view_matrix()) * ray_eye);
-    return Ray(m_position, ray_world_dir);
+    const glm::vec3 ray_nds = glm::vec3((2.f * x) / m_screen_size.x - 1.f, (2.f * y) / m_screen_size.y - 1.f, 1);
+    const glm::vec4 ray_clip = glm::vec4(glm::vec2(ray_nds), -1, 1);
+    if (m_mode == PERSPECTIVE)
+    {
+      glm::vec4 ray_eye = glm::inverse(m_projection_mat[ProjectionMode::PERSPECTIVE]) * ray_clip;
+      ray_eye.z = -1;
+      ray_eye.w = 0;
+      glm::vec3 ray_world_dir = glm::normalize(glm::inverse(view_matrix()) * ray_eye);
+      return Ray(m_position, ray_world_dir);
+    }
+    glm::vec4 world_pos = glm::inverse(m_projection_mat[ProjectionMode::ORTHOGRAPHIC] * view_matrix()) * ray_clip;
+    world_pos /= world_pos.w;
+    return Ray(world_pos, m_target);
   }
 
   void Camera::add_to_yaw_and_pitch(float x_offset, float y_offset)

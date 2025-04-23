@@ -14,8 +14,8 @@ namespace fury
       FrameBufferObject();
     ~FrameBufferObject();
     void attach_renderbuffer(int w, int h, GLenum internalformat, GLenum attachment);
-    void attach_texture(int w, int h, GLint internalformat, GLint format, GLint type);
-    void attach_texture(Texture2D&& tex);
+    void attach_texture(int w, int h, GLint internalformat, GLint format, GLint type, bool add_color_buffer = true);
+    void attach_texture(Texture2D&& tex, bool add_color_buffer = true);
     void bind() const override;
     void unbind() const override;
     bool is_complete() const;

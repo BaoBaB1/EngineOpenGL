@@ -23,7 +23,6 @@ namespace fury
     RenderPass(SceneRenderer* scene);
     virtual void update() = 0;
   protected:
-  protected:
     SceneRenderer* m_scene = nullptr;
   };
 
@@ -38,7 +37,7 @@ namespace fury
       size_t basev = 0;
     };
   public:
-    GeometryPass(SceneRenderer* scene);
+    GeometryPass(SceneRenderer* scene, int shadow_map_texture);
     void update() override;
     void tick() override;
   private:
@@ -49,6 +48,8 @@ namespace fury
     void on_new_scene_object(Object3D* obj);
     void handle_object_change(Object3D* obj, const ObjectChangeInfo& info);
   private:
+    // share all buffers data with shadow pass to avoid same data duplication
+    friend class ShadowsPass;
     VertexArrayObject m_vao_indices;
     VertexArrayObject m_vao_arrays;
     VertexBufferObject m_vbo_indices;
@@ -57,6 +58,17 @@ namespace fury
     std::map<const Object3D*, std::vector<MeshRenderOffsets>> m_render_offsets;
     std::vector<const Object3D*> m_objects_indices_rendering_mode;
     std::vector<const Object3D*> m_objects_arrays_rendering_mode;
+    int m_shadow_map_texture;
+  };
+
+  class ShadowsPass : public RenderPass
+  {
+  public:
+    ShadowsPass(SceneRenderer* scene, GeometryPass* gp);
+    void update() override;
+    void tick() override;
+  private:
+    GeometryPass* m_gp;
   };
 
   // points + geometry shader
@@ -97,10 +109,12 @@ namespace fury
     void tick() override;
   private:
     void handle_visible_bbox_toggle(Object3D* obj, bool is_visible);
+    void handle_scene_visible_bbox_toggle(bool is_visible);
   private:
     VertexArrayObject m_vao;
     VertexBufferObject m_vbo;
     ElementBufferObject m_ebo;
     std::vector<const Object3D*> m_objects_with_visible_bboxes;
+    bool m_is_scene_bbox_visible = false;
   };
 }

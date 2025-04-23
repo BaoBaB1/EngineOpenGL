@@ -36,22 +36,24 @@ namespace fury
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
   }
 
-  void FrameBufferObject::attach_texture(int w, int h, GLint internalformat, GLint format, GLint type)
+  void FrameBufferObject::attach_texture(int w, int h, GLint internalformat, GLint format, GLint type, bool add_color_buffer)
   {
-    if (!m_texture)
+    attach_texture(Texture2D(w, h, internalformat, format, type), add_color_buffer);
+  }
+
+  void FrameBufferObject::attach_texture(Texture2D&& tex, bool add_color_buffer)
+  {
+    m_texture = std::move(tex);
+    if (add_color_buffer)
     {
-      m_texture = Texture2D(w, h, internalformat, format, type);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_texture->id(), 0);
     }
     else
     {
-      m_texture->resize(w, h, internalformat, format, type);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_texture->id(), 0);
+      glDrawBuffer(GL_NONE);
+      glReadBuffer(GL_NONE);
     }
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_texture->id(), 0);
-  }
-
-  void FrameBufferObject::attach_texture(Texture2D&& tex)
-  {
-    m_texture = std::move(tex);
   }
 
   FrameBufferObject::~FrameBufferObject()

@@ -15,6 +15,7 @@ in vec3 normal;
 in vec4 color;
 in vec3 fragment;
 in vec2 uv;
+in vec4 fragPosLightSpace;
 
 uniform bool applyShading;
 uniform bool hasDefaultTexture;
@@ -24,11 +25,40 @@ uniform bool hasSpecularTex;
 uniform vec3 viewPos;
 uniform vec3 lightColor;
 uniform vec3 lightPos;
+uniform vec3 lightDirGlobal;
 uniform sampler2D defaultTexture;
 uniform sampler2D ambientTex;
 uniform sampler2D diffuseTex;
 uniform sampler2D specularTex;
+uniform sampler2D shadowMap;
 uniform Material material;
+
+float CalculateShadowValue()
+{
+	// perform perspective divide and scale coord to [-1, 1] range
+	vec3 ndc = fragPosLightSpace.xyz / fragPosLightSpace.w;
+	// scale to range [0, 1] because depth values in shadow map are in range [0, 1]
+	ndc = ndc * 0.5 + 0.5;
+	if (ndc.z > 1.f)
+	{
+		return 0;
+	}
+	// closest depth from light's perspective
+	float closestDepth = texture(shadowMap, ndc.xy).r;
+	float currentDepth = ndc.z;
+	float bias = max(0.05 * (1.0 - dot(normalize(normal), -lightDirGlobal)), 0.005);
+	float shadow = 0.0;
+	vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+	for(int x = -1; x <= 1; ++x)
+	{
+			for(int y = -1; y <= 1; ++y)
+			{
+					float pcfDepth = texture(shadowMap, ndc.xy + vec2(x, y) * texelSize).r;
+					shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+			}
+	}
+	return shadow / 9.0;
+}
 
 void main()
 {
@@ -75,7 +105,8 @@ void main()
 		float specValue = pow(max(dot(viewDir, reflectedDir), 0.0), shininess);
 		vec3 specular = specularStrength * specValue * lightColor * specularMaterialComponent * specularColor;
 
-		fragColor = vec4((diffuse + ambient + specular) * color.rgb, alpha);
+		float shadow = CalculateShadowValue();
+		fragColor = vec4((ambient + (1.0 - shadow) * (diffuse + specular)) * color.rgb, 1.0);
 	}
 	else
 	{

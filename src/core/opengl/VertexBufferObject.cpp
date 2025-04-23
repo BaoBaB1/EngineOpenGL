@@ -2,7 +2,7 @@
 
 namespace fury
 {
-	VertexBufferObject::VertexBufferObject() : VertexBufferObject(GL_ARRAY_BUFFER)
+	VertexBufferObject::VertexBufferObject() : OpenGLBuffer(GL_ARRAY_BUFFER)
 	{
 	}
 

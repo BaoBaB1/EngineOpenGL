@@ -80,6 +80,10 @@ namespace fury
       {
         on_polygon_mode_change.notify(m_fill_polygons ? GL_FILL : GL_LINE);
       }
+      if (ImGui::Checkbox("Show scene's bbox", &m_show_scene_bbox))
+      {
+        on_show_scene_bbox.notify(m_show_scene_bbox);
+      }
     }
 
     if (!m_scene->get_selected_objects().empty())
@@ -123,16 +127,27 @@ namespace fury
       ImGui::GetStyle().ItemSpacing.x = 3.f;
       ImGui::PushItemWidth(item_width / 3);
 
+      ObjectChangeInfo transformation_change;
+      transformation_change.is_transformation_change = true;
       if (ImGui::SliderFloat("##X", &m_obj_translation.x, -50.0f, 50.0f))
+      {
         drawable.translate(glm::vec3(m_obj_translation.x - old_translation.x, 0.f, 0.f));
+        on_object_change.notify(&drawable, transformation_change);
+      }
 
       ImGui::SameLine();
       if (ImGui::SliderFloat("##Y", &m_obj_translation.y, -50.0f, 50.0f))
+      {
         drawable.translate(glm::vec3(0.f, m_obj_translation.y - old_translation.y, 0.f));
+        on_object_change.notify(&drawable, transformation_change);
+      }
 
       ImGui::SameLine();
       if (ImGui::SliderFloat("##Z", &m_obj_translation.z, -50.0f, 50.0f))
+      {
         drawable.translate(glm::vec3(0.f, 0.f, m_obj_translation.z - old_translation.z));
+        on_object_change.notify(&drawable, transformation_change);
+      }
 
       // scale
       ImGui::Separator();
@@ -151,15 +166,24 @@ namespace fury
       ImGui::PushItemWidth(item_width / 3);
 
       if (ImGui::SliderFloat("##X2", &m_obj_scale.x, 0.1f, 3.f))
+      {
         drawable.scale(m_obj_scale);
+        on_object_change.notify(&drawable, transformation_change);
+      }
 
       ImGui::SameLine();
       if (ImGui::SliderFloat("##Y2", &m_obj_scale.y, 0.1f, 3.f))
+      {
         drawable.scale(m_obj_scale);
+        on_object_change.notify(&drawable, transformation_change);
+      }
 
       ImGui::SameLine();
       if (ImGui::SliderFloat("##Z2", &m_obj_scale.z, 0.1f, 3.f))
+      {
         drawable.scale(m_obj_scale);
+        on_object_change.notify(&drawable, transformation_change);
+      }
       ImGui::PopItemWidth();
 
       // rotation
@@ -184,21 +208,33 @@ namespace fury
       if (ImGui::SliderFloat("##X3", &m_obj_rotation_axis.x, 0.f, 1.f))
       {
         if (!drawable.is_rotating())
+        {
           drawable.rotate(m_obj_rotation_angle, m_obj_rotation_axis);
+          // TODO: set in SceneRenderer::tick() as well
+          on_object_change.notify(&drawable, transformation_change);
+        }
       }
 
       ImGui::SameLine();
       if (ImGui::SliderFloat("##Y3", &m_obj_rotation_axis.y, 0.f, 1.f))
       {
         if (!drawable.is_rotating())
+        {
           drawable.rotate(m_obj_rotation_angle, m_obj_rotation_axis);
+          // TODO: set in SceneRenderer::tick() as well
+          on_object_change.notify(&drawable, transformation_change);
+        }
       }
 
       ImGui::SameLine();
       if (ImGui::SliderFloat("##Z3", &m_obj_rotation_axis.z, 0.f, 1.f))
       {
         if (!drawable.is_rotating())
+        {
           drawable.rotate(m_obj_rotation_angle, m_obj_rotation_axis);
+          // TODO: set in SceneRenderer::tick() as well
+          on_object_change.notify(&drawable, transformation_change);
+        }
       }
 
       // other properties

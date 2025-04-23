@@ -9,8 +9,7 @@ namespace fury
   class Skybox
   {
   public:
-    Skybox() = default;
-    Skybox(Cubemap&& cm);
+    Skybox();
     void set_cubemap(Cubemap&& cubemap) { m_cubemap = std::move(cubemap); }
     void render();
     const Cubemap& get_cubemap() const { return m_cubemap; }

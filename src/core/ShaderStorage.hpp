@@ -17,6 +17,7 @@ namespace fury
       DEPTH_PICKING,
       LINES,
       NORMALS,
+      SHADOW_MAP,
       LAST_ITEM
     };
     static void init();

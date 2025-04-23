@@ -12,7 +12,7 @@ namespace fury
   public:
     enum InputKey : uint16_t
     {
-      W, A, S, D, T, R,
+      W, A, S, D, T, R, O, P,
       ARROW_UP,
       ARROW_DOWN,
       ARROW_LEFT,

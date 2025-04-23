@@ -33,13 +33,8 @@ namespace fury
       (point.z >= m_min.z && point.z <= m_max.z);
   }
 
-  void BoundingBox::init(const glm::vec3& min, const glm::vec3& max)
+  void BoundingBox::set_points()
   {
-    m_min = min;
-    m_max = max;
-
-    m_points.clear();
-    m_points.resize(8);
     // llc - left lower corner, rtc - right top corner ...
     // front quad (llc -> rlc -> rtc -> ltc) 
     m_points[0] = m_min;
@@ -51,6 +46,25 @@ namespace fury
     m_points[5] = glm::vec3(m_max.x, m_min.y, m_max.z);
     m_points[6] = m_max;
     m_points[7] = glm::vec3(m_min.x, m_max.y, m_max.z);
+  }
+
+  void BoundingBox::init(const glm::vec3& min, const glm::vec3& max)
+  {
+    m_min = min;
+    m_max = max;
+    set_points();
+  }
+
+  void BoundingBox::grow(const glm::vec3& min, const glm::vec3& max)
+  {
+    m_min = glm::min(min, m_min);
+    m_max = glm::max(max, m_max);
+    set_points();
+  }
+
+  void BoundingBox::reset()
+  {
+    init(glm::vec3(g_fmax), glm::vec3(g_fmin));
   }
 
   const std::array<GLuint, 24>& BoundingBox::lines_indices()

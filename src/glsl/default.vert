@@ -12,11 +12,13 @@ layout (std140, binding = 0) uniform CameraData
 } camData;
 
 uniform mat4 modelMatrix;
+uniform mat4 lightSpaceVPMatrix;
 
 out vec3 normal;
 out vec4 color;
 out vec3 fragment;
 out vec2 uv;
+out vec4 fragPosLightSpace;
 
 void main()
 {
@@ -25,4 +27,5 @@ void main()
 	normal = transpose(inverse(mat3(modelMatrix))) * aNormal;
 	color = aColor;
 	uv = aTextCoord;
+	fragPosLightSpace = lightSpaceVPMatrix * vec4(fragment, 1);
 }

@@ -27,10 +27,8 @@ namespace fury
 
   void OpenGLBuffer::resize(size_t new_size)
   {
-    bind();
     glBufferData(m_type, new_size, nullptr, GL_STATIC_DRAW);
     m_size = new_size;
-    unbind();
   }
 
   void OpenGLBuffer::resize_if_smaller(size_t new_size)
