@@ -35,7 +35,6 @@ namespace fury
     SceneRenderer(WindowGLFW* window);
     ~SceneRenderer();
     Camera& get_camera() { return m_camera; }
-    std::unordered_set<int>& get_light_sources() { return m_light_sources; }
     std::vector<Object3D*>& get_selected_objects() { return m_selected_objects; }
     std::vector<std::unique_ptr<Object3D>>& get_drawables() { return m_drawables; }
     BoundingBox& get_bbox() { return m_bbox; }
@@ -45,20 +44,25 @@ namespace fury
     void render();
     void save(const std::string& file) const;
     void load(const std::string& file);
+    void clear();
     Event<Object3D*> on_new_object_added;
+    Event<Object3D*> on_object_delete;
   private:
     void tick() override;
-    void create_scene();
+    //void create_scene();
     void select_object(Object3D* obj, bool click_from_menu_item);  // temporary function. remove when selection of multiple elements is supported
     void render_skybox();
     void handle_mouse_click(int button, int x, int y);
     void handle_window_size_change(int width, int height);
     void handle_keyboard_input(KeyboardHandler::InputKey key, KeyboardHandler::KeyState state);
     void change_polygon_mode(int new_mode);
-    void handle_new_added_object(Object3D* obj);
+    void handle_added_object(Object3D* obj);
     void handle_object_change(Object3D* obj, const ObjectChangeInfo& info);
     void calculate_scene_bbox();
     void update_shadow_map();
+    void handle_file_explorer_opening();
+    void handle_file_explorer_closing();
+    void remove_object(Object3D* obj);
     friend class SceneInfo;
   private:
     // store pointers to make virtual methods work
@@ -66,7 +70,7 @@ namespace fury
     std::vector<Object3D*> m_selected_objects;
     std::vector<std::unique_ptr<RenderPass>> m_render_passes;
     std::unique_ptr<ShadowsPass> m_shadows_pass;
-    std::unordered_set<int> m_light_sources;
+    std::unique_ptr<DebugPass> m_debug_pass;
     ScreenQuad m_screen_quad;
     ScreenQuad m_shadow_map_quad;
     bool m_show_shadow_map = false;

@@ -11,8 +11,8 @@ namespace fury
 	{
 	public:
 		UiComponent(SceneRenderer* scene);
-		void show() { m_is_visible = true; }
-		void hide() { m_is_visible = false; }
+		virtual void show() { m_is_visible = true; }
+		virtual void hide() { m_is_visible = false; }
 		bool is_visible() const { return m_is_visible; }
 	protected:
 		bool m_is_visible = false;

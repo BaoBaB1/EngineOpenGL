@@ -33,20 +33,36 @@ uniform sampler2D specularTex;
 uniform sampler2D shadowMap;
 uniform Material material;
 
+//vec2 poissonDisk[4] = vec2[](
+//  vec2( -0.94201624, -0.39906216 ),
+//  vec2( 0.94558609, -0.76890725 ),
+//  vec2( -0.094184101, -0.92938870 ),
+//  vec2( 0.34495938, 0.29387760 )
+//);
+//
+//// Returns a random number based on a vec3 and an int.
+//float random(vec3 seed, int i){
+//	vec4 seed4 = vec4(seed,i);
+//	float dot_product = dot(seed4, vec4(12.9898,78.233,45.164,94.673));
+//	return fract(sin(dot_product) * 43758.5453);
+//}
+
+
 float CalculateShadowValue()
 {
 	// perform perspective divide and scale coord to [-1, 1] range
 	vec3 ndc = fragPosLightSpace.xyz / fragPosLightSpace.w;
 	// scale to range [0, 1] because depth values in shadow map are in range [0, 1]
 	ndc = ndc * 0.5 + 0.5;
-	if (ndc.z > 1.f)
+	// everything that is out of shadow map or if normal is facing away from light
+	if (ndc.z > 1.f || dot(normal, -normalize(lightDirGlobal)) <= 0.0f)
 	{
 		return 0;
 	}
 	// closest depth from light's perspective
 	float closestDepth = texture(shadowMap, ndc.xy).r;
 	float currentDepth = ndc.z;
-	float bias = max(0.05 * (1.0 - dot(normalize(normal), -lightDirGlobal)), 0.005);
+	float bias = max(0.005 * (1.0 - dot(normal, -normalize(lightDirGlobal))), 0.001);
 	float shadow = 0.0;
 	vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
 	for(int x = -1; x <= 1; ++x)

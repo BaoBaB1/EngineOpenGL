@@ -10,6 +10,11 @@ namespace fury
     m_render_config.mode = GL_LINE_STRIP;
   }
 
+  Polyline::Polyline(std::initializer_list<Vertex> points) : Polyline()
+  {
+    std::for_each(points.begin(), points.end(), [this](const Vertex& v) { add(v); });
+  }
+
   void Polyline::add(const Vertex& point)
   {
     get_mesh(0).append_vertex(point);

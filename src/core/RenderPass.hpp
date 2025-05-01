@@ -15,6 +15,7 @@ namespace fury
 {
   class Object3D;
   class SceneRenderer;
+  class Polyline;
   struct ObjectChangeInfo;
 
   class RenderPass : public ITickable
@@ -117,4 +118,19 @@ namespace fury
     std::vector<const Object3D*> m_objects_with_visible_bboxes;
     bool m_is_scene_bbox_visible = false;
   };
+
+  class DebugPass : public RenderPass
+  {
+  public:
+    DebugPass(SceneRenderer* scene);
+    void update() override;
+    void tick() override;
+    void add_poly(const Polyline& poly);
+    void clear();
+  private:
+    VertexArrayObject m_vao;
+    VertexBufferObject m_vbo;
+    std::vector<Polyline> m_polys;
+  };
+
 }

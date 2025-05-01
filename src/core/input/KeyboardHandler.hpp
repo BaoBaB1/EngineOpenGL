@@ -12,7 +12,7 @@ namespace fury
   public:
     enum InputKey : uint16_t
     {
-      W, A, S, D, T, R, O, P,
+      W, A, S, D, T, R, O, P, L,
       ARROW_UP,
       ARROW_DOWN,
       ARROW_LEFT,
@@ -22,6 +22,7 @@ namespace fury
       LEFT_CTRL,
       ESC,
       GRAVE_ACCENT, // tilde
+      BACKSPACE,
       LAST
     };
 

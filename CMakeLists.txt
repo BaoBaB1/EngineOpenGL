@@ -23,6 +23,9 @@ source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(${PROJECT_NAME} PUBLIC glfw glad glm imgui assimp ImGuiFileDialog ImGuizmo stb spdlog)
 set_target_properties(${PROJECT_NAME} PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${ROOT_DIR})
+if (WIN32)
+	target_compile_definitions(${PROJECT_NAME} PRIVATE NOMINMAX)
+endif()
 
 add_subdirectory(tests)
 

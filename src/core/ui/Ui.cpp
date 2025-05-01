@@ -27,7 +27,7 @@ namespace fury
     m_components["MenuBar"] = std::make_unique<MenuBar>(scene);
     m_components["SceneInfo"] = std::make_unique<SceneInfo>(scene);
     m_components["Gizmo"] = std::make_unique<Gizmo>(scene);
-    m_components["FileExplorerWindow"] = std::make_unique<FileExplorerWindow>(scene);
+    m_components["FileExplorer"] = std::make_unique<FileExplorer>(scene);
   }
 
   Ui::~Ui()

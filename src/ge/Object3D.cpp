@@ -1,5 +1,7 @@
 #include "Object3D.hpp"
 #include "core/Logger.hpp"
+#include "utils/Utils.hpp"
+#include "core/AssetManager.hpp"
 
 namespace fury
 {
@@ -62,12 +64,19 @@ namespace fury
       for (size_t j = 0; j < tex_count; j++)
       {
         TextureType ttype;
-        size_t filesize;
+        size_t filename_len;
         ifs.read(reinterpret_cast<char*>(&ttype), sizeof(TextureType));
-        ifs.read(reinterpret_cast<char*>(&filesize), sizeof(size_t));
-        std::string file(filesize, ' ');
-        ifs.read(reinterpret_cast<char*>(file.data()), filesize);
-        mesh.set_texture(std::make_shared<Texture2D>(file), ttype);
+        ifs.read(reinterpret_cast<char*>(&filename_len), sizeof(size_t));
+        // read path relative to assets folder
+        std::string file(filename_len, ' ');
+        ifs.read(reinterpret_cast<char*>(file.data()), filename_len);
+        auto absolute_path = AssetManager::get_from_relative(file);
+        if (!absolute_path)
+        {
+          Logger::error("Failed to read object's texture with relative path {}.", file);
+          continue;
+        }
+        mesh.set_texture(std::make_shared<Texture2D>(absolute_path.value()), ttype);
       }
 
       // mesh bbox
@@ -109,15 +118,33 @@ namespace fury
       const auto textures = mesh.get_present_textures();
       const size_t tex_count = textures.size();
       ofs.write(reinterpret_cast<const char*>(&tex_count), sizeof(size_t));
+      size_t tex_count_offset = ofs.tellp();
+      size_t validated_textures = 0;
       for (const auto& [ttype, tex] : textures)
       {
         // type + file
         // TODO: add option for embedding texture directly into binary instead for saving just path
-        const std::string& file = tex->get_file();
-        const size_t filesize = file.size();
+        // at this point texture must be in assets folder
+        auto opt_tex = AssetManager::get_from_absolute(tex->get_file());
+        if (!opt_tex)
+        {
+          Logger::error("Could not get relative texture path from absolute path {}.", tex->get_file());
+          continue;
+        }
+        validated_textures++;
+        const std::string relative_path = opt_tex.value();
+        const size_t path_len = relative_path.size();
         ofs.write(reinterpret_cast<const char*>(&ttype), sizeof(TextureType));
-        ofs.write(reinterpret_cast<const char*>(&filesize), sizeof(size_t));
-        ofs.write(reinterpret_cast<const char*>(file.data()), filesize);
+        ofs.write(reinterpret_cast<const char*>(&path_len), sizeof(size_t));
+        ofs.write(reinterpret_cast<const char*>(relative_path.data()), path_len);
+      }
+      // this is not tested
+      if (validated_textures != tex_count)
+      {
+        size_t current_pos = ofs.tellp();
+        ofs.seekp(tex_count_offset, std::ios_base::beg);
+        ofs.write(reinterpret_cast<const char*>(validated_textures), sizeof(size_t));
+        ofs.seekp(current_pos, std::ios_base::beg);
       }
       ofs.write(reinterpret_cast<const char*>(&mesh.bbox().min()), sizeof(glm::vec3));
       ofs.write(reinterpret_cast<const char*>(&mesh.bbox().max()), sizeof(glm::vec3));

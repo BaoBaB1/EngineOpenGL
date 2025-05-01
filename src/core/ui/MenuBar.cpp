@@ -4,6 +4,7 @@
 #include "ge/Pyramid.hpp"
 #include "ge/Icosahedron.hpp"
 #include "ge/Cube.hpp"
+#include "core/ModelLoader.hpp"
 
 namespace fury
 {
@@ -28,7 +29,19 @@ namespace fury
       {
         if (ImGui::MenuItem("Import"))
         {
-          on_open_file_explorer.notify(OpenFileExplorerContext(false, false));
+          auto callback = [&](const std::string& file)
+            {
+              ModelLoader loader;
+              std::optional<Object3D> m = loader.load(file, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices | aiProcess_GenBoundingBoxes /*| aiProcess_GenSmoothNormals*/);
+              if (m)
+              {
+                m_scene->get_drawables().push_back(std::make_unique<Object3D>(std::move(*m)));
+                m_scene->on_new_object_added.notify(m_scene->get_drawables().back().get());
+              }
+            };
+          OpenFileExplorerContext ctx;
+          ctx.import_asset = true;
+          m_scene->get_ui().get_component<FileExplorer>("FileExplorer")->open(ctx, callback);
         }
         ImGui::EndMenu();
       }
@@ -37,12 +50,24 @@ namespace fury
       {
         if (ImGui::MenuItem("Save"))
         {
-          on_open_file_explorer.notify(OpenFileExplorerContext(true, true));
+          auto callback = [&](const std::string& file)
+            {
+              m_scene->save(file);
+            };
+          OpenFileExplorerContext ctx;
+          ctx.save_scene = true;
+          m_scene->get_ui().get_component<FileExplorer>("FileExplorer")->open(ctx, callback);
         }
 
         if (ImGui::MenuItem("Load"))
         {
-          on_open_file_explorer.notify(OpenFileExplorerContext(false, true));
+          auto callback = [&](const std::string& file)
+            {
+              m_scene->load(file);
+            };
+          OpenFileExplorerContext ctx;
+          ctx.load_scene = true;
+          m_scene->get_ui().get_component<FileExplorer>("FileExplorer")->open(ctx, callback);
         }
         
         if (ImGui::BeginMenu("Add object"))
@@ -76,6 +101,11 @@ namespace fury
             added_obj->scale(glm::vec3(0.5f));
             m_scene->on_new_object_added.notify(added_obj);
           }
+        }
+
+        if (ImGui::MenuItem("Clear"))
+        {
+          m_scene->clear();
         }
 
         ImGui::EndMenu();

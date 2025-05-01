@@ -4,7 +4,7 @@
 #include "UiComponent.hpp"
 #include "SceneInfo.hpp"
 #include "MenuBar.hpp"
-#include "FileExplorerWindow.hpp"
+#include "FileExplorer.hpp"
 #include "Gizmo.hpp"
 #include "core/ITickable.hpp"
 #include <memory>

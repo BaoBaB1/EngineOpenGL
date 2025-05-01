@@ -8,6 +8,7 @@ namespace fury
   class Texture2D : public Texture
   {
   public:
+    static const Texture2D& get_placeholder();
     OnlyMovable(Texture2D)
       Texture2D(int w, int h, GLint internalformat, GLint format, GLint type);
     Texture2D(const std::string&);

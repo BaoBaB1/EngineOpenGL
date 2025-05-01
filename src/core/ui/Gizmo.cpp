@@ -49,7 +49,7 @@ namespace fury
       glm::mat4 model_mat = obj->model_matrix();
       ImGuizmo::Manipulate(glm::value_ptr(cam.view_matrix()), glm::value_ptr(m_scene->get_camera().get_projection_matrix()),
         static_cast<ImGuizmo::OPERATION>(m_guizmo_operation), gizmo_mode, glm::value_ptr(model_mat));
-      if (ImGuizmo::IsUsing())
+      if (ImGuizmo::IsUsing() && obj->model_matrix() != model_mat)
       {
         if (m_guizmo_operation == ImGuizmo::OPERATION::ROTATE)
         {

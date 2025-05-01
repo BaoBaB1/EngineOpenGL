@@ -1,7 +1,14 @@
 #include "Texture2D.hpp"
+#include "core/AssetManager.hpp"
 
 namespace fury
 {
+  const Texture2D& Texture2D::get_placeholder()
+  {
+    static Texture2D placeholder = Texture2D(AssetManager::get_from_relative("textures/placeholder.png").value());
+    return placeholder;
+  }
+
   Texture2D::Texture2D(int w, int h, GLint internalformat, GLint format, GLint type)
   {
     resize(w, h, internalformat, format, type);
@@ -33,13 +40,13 @@ namespace fury
 
   void Texture2D::init(const std::string& filename)
   {
-    m_internal_fmt = m_fmt = GL_RGB;
+    auto data = Texture::load(filename.c_str());
     m_pixel_data_type = GL_UNSIGNED_BYTE;
     m_disabled = false;
     m_file = filename;
+    m_internal_fmt = m_fmt = (m_nchannels == 3 ? GL_RGB : GL_RGBA);
     bind();
-    auto data = Texture::load(filename.c_str());
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m_width, m_height, 0, GL_RGB, GL_UNSIGNED_BYTE, data.get());
+    glTexImage2D(GL_TEXTURE_2D, 0, m_internal_fmt, m_width, m_height, 0, m_fmt, GL_UNSIGNED_BYTE, data.get());
     // texture wrapping around x,y axes
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);

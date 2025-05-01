@@ -1,5 +1,6 @@
 #include "ModelLoader.hpp"
 #include "Logger.hpp"
+#include "AssetManager.hpp"
 
 namespace
 {
@@ -9,14 +10,14 @@ namespace
 
 namespace fury
 {
-  std::optional<Object3D> ModelLoader::load(const std::string& filename, unsigned int flags)
+  std::optional<Object3D> ModelLoader::load(const std::string& file, unsigned int flags)
   {
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(filename, flags);
+    const aiScene* scene = importer.ReadFile(file, flags);
 
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
     {
-      Logger::error("Failed to load file {}. Assimp error {}.", filename, importer.GetErrorString());
+      Logger::error("Failed to load file {}. Assimp error {}.", file, importer.GetErrorString());
       return std::nullopt;
     }
     else
@@ -25,7 +26,17 @@ namespace fury
       // calc extent to scale all vertices in range [-1, 1]
       calc_max_extent(scene->mRootNode, scene);
       size_t vcount = 0, fcount = 0;
-      process(scene->mRootNode, scene, std::filesystem::path(filename).parent_path(), model, vcount, fcount);
+      // put all referenced files in same assets/filename folder
+      const std::filesystem::path filepath = std::filesystem::path(file);
+      const std::string filename = filepath.stem().string();
+      const std::filesystem::path mtlpath = filepath.parent_path() / (filename + ".mtl");
+      // check if there is mtl file with same name
+      if (std::filesystem::exists(mtlpath))
+      {
+        AssetManager::add(mtlpath.string(), filename);
+      }
+      AssetManager::add(file, filename);
+      process(scene->mRootNode, scene, std::filesystem::path(file).parent_path(), filename, model, vcount, fcount);
       ::center_around_origin(model);
       // set some shading mode so that textures will be applied (if present) during rendering
       model.set_shading_mode(ShadingProcessor::ShadingMode::SMOOTH_SHADING);
@@ -34,7 +45,8 @@ namespace fury
     }
   }
 
-  void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::filesystem::path& file_path, Object3D& model, size_t& vcount, size_t& fcount)
+  void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::filesystem::path& file_path, 
+    const std::string& folder, Object3D& model, size_t& vcount, size_t& fcount)
   {
     for (unsigned int i = 0; i < root->mNumMeshes; i++)
     {
@@ -99,7 +111,9 @@ namespace fury
           }
           aiString path;
           ai_material->GetTexture(aiTextureType_AMBIENT, 0, &path);
-          outmesh.set_texture(std::make_shared<Texture2D>(file_path / path.C_Str()), TextureType::AMBIENT);
+          auto tex_path = file_path / path.C_Str();
+          AssetManager::add(tex_path, folder);
+          outmesh.set_texture(std::make_shared<Texture2D>(tex_path), TextureType::AMBIENT);
         }
 
         if (diffuse_tex_count)
@@ -110,7 +124,9 @@ namespace fury
           }
           aiString path;
           ai_material->GetTexture(aiTextureType_DIFFUSE, 0, &path);
-          outmesh.set_texture(std::make_shared<Texture2D>(file_path / path.C_Str()), TextureType::DIFFUSE);
+          auto tex_path = file_path / path.C_Str();
+          AssetManager::add(tex_path, folder);
+          outmesh.set_texture(std::make_shared<Texture2D>(tex_path), TextureType::DIFFUSE);
         }
 
         if (specular_tex_count)
@@ -121,7 +137,9 @@ namespace fury
           }
           aiString path;
           ai_material->GetTexture(aiTextureType_SPECULAR, 0, &path);
-          outmesh.set_texture(std::make_shared<Texture2D>(file_path / path.C_Str()), TextureType::SPECULAR);
+          auto tex_path = file_path / path.C_Str();
+          AssetManager::add(tex_path, folder);
+          outmesh.set_texture(std::make_shared<Texture2D>(tex_path), TextureType::SPECULAR);
         }
 
         if (ai_material->Get(AI_MATKEY_COLOR_DIFFUSE, ai_color) == aiReturn_SUCCESS)
@@ -156,7 +174,7 @@ namespace fury
 
     for (unsigned int i = 0; i < root->mNumChildren; i++)
     {
-      process(root->mChildren[i], scene, file_path, model, vcount, fcount);
+      process(root->mChildren[i], scene, file_path, folder, model, vcount, fcount);
     }
 
     if (root == scene->mRootNode)

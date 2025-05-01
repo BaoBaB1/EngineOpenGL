@@ -35,71 +35,31 @@ namespace fury
 
   std::optional<RayHit> Ray::intersect_aabb(const BoundingBox& bbox) const
   {
-    // (https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection.html)
-    // TODO: some better impl without that many ifs
-    glm::vec3 tmin = (bbox.min() - m_origin) / m_dir;
-    glm::vec3 tmax = (bbox.max() - m_origin) / m_dir;
-    if (tmin.x > tmax.x)
+    // https://tavianator.com/2015/ray_box_nan.html
+    glm::vec3 inv_dir = 1.f / m_dir;
+    float t1 = (bbox.min().x - m_origin[0]) * inv_dir.x;
+    float t2 = (bbox.max().x - m_origin[0]) * inv_dir.x;
+    float tmin = std::min(t1, t2);
+    float tmax = std::max(t1, t2);
+    for (int i = 1; i < 3; ++i)
     {
-      std::swap(tmin.x, tmax.x);
-    }
-    if (tmin.y > tmax.y)
-    {
-      std::swap(tmin.y, tmax.y);
-    }
-    if (tmin.z > tmax.z)
-    {
-      std::swap(tmin.z, tmax.z);
+      t1 = (bbox.min()[i] - m_origin[i]) * inv_dir[i];
+      t2 = (bbox.max()[i] - m_origin[i]) * inv_dir[i];
+      tmin = std::max(tmin, std::min(t1, t2));
+      tmax = std::min(tmax, std::max(t1, t2));
     }
 
-    if ((tmin.x > tmax.y) || (tmin.y > tmax.x))
+    if (tmax > std::max(tmin, 0.0f))
     {
-      return {};
+      if (tmin < 0)
+        tmin = tmax;
+      RayHit hit;
+      hit.position = m_origin + tmin * m_dir;
+      hit.distance = glm::distance(m_origin, hit.position);
+      hit.normal = glm::vec3(0.f);
+      return hit;
     }
-
-    if (tmin.y > tmin.x)
-    {
-      tmin.x = tmin.y;
-    }
-    if (tmax.y < tmax.x)
-    {
-      tmax.x = tmax.y;
-    }
-
-    if ((tmin.x > tmax.z) || (tmin.z > tmax.x))
-    {
-      return {};
-    }
-
-    if (tmin.z > tmin.x)
-    {
-      tmin.x = tmin.z;
-    }
-    if (tmax.z < tmax.x)
-    {
-      tmax.x = tmax.z;
-    }
-
-    if (tmin.x < 0)
-    {
-      if (tmax.x < 0)
-      {
-        return {};
-      }
-      // 1 point of intersection
-      tmin.x = tmax.x;
-    }
-
-    if (tmin.x > tmax.x)
-    {
-      std::swap(tmin.x, tmax.x);
-    }
-
-    RayHit hit;
-    hit.position = m_origin + tmin.x * m_dir;
-    hit.distance = glm::distance(m_origin, hit.position);
-    hit.normal = glm::vec3(0.f);
-    return hit;
+    return {};
   }
 
   std::optional<RayHit> Ray::intersect_sphere(const glm::vec3& center, float radius) const

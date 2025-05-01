@@ -7,6 +7,7 @@
 #include "ShaderStorage.hpp"
 #include "SceneRenderer.hpp"
 #include "Event.hpp"
+#include "ge/Polyline.hpp"
 
 namespace
 {
@@ -127,11 +128,8 @@ namespace fury
   void GeometryPass::render_scene()
   {
     Camera& camera = m_scene->get_camera();
-    std::unordered_set<int>& lights_sources = m_scene->get_light_sources();
-    assert(lights_sources.size() == 1);
-    const Object3D& light_source = *(m_scene->get_drawables()[*lights_sources.begin()]);
-
     Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::DEFAULT);
+    const DirectionalLight& dir_light = m_scene->get_directional_light();
     shader->bind();
     shader->set_vec3("viewPos", camera.position());
     shader->set_int("defaultTexture", 0);
@@ -139,12 +137,9 @@ namespace fury
     shader->set_int("diffuseTex", 2);
     shader->set_int("specularTex", 3);
     shader->set_int("shadowMap", 4);
-    const DirectionalLight& dir_light = m_scene->get_directional_light();
     shader->set_matrix4f("lightSpaceVPMatrix", dir_light.proj_matrix * dir_light.view_matrix);
-
-    // center in world space
-    shader->set_vec3("lightPos", light_source.model_matrix() * glm::vec4(light_source.center(), 1));
     shader->set_vec3("lightDirGlobal", dir_light.direction);
+    shader->set_vec3("lightPos", glm::mat4(1.f) * glm::vec4(glm::vec3(-4.f, 2.f, 3.f), 1));
     shader->set_vec3("lightColor", glm::vec3(1.f));
 
     // set shadow map
@@ -319,6 +314,11 @@ namespace fury
   {
     if (m_scene->get_drawables().empty())
     {
+      // clear struct in case if all objects from scene have been deleted, 
+      // because shadow map pass uses same structs for it's pass
+      m_render_offsets.clear();
+      m_objects_arrays_rendering_mode.clear();
+      m_objects_indices_rendering_mode.clear();
       return;
     }
 
@@ -644,5 +644,55 @@ namespace fury
 
   void ShadowsPass::tick()
   {
+  }
+
+  DebugPass::DebugPass(SceneRenderer* scene) : RenderPass(scene)
+  {
+    BindChainFIFO bc({ &m_vao, &m_vbo });
+    ::set_default_vertex_attributes(m_vao);
+  }
+
+  void DebugPass::update()
+  {
+    size_t poly_vsize = 0;
+    std::for_each(m_polys.begin(), m_polys.end(), 
+      [&](const Polyline& poly) { poly_vsize += poly.get_points().size() * sizeof(Vertex); });
+    BindGuard bg(m_vbo);
+    m_vbo.resize_if_smaller(poly_vsize);
+    size_t offset = 0;
+    for (const Polyline& poly : m_polys)
+    {
+      m_vbo.set_data(poly.get_points().data(), poly.get_points().size() * sizeof(Vertex), offset);
+      offset += poly.get_points().size() * sizeof(Vertex);
+    }
+  }
+
+  void DebugPass::tick()
+  {
+    if (m_polys.empty())
+      return;
+    Shader& shader = ShaderStorage::get(ShaderStorage::ShaderType::LINES);
+    shader.bind();
+    shader.set_vec3("lineColor", glm::vec3(0, 1, 0));
+    m_vao.bind();
+    size_t first = 0;
+    for (const Polyline& poly : m_polys)
+    {
+      shader.set_matrix4f("modelMatrix", glm::mat4(1.f));
+      glDrawArrays(GL_LINE_STRIP, first, poly.get_points().size());
+      first += poly.get_points().size();
+    }
+    m_vao.unbind();
+    shader.unbind();
+  }
+
+  void DebugPass::add_poly(const Polyline& poly)
+  {
+    m_polys.push_back(poly);
+  }
+
+  void DebugPass::clear()
+  {
+    m_polys.clear();
   }
 }

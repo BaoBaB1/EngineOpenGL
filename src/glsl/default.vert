@@ -24,7 +24,7 @@ void main()
 {
 	gl_Position = (camData.projectionMatrix * camData.viewMatrix * modelMatrix) * vec4(aPos, 1.0);
 	fragment = vec3(modelMatrix * vec4(aPos, 1.0f));
-	normal = transpose(inverse(mat3(modelMatrix))) * aNormal;
+	normal = normalize(transpose(inverse(mat3(modelMatrix))) * aNormal);
 	color = aColor;
 	uv = aTextCoord;
 	fragPosLightSpace = lightSpaceVPMatrix * vec4(fragment, 1);

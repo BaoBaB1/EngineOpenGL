@@ -29,6 +29,23 @@ static std::string shading_mode_to_str(fury::Object3D::ShadingMode mode)
   }
 }
 
+static std::string texture_type_to_str(fury::TextureType type)
+{
+  switch (type)
+  {
+  case fury::TextureType::GENERIC:
+    return "Generic";
+  case fury::TextureType::DIFFUSE:
+    return "Diffuse";
+  case fury::TextureType::AMBIENT:
+    return "Ambient";
+  case fury::TextureType::SPECULAR:
+    return "Specular";
+  default:
+    return "Unknown";
+  }
+}
+
 namespace fury
 {
   SceneInfo::SceneInfo(SceneRenderer* scene) : UiComponent(scene)
@@ -47,7 +64,7 @@ namespace fury
     // stick menu to the right side of window
     const ImVec2 sz = ImVec2(window->width(), window->height());
     constexpr float scale_factor = 0.2f;
-    MenuBar* menubar_component = static_cast<MenuBar*>(m_scene->get_ui().get_component("MenuBar"));
+    MenuBar* menubar_component = m_scene->get_ui().get_component<MenuBar>("MenuBar");
     ImGui::SetNextWindowSize(ImVec2(sz.x * scale_factor, sz.y - menubar_component->get_size().y));
     ImGui::SetNextWindowPos(ImVec2(sz.x - sz.x * scale_factor, menubar_component->get_size().y));
     ImGui::Begin("Scene properties", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
@@ -249,6 +266,51 @@ namespace fury
         info.is_vertex_change = true;
         on_object_change.notify(&drawable, info);
       }
+
+      ImGui::Separator();
+      ImGui::Text("Textures");
+      const size_t mesh_count = drawable.mesh_count();
+      for (size_t i = 0; i < mesh_count; i++)
+      {
+        Mesh& mesh = drawable.get_mesh(i);
+        if (ImGui::CollapsingHeader(("Mesh" + std::to_string(i)).c_str()))
+        {
+          for (int j = 0; j < static_cast<int>(TextureType::LAST); j++)
+          {
+            TextureType tt = static_cast<TextureType>(j);
+            // i hate imgui for that!
+            // push mesh address, so that it will give unique hash for each object's mesh
+            ImGui::PushID(&mesh);
+            ImGui::PushID(&j);
+            if (ImGui::TreeNode((::texture_type_to_str(tt).c_str())))
+            {
+              int tex_id = 0;
+              if (auto tex = mesh.get_texture(tt))
+              {
+                tex_id = tex->id();
+              }
+              else
+              {
+                tex_id = Texture2D::get_placeholder().id();
+              }
+              if (ImGui::ImageButton("##button", tex_id, ImVec2(50, 50), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f)))
+              {
+                OpenFileExplorerContext ctx;
+                ctx.select_texture = true;
+                auto callback = [=, &mesh](const std::string& file)
+                  {
+                    mesh.set_texture(std::make_shared<Texture2D>(file), tt);
+                  };
+                m_scene->get_ui().get_component<FileExplorer>("FileExplorer")->open(ctx, callback);
+              }
+              ImGui::TreePop();
+            }
+            ImGui::PopID();
+            ImGui::PopID();
+          }
+        }
+      }
+
       ImGui::PopItemWidth();
 
       ImGui::Separator();

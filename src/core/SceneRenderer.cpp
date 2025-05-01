@@ -20,6 +20,8 @@
 #include "ge/BezierCurve.hpp"
 #include "ge/Skybox.hpp"
 #include "ge/GeometryFactory.hpp"
+#include "utils/Utils.hpp"
+#include "AssetManager.hpp"
 
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -36,20 +38,20 @@
 
 #define DEBUG_RAY 0
 
-constexpr int SHADOWMAP_WIDTH = 1024;
-constexpr int SHADOWMAP_HEIGHT = 1024;
+constexpr int SHADOWMAP_WIDTH = 2048;
+constexpr int SHADOWMAP_HEIGHT = 2048;
 
 namespace
 {
   void setup_opengl();
   constexpr std::array<std::string_view, 6> skybox_faces =
   {
-    ".\\.\\src\\textures\\skybox\\right.jpg",
-    ".\\.\\src\\textures\\skybox\\left.jpg",
-    ".\\.\\src\\textures\\skybox\\top.jpg",
-    ".\\.\\src\\textures\\skybox\\bottom.jpg",
-    ".\\.\\src\\textures\\skybox\\front.jpg",
-    ".\\.\\src\\textures\\skybox\\back.jpg"
+    ".\\.\\assets\\textures\\skybox\\right.jpg",
+    ".\\.\\assets\\textures\\skybox\\left.jpg",
+    ".\\.\\assets\\textures\\skybox\\top.jpg",
+    ".\\.\\assets\\textures\\skybox\\bottom.jpg",
+    ".\\.\\assets\\textures\\skybox\\front.jpg",
+    ".\\.\\assets\\textures\\skybox\\back.jpg"
   };
 
   constexpr std::array<float, 24> init_shadow_map_data()
@@ -80,11 +82,16 @@ namespace fury
   {
     const int w = window->width();
     const int h = window->height();
+    AssetManager::init();
     m_ui.init(this);
     SceneInfo* scene_info_component = m_ui.get_component<SceneInfo>("SceneInfo");
     Gizmo* gizmo_component = m_ui.get_component<Gizmo>("Gizmo");
+    FileExplorer* file_explorer_component = m_ui.get_component<FileExplorer>("FileExplorer");
+    file_explorer_component->on_open += new InstanceListener(this, &SceneRenderer::handle_file_explorer_opening);
+    file_explorer_component->on_close += new InstanceListener(this, &SceneRenderer::handle_file_explorer_closing);
     gizmo_component->on_object_change += new InstanceListener(this, &SceneRenderer::handle_object_change);
     scene_info_component->on_polygon_mode_change += new InstanceListener(this, &SceneRenderer::change_polygon_mode);
+    on_new_object_added += new InstanceListener(this, &SceneRenderer::handle_added_object);
     m_camera.set_screen_size({ w, h });
     m_camera.set_position(glm::vec3(-4.f, 2.f, 3.f));
     m_camera.look_at(glm::vec3(2.f, 0.5f, 0.5f));
@@ -107,6 +114,13 @@ namespace fury
     auto& shadows_fbo = m_fbos["shadowMap"];
     shadows_fbo.bind();
     shadows_fbo.attach_texture(SHADOWMAP_WIDTH, SHADOWMAP_HEIGHT, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT, false);
+    shadows_fbo.texture()->bind();
+    // anything that is out of depth map is not in shadow
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    shadows_fbo.texture()->unbind();
     shadows_fbo.unbind();
 
     for (const auto& [name, fbo] : m_fbos)
@@ -127,31 +141,14 @@ namespace fury
     ubo.unbind();
 
     ::setup_opengl();
-    create_scene();
-    for (auto& drawable : m_drawables)
-    {
-      // init bbox and center
-      drawable->update();
-    }
-    calculate_scene_bbox();
-
-    const glm::vec3 dir_light_position = glm::vec3(-0.7f, 1.f, 3.f);
-    const glm::vec3 dir_light_target = (m_bbox.min() + m_bbox.max()) / 2.f;
-    m_directional_light.proj_matrix = glm::ortho(-3.f, 3.f, -2.f, 2.f, 0.1f, 10.f);
-    m_directional_light.view_matrix = glm::lookAt(dir_light_position, dir_light_target, glm::vec3(0, 1, 0));
-    m_directional_light.direction = glm::normalize(dir_light_target - dir_light_position);
-
+    
     m_render_passes.emplace_back(std::make_unique<GeometryPass>(this, shadows_fbo.texture()->id()));
     m_render_passes.emplace_back(std::make_unique<NormalsPass>(this));
     m_render_passes.emplace_back(std::make_unique<LinesPass>(this));
     m_shadows_pass = std::make_unique<ShadowsPass>(this, static_cast<GeometryPass*>(m_render_passes[0].get()));
+    m_debug_pass = std::make_unique<DebugPass>(this);
     
-    for (auto& rp : m_render_passes)
-    {
-      rp->update();
-    }
-
-    update_shadow_map();
+    load(AssetManager::get_from_relative("scenes/demo.bin").value().string());
   }
 
   SceneRenderer::~SceneRenderer()
@@ -161,7 +158,6 @@ namespace fury
   void SceneRenderer::render()
   {
     const auto& main_fbo = m_fbos.at("main");
-    const auto& shadows_fbo = m_fbos.at("shadowMap");
     GLFWwindow* gl_window = m_window->gl_window();
     while (!glfwWindowShouldClose(gl_window))
     {
@@ -182,6 +178,7 @@ namespace fury
       {
         rp->tick();
       }
+      //m_debug_pass->tick();
       m_ui.tick();
       main_fbo.unbind();
       m_screen_quad.tick();
@@ -208,6 +205,9 @@ namespace fury
       drawable->write(ofs);
     }
     ofs.close();
+    // fix to avoid camera jumps ???
+    // again, cursor pos in handler can have huge offset difference at this point
+    static_cast<CursorPositionHandler*>(m_window->get_input_handler(UserInputHandler::CURSOR_POSITION))->update_ignore_frames();
   }
 
   void SceneRenderer::load(const std::string& file)
@@ -222,10 +222,11 @@ namespace fury
     // cleanup current scene
     m_drawables.clear();
     m_selected_objects.clear();
-    m_light_sources.clear();
 
     ifs.read(reinterpret_cast<char*>(&m_polygon_mode), sizeof(GLint));
     ifs.read(reinterpret_cast<char*>(&m_camera), sizeof(Camera));
+    // camera is always unfreezed
+    m_camera.unfreeze();
     size_t drawables_count = 0;
     ifs.read(reinterpret_cast<char*>(&drawables_count), sizeof(size_t));
     m_drawables.reserve(drawables_count);
@@ -243,10 +244,6 @@ namespace fury
     for (size_t i = 0; i < m_drawables.size(); i++)
     {
       auto& drawable = m_drawables[i];
-      if (drawable->is_light_source())
-      {
-        m_light_sources.insert(i);
-      }
       if (drawable->is_selected())
       {
         m_selected_objects.push_back(drawable.get());
@@ -255,15 +252,35 @@ namespace fury
       drawable->update();
     }
 
+    calculate_scene_bbox();
+    // setup directional light
+    // center is in world space
+    const glm::vec3 bbox_center = m_bbox.center();
+    const glm::vec3 dir_light_position = glm::vec3(bbox_center.x + 0.12, bbox_center.y + 0.33, bbox_center.z + 0.7);
+    const glm::vec3 dir_light_target = bbox_center;
+    constexpr float val = 6.f;
+    m_directional_light.proj_matrix = glm::ortho<float>(-val, val, -val, val, -10.f, 10.f);
+    m_directional_light.view_matrix = glm::lookAt(dir_light_position, dir_light_target, glm::vec3(0, 1, 0));
+    m_directional_light.direction = glm::normalize(dir_light_target - dir_light_position);
+
     // update render passes in accordance with the new scene
     for (auto& render_pass : m_render_passes)
     {
       render_pass->update();
     }
+    update_shadow_map();
     
     // fix to avoid camera jumps ???
     // again, cursor pos in handler can have huge offset difference at this point
     static_cast<CursorPositionHandler*>(m_window->get_input_handler(UserInputHandler::CURSOR_POSITION))->update_ignore_frames();
+  }
+
+  void SceneRenderer::clear()
+  {
+    while (!m_drawables.empty())
+    {
+      remove_object(m_drawables.front().get());
+    }
   }
 
   void SceneRenderer::render_skybox()
@@ -335,9 +352,13 @@ namespace fury
     m_camera.set_screen_size({ width, height });
     for (auto& [name, fbo] : m_fbos)
     {
+      if (name == "shadowMap")
+      {
+        continue;
+      }
       fbo.bind();
       // resize texture and render buffer
-      fbo.attach_texture(width, height, fbo.texture()->internal_fmt(), fbo.texture()->format(), fbo.texture()->pixel_data_type());
+      fbo.texture()->resize(width, height, fbo.texture()->internal_fmt(), fbo.texture()->format(), fbo.texture()->pixel_data_type());
       fbo.attach_renderbuffer(width, height, fbo.rb_internal_format(), fbo.rb_attachment());
       fbo.unbind();
     }
@@ -362,8 +383,16 @@ namespace fury
       }
       else if (key == Key::LEFT_SHIFT)
       {
-        m_camera.freeze();
-        glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        if (m_camera.freezed() && !m_ui.get_component("SceneInfo")->is_visible())
+        {
+          glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+          m_camera.unfreeze();
+        }
+        else
+        {
+          glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+          m_camera.freeze();
+        }
       }
       else if (key == Key::O)
       {
@@ -375,13 +404,49 @@ namespace fury
         m_camera.set_projection_mode(current_mode == Camera::ProjectionMode::ORTHOGRAPHIC ? 
           Camera::ProjectionMode::PERSPECTIVE : Camera::ProjectionMode::ORTHOGRAPHIC);
       }
-    }
-    else if (state == State::RELEASED)
-    {
-      if (key == Key::LEFT_SHIFT)
+      else if (key == Key::L && !m_selected_objects.empty())
       {
-        m_camera.unfreeze();
-        glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        // drop selected object on object below
+        Object3D* selected_obj = m_selected_objects.front();
+        //static constexpr int lower_bbox_points_indices[] = {0, 1, 4, 5};
+        // TODO: iterate only over bottom bbox points
+        const auto& points = selected_obj->bbox().points();
+        float distance = INFINITY;
+        m_debug_pass->clear();
+        for (const Vertex& v : points)
+        {
+          Ray ray(selected_obj->model_matrix() * glm::vec4(v.position, 1), glm::vec3(0, -1, 0));
+          for (const auto& drawable : m_drawables)
+          {
+            if (drawable.get() == selected_obj)
+              continue;
+            BoundingBox bbox_world;
+            bbox_world.init(drawable->model_matrix() * glm::vec4(drawable->bbox().min(), 1)
+              , drawable->model_matrix() * glm::vec4(drawable->bbox().max(), 1));
+            if (auto hit = ray.intersect_aabb(bbox_world))
+            {
+              m_debug_pass->add_poly(Polyline({ ray.get_origin(), hit->position }));
+              //Logger::info("hit {} distance {}", hit->position, hit->distance);
+              distance = std::min(hit->distance, distance);
+            }
+          }
+        }
+        if (distance != INFINITY)
+        {
+          m_debug_pass->update();
+          distance = distance - selected_obj->translation().y;
+          auto& mm = selected_obj->model_matrix();
+          // change Y translation
+          mm[3][1] = -distance;
+          update_shadow_map();
+        }
+      }
+      else if (key == Key::BACKSPACE && !m_selected_objects.empty())
+      {
+        assert(m_selected_objects.size() == 1);
+        Object3D* selected_obj = m_selected_objects.front();
+        remove_object(m_selected_objects.front());
+        m_selected_objects.pop_back();
       }
     }
   }
@@ -391,9 +456,12 @@ namespace fury
     m_polygon_mode = new_mode;
   }
 
-  void SceneRenderer::handle_new_added_object(Object3D* obj)
+  void SceneRenderer::handle_added_object(Object3D* obj)
   {
-    calculate_scene_bbox();
+    ObjectChangeInfo info;
+    info.is_transformation_change = true;
+    // trigger function that already handles needed logic
+    handle_object_change(obj, info);
   }
 
   void SceneRenderer::handle_object_change(Object3D* obj, const ObjectChangeInfo& info)
@@ -434,75 +502,106 @@ namespace fury
     glViewport(0, 0, m_window->width(), m_window->height());
   }
 
-  void SceneRenderer::create_scene()
+  void SceneRenderer::handle_file_explorer_opening()
   {
-    Vertex arr[6];
-    arr[0].position = glm::vec3(0.f, 1.f, 0.f), arr[0].color = glm::vec4(0.f, 1.f, 0.f, 1.f);
-    arr[1].position = glm::vec3(0.f, 0.f, 0.f), arr[1].color = glm::vec4(0.f, 1.f, 0.f, 1.f);
-    arr[2].position = glm::vec3(0.f, 0.f, 0.f), arr[2].color = glm::vec4(1.f, 0.f, 0.f, 1.f);
-    arr[3].position = glm::vec3(1.f, 0.f, 0.f), arr[3].color = glm::vec4(1.f, 0.f, 0.f, 1.f);
-    arr[4].position = glm::vec3(0.f, 0.f, 0.f), arr[4].color = glm::vec4(0.f, 0.f, 1.f, 1.f);
-    arr[5].position = glm::vec3(0.f, 0.f, 1.f), arr[5].color = glm::vec4(0.f, 0.f, 1.f, 1.f);
-    auto origin = std::make_unique<Polyline>();
-    for (int i = 0; i < 6; i++) {
-      origin->add(arr[i]);
-    }
-    m_drawables.push_back(std::move(origin));
-
-    auto& sun = std::make_unique<Icosahedron>();
-    sun->light_source(true);
-    sun->translate(glm::vec3(0.f, 0.6f, 2.f));
-    sun->set_color(glm::vec4(1.f, 1.f, 0.f, 1.f));
-    sun->set_is_fixed_shading(true);
-    sun->scale(glm::vec3(0.3f));
-    sun->subdivide_triangles(4);
-    sun->project_points_on_sphere();
-    m_drawables.push_back(std::move(sun));
-    m_light_sources.insert(1);
-
-    auto& sphere = std::make_unique<Icosahedron>();
-    sphere->translate(glm::vec3(2.5f, 0.5f, 2.f));
-    sphere->set_color(glm::vec4(1.f, 0.f, 0.f, 1.f));
-    sphere->subdivide_triangles(4);
-    sphere->project_points_on_sphere();
-    sphere->scale(glm::vec3(0.3f));
-    sphere->apply_shading(Object3D::ShadingMode::SMOOTH_SHADING);
-    m_drawables.push_back(std::move(sphere));
-
-    auto& c = std::make_unique<Cube>();
-    c->translate(glm::vec3(0.25f));
-    c->scale(glm::vec3(0.5f));
-    c->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
-    c->get_mesh(0).set_texture(std::make_shared<Texture2D>(std::string(".\\.\\src\\textures\\brick.jpg")), TextureType::GENERIC);
-    m_drawables.push_back(std::move(c));
-
-    auto& c2 = std::make_unique<Cube>();
-    c2->translate(glm::vec3(1.25f, 1.f, 1.f));
-    c2->set_color(glm::vec4(0.4f, 1.f, 0.4f, 1.f));
-    c2->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
-    c2->visible_normals(true);
-    m_drawables.push_back(std::move(c2));
-
-    auto& pyr = std::make_unique<Pyramid>();
-    pyr->translate(glm::vec3(0.75f, 0.65f, 2.25f));
-    pyr->scale(glm::vec3(0.5f));
-    pyr->set_color(glm::vec4(0.976f, 0.212f, 0.98f, 1.f));
-    pyr->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
-    m_drawables.push_back(std::move(pyr));
-
-    auto& bc = std::make_unique<BezierCurve>(BezierCurveType::Quadratic);
-    bc->set_start_point(Vertex());
-    bc->set_end_point(Vertex(2.5f, 0.f, 0.f));
-    bc->set_control_points({ Vertex(1.25f, 2.f, 0.f) });
-    bc->set_color(glm::vec4(1.f, 0.f, 0.f, 1.f));
-    m_drawables.push_back(std::move(bc));
-
-    auto& bc2 = std::make_unique<BezierCurve>(BezierCurveType::Cubic);
-    bc2->set_start_point(Vertex());
-    bc2->set_end_point(Vertex(0.f, 0.f, -2.5f));
-    bc2->set_control_points({ Vertex(0.f, 2.f, -1.25f), Vertex {0.f, -2.f, -1.75} });
-    m_drawables.push_back(std::move(bc2));
+    m_camera.freeze();
+    glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
   }
+
+  void SceneRenderer::handle_file_explorer_closing()
+  {
+    // if scene info panel is visible, keep camera frozen because it is frozen when you open this panel
+    if (!m_ui.get_component("SceneInfo")->is_visible())
+    {
+      m_camera.unfreeze();
+      glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    }
+  }
+
+  void SceneRenderer::remove_object(Object3D* obj)
+  {
+    on_object_delete.notify(obj);
+    auto it = std::find_if(m_drawables.begin(), m_drawables.end(), [=](const auto& drawable) { return drawable.get() == obj; });
+    m_drawables.erase(it);
+    for (auto& rp : m_render_passes)
+    {
+      rp->update();
+    }
+    update_shadow_map();
+    m_debug_pass->update();
+    calculate_scene_bbox();
+    m_fbos.at("main").bind();
+  }
+
+  //void SceneRenderer::create_scene()
+  //{
+  //  Vertex arr[6];
+  //  arr[0].position = glm::vec3(0.f, 1.f, 0.f), arr[0].color = glm::vec4(0.f, 1.f, 0.f, 1.f);
+  //  arr[1].position = glm::vec3(0.f, 0.f, 0.f), arr[1].color = glm::vec4(0.f, 1.f, 0.f, 1.f);
+  //  arr[2].position = glm::vec3(0.f, 0.f, 0.f), arr[2].color = glm::vec4(1.f, 0.f, 0.f, 1.f);
+  //  arr[3].position = glm::vec3(1.f, 0.f, 0.f), arr[3].color = glm::vec4(1.f, 0.f, 0.f, 1.f);
+  //  arr[4].position = glm::vec3(0.f, 0.f, 0.f), arr[4].color = glm::vec4(0.f, 0.f, 1.f, 1.f);
+  //  arr[5].position = glm::vec3(0.f, 0.f, 1.f), arr[5].color = glm::vec4(0.f, 0.f, 1.f, 1.f);
+  //  auto origin = std::make_unique<Polyline>();
+  //  for (int i = 0; i < 6; i++) {
+  //    origin->add(arr[i]);
+  //  }
+  //  m_drawables.push_back(std::move(origin));
+  //
+  //  auto& sun = std::make_unique<Icosahedron>();
+  //  sun->light_source(true);
+  //  sun->translate(glm::vec3(0.f, 0.6f, 2.f));
+  //  sun->set_color(glm::vec4(1.f, 1.f, 0.f, 1.f));
+  //  sun->set_is_fixed_shading(true);
+  //  sun->scale(glm::vec3(0.3f));
+  //  sun->subdivide_triangles(4);
+  //  sun->project_points_on_sphere();
+  //  m_drawables.push_back(std::move(sun));
+  //  m_light_sources.insert(1);
+  //
+  //  auto& sphere = std::make_unique<Icosahedron>();
+  //  sphere->translate(glm::vec3(2.5f, 0.5f, 2.f));
+  //  sphere->set_color(glm::vec4(1.f, 0.f, 0.f, 1.f));
+  //  sphere->subdivide_triangles(4);
+  //  sphere->project_points_on_sphere();
+  //  sphere->scale(glm::vec3(0.3f));
+  //  sphere->apply_shading(Object3D::ShadingMode::SMOOTH_SHADING);
+  //  m_drawables.push_back(std::move(sphere));
+  //
+  //  auto& c = std::make_unique<Cube>();
+  //  c->translate(glm::vec3(0.25f));
+  //  c->scale(glm::vec3(0.5f));
+  //  c->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
+  //  c->get_mesh(0).set_texture(std::make_shared<Texture2D>(AssetManager::get_from_relative("textures/brick.jpg").value()), TextureType::GENERIC);
+  //  m_drawables.push_back(std::move(c));
+  //
+  //  auto& c2 = std::make_unique<Cube>();
+  //  c2->translate(glm::vec3(1.25f, 1.f, 1.f));
+  //  c2->set_color(glm::vec4(0.4f, 1.f, 0.4f, 1.f));
+  //  c2->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
+  //  c2->visible_normals(true);
+  //  m_drawables.push_back(std::move(c2));
+  //
+  //  auto& pyr = std::make_unique<Pyramid>();
+  //  pyr->translate(glm::vec3(0.75f, 0.65f, 2.25f));
+  //  pyr->scale(glm::vec3(0.5f));
+  //  pyr->set_color(glm::vec4(0.976f, 0.212f, 0.98f, 1.f));
+  //  pyr->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
+  //  m_drawables.push_back(std::move(pyr));
+  //
+  //  auto& bc = std::make_unique<BezierCurve>(BezierCurveType::Quadratic);
+  //  bc->set_start_point(Vertex());
+  //  bc->set_end_point(Vertex(2.5f, 0.f, 0.f));
+  //  bc->set_control_points({ Vertex(1.25f, 2.f, 0.f) });
+  //  bc->set_color(glm::vec4(1.f, 0.f, 0.f, 1.f));
+  //  m_drawables.push_back(std::move(bc));
+  //
+  //  auto& bc2 = std::make_unique<BezierCurve>(BezierCurveType::Cubic);
+  //  bc2->set_start_point(Vertex());
+  //  bc2->set_end_point(Vertex(0.f, 0.f, -2.5f));
+  //  bc2->set_control_points({ Vertex(0.f, 2.f, -1.25f), Vertex {0.f, -2.f, -1.75} });
+  //  m_drawables.push_back(std::move(bc2));
+  //}
 
   void SceneRenderer::select_object(Object3D* obj, bool click_from_menu_item)
   {
