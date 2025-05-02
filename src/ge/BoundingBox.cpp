@@ -1,14 +1,11 @@
 #include "utils/Constants.hpp"
 #include "BoundingBox.hpp"
 
-static constexpr float g_fmin = furyutils::limits::fmin;
-static constexpr float g_fmax = furyutils::limits::fmax;
-
 namespace fury
 {
   BoundingBox::BoundingBox() : Entity("Bounding box")
   {
-    init(glm::vec3(g_fmax), glm::vec3(g_fmin));
+    init(glm::vec3(fury::constants::fmax), glm::vec3(fury::constants::fmin));
   }
 
   BoundingBox::BoundingBox(const glm::vec3& min, const glm::vec3& max) : Entity("Bounding box")
@@ -18,7 +15,7 @@ namespace fury
 
   bool BoundingBox::is_empty() const
   {
-    return m_min == glm::vec3(g_fmax) && m_max == glm::vec3(g_fmin);
+    return m_min == glm::vec3(fury::constants::fmax) && m_max == glm::vec3(fury::constants::fmin);
   }
 
   std::optional<RayHit> BoundingBox::hit(const Ray& ray) const
@@ -64,7 +61,7 @@ namespace fury
 
   void BoundingBox::reset()
   {
-    init(glm::vec3(g_fmax), glm::vec3(g_fmin));
+    init(glm::vec3(fury::constants::fmax), glm::vec3(fury::constants::fmin));
   }
 
   const std::array<GLuint, 24>& BoundingBox::lines_indices()

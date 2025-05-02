@@ -74,17 +74,6 @@ namespace fury
     return (it != m_input_handlers.end()) ? it->second.get() : nullptr;
   }
 
-  void WindowGLFW::notify(furyutils::IObserver* observer, bool enable)
-  {
-    observer->notify(enable);
-  }
-
-  void WindowGLFW::notify_all(bool enable)
-  {
-    for (const auto& phandler : m_input_handlers)
-      phandler.second->notify(enable);
-  }
-
   WindowGLFW::~WindowGLFW()
   {
     glfwDestroyWindow(m_window);

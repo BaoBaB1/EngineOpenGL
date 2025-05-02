@@ -21,8 +21,6 @@ namespace fury
     void init(int width, int height, const char* title);
     GLFWwindow* gl_window() const { return m_window; }
     UserInputHandler* get_input_handler(UserInputHandler::HandlerType type);
-    void notify(furyutils::IObserver* observer, bool enable);
-    void notify_all(bool enable);
     void set_width(int w) { m_width = w; }
     void set_height(int h) { m_height = h; }
     int width() const { return m_width; }

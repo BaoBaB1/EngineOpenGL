@@ -1,17 +1,12 @@
 #pragma once
 
-#include "./utils/IObserver.hpp"
 #include "./utils/Macro.hpp"
-#include <map>
-
-
-//using namespace OpenGLEngineUtils;
 
 namespace fury
 {
   class WindowGLFW;
 
-  class UserInputHandler : public furyutils::IObserver
+  class UserInputHandler
   {
   public:
     enum HandlerType
@@ -25,7 +20,6 @@ namespace fury
     OnlyMovable(UserInputHandler)
     virtual void enable() { m_disabled = false; }
     virtual void disable() { m_disabled = true; }
-    void notify(bool _enable) override;
     bool disabled() const { return m_disabled; }
     HandlerType type() const { return m_type; }
   protected:

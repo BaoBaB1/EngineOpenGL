@@ -2,9 +2,9 @@
 
 #include <limits>
 
-namespace furyutils
+namespace fury
 {
-  namespace limits
+  namespace constants
   {
     constexpr float fmin = std::numeric_limits<float>::min();
     constexpr float fmax = std::numeric_limits<float>::max();

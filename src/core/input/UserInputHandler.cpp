@@ -31,12 +31,4 @@ namespace fury
     m_window = window;
     m_disabled = false;
   }
-
-  void UserInputHandler::notify(bool _enable)
-  {
-    if (_enable)
-      enable();
-    else
-      disable();
-  }
 };
