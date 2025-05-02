@@ -50,7 +50,7 @@ namespace fury
 {
   SceneInfo::SceneInfo(SceneRenderer* scene) : UiComponent(scene)
   {
-    KeyboardHandler* kh = static_cast<KeyboardHandler*>(scene->get_window()->get_input_handler(UserInputHandler::HandlerType::KEYBOARD));
+    KeyboardHandler* kh = scene->get_window()->get_input_handler<KeyboardHandler>(UserInputHandler::HandlerType::KEYBOARD);
     kh->on_key_state_change += new InstanceListener(this, &SceneInfo::handle_key_press);
   }
 

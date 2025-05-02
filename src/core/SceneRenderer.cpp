@@ -96,9 +96,9 @@ namespace fury
     m_camera.set_position(glm::vec3(-4.f, 2.f, 3.f));
     m_camera.look_at(glm::vec3(2.f, 0.5f, 0.5f));
 
-    CursorPositionHandler* cursor_pos_handler = static_cast<CursorPositionHandler*>(m_window->get_input_handler(UserInputHandler::CURSOR_POSITION));
-    MouseInputHandler* mouse_input_handler = static_cast<MouseInputHandler*>(m_window->get_input_handler(UserInputHandler::MOUSE_INPUT));
-    KeyboardHandler* keyboard_input_handler = static_cast<KeyboardHandler*>(m_window->get_input_handler(UserInputHandler::KEYBOARD));
+    CursorPositionHandler* cursor_pos_handler = m_window->get_input_handler<CursorPositionHandler>(UserInputHandler::CURSOR_POSITION);
+    MouseInputHandler* mouse_input_handler = m_window->get_input_handler<MouseInputHandler>(UserInputHandler::MOUSE_INPUT);
+    KeyboardHandler* keyboard_input_handler = m_window->get_input_handler<KeyboardHandler>(UserInputHandler::KEYBOARD);
     mouse_input_handler->on_button_click += new InstanceListener(this, &SceneRenderer::handle_mouse_click);
     keyboard_input_handler->on_key_state_change += new InstanceListener(this, &SceneRenderer::handle_keyboard_input);
     m_window->on_window_size_change += new InstanceListener(this, &SceneRenderer::handle_window_size_change);
@@ -207,7 +207,7 @@ namespace fury
     ofs.close();
     // fix to avoid camera jumps ???
     // again, cursor pos in handler can have huge offset difference at this point
-    static_cast<CursorPositionHandler*>(m_window->get_input_handler(UserInputHandler::CURSOR_POSITION))->update_ignore_frames();
+    m_window->get_input_handler<CursorPositionHandler>(UserInputHandler::CURSOR_POSITION)->update_ignore_frames();
   }
 
   void SceneRenderer::load(const std::string& file)
@@ -272,7 +272,7 @@ namespace fury
     
     // fix to avoid camera jumps ???
     // again, cursor pos in handler can have huge offset difference at this point
-    static_cast<CursorPositionHandler*>(m_window->get_input_handler(UserInputHandler::CURSOR_POSITION))->update_ignore_frames();
+    m_window->get_input_handler<CursorPositionHandler>(UserInputHandler::CURSOR_POSITION)->update_ignore_frames();
   }
 
   void SceneRenderer::clear()
@@ -652,8 +652,7 @@ namespace fury
     glfwGetCursorPos(m_window->gl_window(), &x, &y);
     // update virtual cursor pos to avoid camera jumps after cursor goes out of window or window regains focus,
     // because once cursor goes out of glfw window cursor callback is no longer triggered
-    UserInputHandler* h = m_window->get_input_handler(UserInputHandler::CURSOR_POSITION);
-    static_cast<CursorPositionHandler*>(h)->update_current_pos(x, y);
+    m_window->get_input_handler<CursorPositionHandler>(UserInputHandler::CURSOR_POSITION)->update_current_pos(x, y);
 
     UniformBuffer& ubo = PipelineUBOManager::get("cameraData");
     ubo.bind();

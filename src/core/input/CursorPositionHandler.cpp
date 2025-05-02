@@ -10,7 +10,7 @@ namespace fury
     auto callback = [](GLFWwindow* window, double xpos, double ypos)
       {
         WindowGLFW* window_glfw = static_cast<WindowGLFW*>(glfwGetWindowUserPointer(window));
-        static_cast<CursorPositionHandler*>(window_glfw->get_input_handler(HandlerType::CURSOR_POSITION))->callback(xpos, ypos);
+        window_glfw->get_input_handler<CursorPositionHandler>(HandlerType::CURSOR_POSITION)->callback(xpos, ypos);
       };
     glfwSetCursorPosCallback(m_window->gl_window(), callback);
     glfwGetCursorPos(m_window->gl_window(), &m_cur_pos[0], &m_cur_pos[1]);

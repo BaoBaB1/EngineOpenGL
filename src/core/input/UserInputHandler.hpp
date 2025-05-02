@@ -23,7 +23,7 @@ namespace fury
     bool disabled() const { return m_disabled; }
     HandlerType type() const { return m_type; }
   protected:
-    UserInputHandler(WindowGLFW* window, HandlerType input_type);
+    UserInputHandler(WindowGLFW* window, HandlerType type) : m_type(type), m_window(window) {}
   protected:
     HandlerType m_type;
     WindowGLFW* m_window = nullptr;

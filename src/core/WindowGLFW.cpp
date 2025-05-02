@@ -12,7 +12,7 @@ static void window_focus_callback(GLFWwindow* window, int focused)
   if (focused)
   {
     fury::WindowGLFW* winglfw = static_cast<fury::WindowGLFW*>(glfwGetWindowUserPointer(window));
-    fury::CursorPositionHandler* cp = static_cast<fury::CursorPositionHandler*>(winglfw->get_input_handler(fury::UserInputHandler::CURSOR_POSITION));
+    fury::CursorPositionHandler* cp = winglfw->get_input_handler<fury::CursorPositionHandler>(fury::UserInputHandler::CURSOR_POSITION);
     cp->update_ignore_frames();
   }
 }
@@ -66,12 +66,6 @@ namespace fury
     glfwSetWindowSizeCallback(m_window, window_size_change_callback);
     gladLoadGL();
     glViewport(0, 0, m_width, m_height);
-  }
-
-  UserInputHandler* WindowGLFW::get_input_handler(UserInputHandler::HandlerType type)
-  {
-    auto it = m_input_handlers.find(type);
-    return (it != m_input_handlers.end()) ? it->second.get() : nullptr;
   }
 
   WindowGLFW::~WindowGLFW()

@@ -20,7 +20,8 @@ namespace fury
       ~WindowGLFW();
     void init(int width, int height, const char* title);
     GLFWwindow* gl_window() const { return m_window; }
-    UserInputHandler* get_input_handler(UserInputHandler::HandlerType type);
+    template<typename T>
+    T* get_input_handler(UserInputHandler::HandlerType type);
     void set_width(int w) { m_width = w; }
     void set_height(int h) { m_height = h; }
     int width() const { return m_width; }
@@ -34,4 +35,11 @@ namespace fury
     GLFWwindow* m_window;
     std::map<UserInputHandler::HandlerType, std::unique_ptr<UserInputHandler>> m_input_handlers;
   };
+
+  template<typename T>
+  T* WindowGLFW::get_input_handler(UserInputHandler::HandlerType type)
+  {
+    auto it = m_input_handlers.find(type);
+    return (it != m_input_handlers.end()) ? static_cast<T*>(it->second.get()) : nullptr;
+  }
 }

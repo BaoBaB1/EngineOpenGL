@@ -23,7 +23,7 @@ namespace fury
     if (!m_scene->get_selected_objects().empty() && m_scene->get_ui().get_component("SceneInfo")->is_visible())
     {
       WindowGLFW* window = m_scene->get_window();
-      KeyboardHandler* kh = static_cast<KeyboardHandler*>(window->get_input_handler(UserInputHandler::KEYBOARD));
+      KeyboardHandler* kh = window->get_input_handler<KeyboardHandler>(UserInputHandler::KEYBOARD);
       // default mode is translation
       if (kh->get_keystate(KeyboardHandler::InputKey::T) == KeyboardHandler::KeyState::PRESSED)
       {

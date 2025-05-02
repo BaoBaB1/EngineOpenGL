@@ -38,7 +38,7 @@ namespace fury
     auto key_callback = [](GLFWwindow* window, int key, int scancode, int action, int mods)
       {
         WindowGLFW* window_glfw = static_cast<WindowGLFW*>(glfwGetWindowUserPointer(window));
-        static_cast<KeyboardHandler*>(window_glfw->get_input_handler(HandlerType::KEYBOARD))->key_callback(key, scancode, action, mods);
+        window_glfw->get_input_handler<KeyboardHandler>(HandlerType::KEYBOARD)->key_callback(key, scancode, action, mods);
       };
     for (int i = 0; i < static_cast<int>(InputKey::LAST); i++)
     {
