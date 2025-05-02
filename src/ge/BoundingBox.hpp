@@ -24,7 +24,7 @@ namespace fury
     bool contains(const glm::vec3& point) const;
     glm::vec3& min() { return m_min; }
     glm::vec3& max() { return m_max; }
-    glm::vec3 center() const { return (m_min + m_max) / 2.f; }
+    glm::vec3 center() const { return (m_min + m_max) * 0.5f; }
     const glm::vec3& min() const { return m_min; }
     const glm::vec3& max() const { return m_max; }
     operator bool() const { return !is_empty(); }

@@ -232,6 +232,7 @@ namespace fury
   ObjectGeometryMetadata Object3D::get_geometry_metadata() const
   {
     ObjectGeometryMetadata res;
+    res.meshes_data.reserve(m_meshes->size());
     for (const auto& mesh : *m_meshes)
     {
       MeshGeometryMetadata& mesh_data = res.meshes_data.emplace_back();
@@ -240,8 +241,8 @@ namespace fury
       if (m_render_config.use_indices)
       {
         assert(m_render_config.mode == GL_TRIANGLES);
-        res.idx_count_total += mesh.faces().size() * 3;
-        mesh_data.idx_count = mesh.faces().size() * 3;
+        res.face_count_total += mesh.faces().size();
+        mesh_data.face_count = mesh.faces().size();
         mesh_data.vdata = mesh.vertices().data();
         mesh_data.idx_data = mesh.faces_as_indices().data();
       }

@@ -1,10 +1,14 @@
 #include "ModelLoader.hpp"
 #include "Logger.hpp"
 #include "AssetManager.hpp"
+#include <assimp/Importer.hpp>
 
 namespace
 {
   void center_around_origin(fury::Object3D& model);
+  void read_textures(fury::Mesh& mesh, const aiMaterial* material, const std::filesystem::path& file, 
+    aiTextureType assimp_type, fury::TextureType engine_type);
+  void add_assets(const std::filesystem::path& file, const fury::Object3D& model);
   float get_max_extent(const aiVector3D& min, const aiVector3D& max);
 }
 
@@ -25,28 +29,18 @@ namespace fury
       Object3D model;
       // calc extent to scale all vertices in range [-1, 1]
       calc_max_extent(scene->mRootNode, scene);
-      size_t vcount = 0, fcount = 0;
-      // put all referenced files in same assets/filename folder
       const std::filesystem::path filepath = std::filesystem::path(file);
-      const std::string filename = filepath.stem().string();
-      const std::filesystem::path mtlpath = filepath.parent_path() / (filename + ".mtl");
-      // check if there is mtl file with same name
-      if (std::filesystem::exists(mtlpath))
-      {
-        AssetManager::add(mtlpath.string(), filename);
-      }
-      AssetManager::add(file, filename);
-      process(scene->mRootNode, scene, std::filesystem::path(file).parent_path(), filename, model, vcount, fcount);
+      process(scene->mRootNode, scene, filepath, model);
       ::center_around_origin(model);
       // set some shading mode so that textures will be applied (if present) during rendering
       model.set_shading_mode(ShadingProcessor::ShadingMode::SMOOTH_SHADING);
       model.set_is_fixed_shading(true);
+      ::add_assets(filepath, model);
       return model;
     }
   }
 
-  void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::filesystem::path& file_path, 
-    const std::string& folder, Object3D& model, size_t& vcount, size_t& fcount)
+  void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::filesystem::path& file, Object3D& model)
   {
     for (unsigned int i = 0; i < root->mNumMeshes; i++)
     {
@@ -57,7 +51,6 @@ namespace fury
       const bool has_texture_coords = inmesh->HasTextureCoords(0);
 
       // process vertices
-      vcount += inmesh->mNumVertices;
       for (unsigned int vidx = 0; vidx < inmesh->mNumVertices; vidx++)
       {
         aiVector3D vert = inmesh->mVertices[vidx];
@@ -78,7 +71,6 @@ namespace fury
 
       // process faces
       assert(inmesh->mNumFaces > 0);
-      fcount += inmesh->mNumFaces;
       for (unsigned int fidx = 0; fidx < inmesh->mNumFaces; fidx++)
       {
         aiFace face = inmesh->mFaces[fidx];
@@ -99,48 +91,9 @@ namespace fury
         aiColor3D ai_color;
         Material material;
 
-        const unsigned int ambient_tex_count = ai_material->GetTextureCount(aiTextureType_AMBIENT);
-        const unsigned int diffuse_tex_count = ai_material->GetTextureCount(aiTextureType_DIFFUSE);
-        const unsigned int specular_tex_count = ai_material->GetTextureCount(aiTextureType_SPECULAR);
-
-        if (ambient_tex_count)
-        {
-          if (ambient_tex_count > 1)
-          {
-            Logger::warn("File {} has {} ambient textures, but only first one is taken.", file_path.string(), ambient_tex_count);
-          }
-          aiString path;
-          ai_material->GetTexture(aiTextureType_AMBIENT, 0, &path);
-          auto tex_path = file_path / path.C_Str();
-          AssetManager::add(tex_path, folder);
-          outmesh.set_texture(std::make_shared<Texture2D>(tex_path), TextureType::AMBIENT);
-        }
-
-        if (diffuse_tex_count)
-        {
-          if (diffuse_tex_count > 1)
-          {
-            Logger::warn("File {} has {} diffuse textures, but only first one is taken.", file_path.string(), diffuse_tex_count);
-          }
-          aiString path;
-          ai_material->GetTexture(aiTextureType_DIFFUSE, 0, &path);
-          auto tex_path = file_path / path.C_Str();
-          AssetManager::add(tex_path, folder);
-          outmesh.set_texture(std::make_shared<Texture2D>(tex_path), TextureType::DIFFUSE);
-        }
-
-        if (specular_tex_count)
-        {
-          if (specular_tex_count > 1)
-          {
-            Logger::warn("File {} has {} specular textures, but only first one is taken.", file_path.string(), specular_tex_count);
-          }
-          aiString path;
-          ai_material->GetTexture(aiTextureType_SPECULAR, 0, &path);
-          auto tex_path = file_path / path.C_Str();
-          AssetManager::add(tex_path, folder);
-          outmesh.set_texture(std::make_shared<Texture2D>(tex_path), TextureType::SPECULAR);
-        }
+        ::read_textures(outmesh, ai_material, file, aiTextureType_AMBIENT, fury::TextureType::AMBIENT);
+        ::read_textures(outmesh, ai_material, file, aiTextureType_DIFFUSE, fury::TextureType::DIFFUSE);
+        ::read_textures(outmesh, ai_material, file, aiTextureType_SPECULAR, fury::TextureType::SPECULAR);
 
         if (ai_material->Get(AI_MATKEY_COLOR_DIFFUSE, ai_color) == aiReturn_SUCCESS)
         {
@@ -174,12 +127,13 @@ namespace fury
 
     for (unsigned int i = 0; i < root->mNumChildren; i++)
     {
-      process(root->mChildren[i], scene, file_path, folder, model, vcount, fcount);
+      process(root->mChildren[i], scene, file, model);
     }
 
     if (root == scene->mRootNode)
     {
-      Logger::info("Model has been loaded. Vertex count: {}, face count {}", vcount, fcount);
+      ObjectGeometryMetadata meta = model.get_geometry_metadata();
+      Logger::info("Model has been loaded. Vertex count: {}, face count {}", meta.vert_count_total, meta.face_count_total);
     }
   }
 
@@ -188,8 +142,7 @@ namespace fury
     for (unsigned int i = 0; i < root->mNumMeshes; i++)
     {
       const aiMesh* inmesh = scene->mMeshes[root->mMeshes[i]];
-      const auto& bbox = inmesh->mAABB;
-      const float max_extent = ::get_max_extent(bbox.mMin, bbox.mMax);
+      const float max_extent = ::get_max_extent(inmesh->mAABB.mMin, inmesh->mAABB.mMax);
       m_max_extent = std::max(m_max_extent, max_extent);
     }
     for (unsigned int i = 0; i < root->mNumChildren; i++)
@@ -207,12 +160,11 @@ namespace
     // to make outlining work properly if model's origin is at it's base and not 0,0,0
     model.calculate_bbox();
     const auto& bbox = model.bbox();
-    glm::vec3 bbox_center = (bbox.min() + bbox.max()) * 0.5f;
+    glm::vec3 bbox_center = bbox.center();
     if (bbox_center != glm::vec3(0.f))
     {
-      for (size_t i = 0; i < model.mesh_count(); i++)
+      for (Mesh& mesh : model.get_meshes())
       {
-        Mesh& mesh = model.get_mesh(i);
         for (Vertex& v : mesh.vertices())
         {
           v.position -= bbox_center;
@@ -221,6 +173,44 @@ namespace
     }
     // also offset bbox bounds according to new vertex positions
     model.bbox().init(bbox.min() - bbox_center, bbox.max() - bbox_center);
+  }
+
+  void read_textures(fury::Mesh& mesh, const aiMaterial* material, const std::filesystem::path& file, 
+    aiTextureType assimp_tex_type, fury::TextureType engine_tex_type)
+  {
+    const unsigned int tex_count = material->GetTextureCount(assimp_tex_type);
+    if (tex_count)
+    {
+      if (tex_count > 1)
+      {
+        Logger::warn("File {} has {} {} textures, but only first one is taken.", file.string(), tex_count, aiTextureTypeToString(assimp_tex_type));
+      }
+      // tex_path is relative to file's folder
+      aiString tex_path;
+      material->GetTexture(assimp_tex_type, 0, &tex_path);
+      mesh.set_texture(std::make_shared<Texture2D>(file.parent_path() / tex_path.C_Str()), engine_tex_type);
+    }
+  }
+
+  void add_assets(const std::filesystem::path& file, const fury::Object3D& model)
+  {
+    // add assets (put all referenced files in same 'assets/filename' folder)
+    const std::string filename = file.stem().string();
+    const std::filesystem::path mtlpath = file.parent_path() / (filename + ".mtl");
+    if (std::filesystem::exists(mtlpath))
+    {
+      // check if there is mtl file with same name
+      AssetManager::add(mtlpath.string(), filename);
+    }
+    AssetManager::add(file, filename);
+    for (const Mesh& m : model.get_meshes())
+    {
+      const auto textures = m.get_present_textures();
+      for (const auto& [ttype, tex] : textures)
+      {
+        AssetManager::add(tex->get_file(), filename);
+      }
+    }
   }
 
   float get_max_extent(const aiVector3D& min, const aiVector3D& max)

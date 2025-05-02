@@ -15,7 +15,7 @@ namespace fury
   struct MeshGeometryMetadata
   {
     size_t vert_count = 0;
-    size_t idx_count = 0;
+    size_t face_count = 0;
     const Vertex* vdata = nullptr;
     const GLuint* idx_data = nullptr;
   };
@@ -23,7 +23,7 @@ namespace fury
   struct ObjectGeometryMetadata
   {
     size_t vert_count_total = 0;
-    size_t idx_count_total = 0;
+    size_t face_count_total = 0;
     std::vector<MeshGeometryMetadata> meshes_data;
   };
 
@@ -88,6 +88,8 @@ namespace fury
     const glm::vec4& color() const { return m_color; }
     size_t mesh_count() const { return m_meshes->size(); }
     Mesh& get_mesh(size_t idx) { return (*m_meshes)[idx]; }
+    std::vector<Mesh>& get_meshes() { return *m_meshes; }
+    const std::vector<Mesh>& get_meshes() const { return *m_meshes; }
     const RenderConfig& get_render_config() const { return m_render_config; }
     const Mesh& get_mesh(size_t idx) const { return (*m_meshes)[idx]; }
     const BoundingBox& bbox() const { return m_bbox; }

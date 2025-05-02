@@ -84,8 +84,9 @@ namespace fury
       ObjectGeometryMetadata meta = obj->get_geometry_metadata();
       if (obj->get_render_config().use_indices)
       {
+        assert(obj->get_render_config().mode == GL_TRIANGLES);
         vcount_vbo_indices += meta.vert_count_total;
-        idx_count += meta.idx_count_total;
+        idx_count += meta.face_count_total * 3;
       }
       else
       {

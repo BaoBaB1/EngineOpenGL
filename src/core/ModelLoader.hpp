@@ -1,9 +1,8 @@
 #pragma once
 
 #include "ge/Object3D.hpp"
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <assimp/scene.h>
 #include <optional>
 #include <filesystem>
 
@@ -14,8 +13,7 @@ namespace fury
   public:
     std::optional<Object3D> load(const std::string& file, unsigned int flags);
   private:
-    void process(const aiNode* root, const aiScene* scene, const std::filesystem::path& file_path, 
-                 const std::string& folder, Object3D& model, size_t& vcount, size_t& fcount);
+    void process(const aiNode* root, const aiScene* scene, const std::filesystem::path& file, Object3D& model);
     void calc_max_extent(const aiNode* root, const aiScene* scene);
     float m_max_extent = 0.f;
   };
