@@ -102,20 +102,21 @@ namespace fury
     std::map<const Object3D*, ObjectRenderOffsets> m_object_offsets;
   };
 
-  class LinesPass : public RenderPass
+  class BoundingBoxPass : public RenderPass
   {
   public:
-    LinesPass(SceneRenderer* scene);
+    BoundingBoxPass(SceneRenderer* scene);
     void update() override;
     void tick() override;
   private:
     void handle_visible_bbox_toggle(Object3D* obj, bool is_visible);
     void handle_scene_visible_bbox_toggle(bool is_visible);
+    void handle_object_change(Object3D*, const ObjectChangeInfo&);
   private:
     VertexArrayObject m_vao;
     VertexBufferObject m_vbo;
+    VertexBufferObject m_vbo_instance;
     ElementBufferObject m_ebo;
-    std::vector<const Object3D*> m_objects_with_visible_bboxes;
     bool m_is_scene_bbox_visible = false;
   };
 

@@ -15,9 +15,10 @@ namespace fury
       SKYBOX,
       SCREEN_QUAD,
       DEPTH_PICKING,
-      LINES,
+      SIMPLE,
       NORMALS,
       SHADOW_MAP,
+      BOUNDING_BOX,
       LAST_ITEM
     };
     static void init();

@@ -144,7 +144,7 @@ namespace fury
     
     m_render_passes.emplace_back(std::make_unique<GeometryPass>(this, shadows_fbo.texture()->id()));
     m_render_passes.emplace_back(std::make_unique<NormalsPass>(this));
-    m_render_passes.emplace_back(std::make_unique<LinesPass>(this));
+    m_render_passes.emplace_back(std::make_unique<BoundingBoxPass>(this));
     m_shadows_pass = std::make_unique<ShadowsPass>(this, static_cast<GeometryPass*>(m_render_passes[0].get()));
     m_debug_pass = std::make_unique<DebugPass>(this);
     
@@ -410,12 +410,12 @@ namespace fury
         Object3D* selected_obj = m_selected_objects.front();
         //static constexpr int lower_bbox_points_indices[] = {0, 1, 4, 5};
         // TODO: iterate only over bottom bbox points
-        const auto& points = selected_obj->bbox().points();
+        const auto& points = selected_obj->bbox().get_points();
         float distance = INFINITY;
         m_debug_pass->clear();
-        for (const Vertex& v : points)
+        for (const glm::vec3& p : points)
         {
-          Ray ray(selected_obj->model_matrix() * glm::vec4(v.position, 1), glm::vec3(0, -1, 0));
+          Ray ray(selected_obj->model_matrix() * glm::vec4(p, 1), glm::vec3(0, -1, 0));
           for (const auto& drawable : m_drawables)
           {
             if (drawable.get() == selected_obj)

@@ -513,73 +513,105 @@ namespace fury
     }
   }
 
-  LinesPass::LinesPass(SceneRenderer* scene) : RenderPass(scene)
+  BoundingBoxPass::BoundingBoxPass(SceneRenderer* scene) : RenderPass(scene)
   {
     SceneInfo* scene_info_component = scene->get_ui().get_component<SceneInfo>("SceneInfo");
+    Gizmo* gizmo_component = scene->get_ui().get_component<Gizmo>("Gizmo");
     // TODO: remove listener in dctor
-    scene_info_component->on_visible_bbox_button_pressed += new InstanceListener(this, &LinesPass::handle_visible_bbox_toggle);
-    scene_info_component->on_show_scene_bbox += new InstanceListener(this, &LinesPass::handle_scene_visible_bbox_toggle);
-    BindChainFIFO bc({ &m_vao, &m_vbo, &m_ebo });
-    ::set_default_vertex_attributes(m_vao);
-    m_ebo.resize(BoundingBox::lines_indices().size() * sizeof(GLuint));
-    m_ebo.set_data(BoundingBox::lines_indices().data(), sizeof(GLuint) * BoundingBox::lines_indices().size(), 0);
+    scene_info_component->on_visible_bbox_button_pressed += new InstanceListener(this, &BoundingBoxPass::handle_visible_bbox_toggle);
+    scene_info_component->on_show_scene_bbox += new InstanceListener(this, &BoundingBoxPass::handle_scene_visible_bbox_toggle);
+    scene_info_component->on_object_change += new InstanceListener(this, &BoundingBoxPass::handle_object_change);
+    gizmo_component->on_object_change += new InstanceListener(this, &BoundingBoxPass::handle_object_change);
+
+    constexpr static GLuint cube_lines_indices[24] = {
+      0, 1, 1, 2, 2, 3, 3, 0, // front
+      4, 5, 5, 6, 6, 7, 7, 4, // back
+      0, 4, 3, 7, 1, 5, 2, 6
+    };
+
+    constexpr static float unit_cube[24] =
+    {
+      -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5,
+      -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, -0.5
+    };
+
+    m_vao.bind();
+    m_vbo.bind();
+    m_vao.link_attrib(0, 3, GL_FLOAT, 3 * sizeof(float), 0);
+    m_vbo.resize(sizeof(unit_cube));
+    m_vbo.set_data(&unit_cube, sizeof(unit_cube), 0);
+    m_ebo.bind();
+    m_ebo.resize(sizeof(cube_lines_indices));
+    m_ebo.set_data(&cube_lines_indices, sizeof(cube_lines_indices), 0);
+    m_vbo.unbind();
+    m_vbo_instance.bind();
+    for (int i = 0; i < 4; i++)
+    {
+      m_vao.link_attrib(i + 1, 4, GL_FLOAT, sizeof(glm::mat4), (void*)(sizeof(glm::vec4) * i));
+      glVertexAttribDivisor(i + 1, 1);
+    }
+    m_vao.unbind();
   }
 
-  void LinesPass::update()
+  void BoundingBoxPass::update()
   {
-    m_objects_with_visible_bboxes.clear();
-    m_objects_with_visible_bboxes.reserve(m_scene->get_drawables().size());
-    constexpr static int bbox_vsize_bytes = sizeof(Vertex) * 8;
+    std::vector<glm::mat4> instance_data;
+    instance_data.reserve(m_scene->get_drawables().size() + 1);
     for (const auto& drawable : m_scene->get_drawables())
     {
       if (drawable->is_bbox_visible())
-        m_objects_with_visible_bboxes.push_back(drawable.get());
+      {
+        const glm::mat4& model_mat = drawable->model_matrix();
+        const glm::vec3 center_world = model_mat * glm::vec4(drawable->bbox().center(), 1);
+        const glm::vec3 min_world = model_mat * glm::vec4(drawable->bbox().min(), 1);
+        const glm::vec3 max_world = model_mat * glm::vec4(drawable->bbox().max(), 1);
+        glm::mat4& out_mat = instance_data.emplace_back(1.f);
+        out_mat = glm::translate(out_mat, center_world);
+        out_mat = glm::scale(out_mat, max_world - min_world);
+      }
     }
-
-    BindGuard bg(m_vbo);
-    // 8 vertices for each bbox
-    m_vbo.resize_if_smaller((m_objects_with_visible_bboxes.size() + 1) * bbox_vsize_bytes); // + scene's bbox
-    for (size_t i = 0; i < m_objects_with_visible_bboxes.size(); i++)
-    {
-      const Object3D* drawable = m_objects_with_visible_bboxes[i];
-      const std::array<Vertex, 8>& points = drawable->bbox().points();
-      m_vbo.set_data(points.data(), bbox_vsize_bytes, (i + 1) * bbox_vsize_bytes);
-    }
-  }
-
-  void LinesPass::tick()
-  {
-    if (m_objects_with_visible_bboxes.empty() && !m_is_scene_bbox_visible)
-      return;
-    Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::LINES);
-    BindGuard bg_shader(shader);
-    BindGuard bg_vao(m_vao);
-    shader->set_vec3("lineColor", glm::vec3(0, 1, 0));
     if (m_is_scene_bbox_visible)
     {
-      BindGuard bg_vbo(m_vbo);
-      // at 0 position there is always scene bbox
-      m_vbo.set_data(m_scene->get_bbox().points().data(), sizeof(Vertex) * 8, 0);
-      shader->set_matrix4f("modelMatrix", glm::mat4(1.f));
-      glDrawElementsBaseVertex(GL_LINES, 24, GL_UNSIGNED_INT, 0, 0);
+      glm::mat4& mat = instance_data.emplace_back(1.f);
+      // scene's bbox is already in world space
+      mat = glm::translate(mat, m_scene->get_bbox().center());
+      mat = glm::scale(mat, m_scene->get_bbox().max() - m_scene->get_bbox().min());
     }
-    for (size_t i = 0; i < m_objects_with_visible_bboxes.size(); i++)
-    {
-      const Object3D* drawable = m_objects_with_visible_bboxes[i];
-      shader->set_matrix4f("modelMatrix", drawable->model_matrix());
-      glDrawElementsBaseVertex(GL_LINES, 24, GL_UNSIGNED_INT, 0, (i + 1) * 8);
-    }
+    m_vbo_instance.bind();
+    m_vbo_instance.resize_if_smaller(instance_data.size() * sizeof(glm::mat4));
+    m_vbo_instance.set_data(instance_data.data(), m_vbo_instance.get_size(), 0);
+    m_vbo_instance.unbind();
   }
 
-  void LinesPass::handle_visible_bbox_toggle(Object3D* obj, bool is_visible)
+  void BoundingBoxPass::tick()
+  {
+    if (m_vbo_instance.get_size() == 0)
+      return;
+    Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::BOUNDING_BOX);
+    BindGuard bg_shader(shader);
+    BindGuard bg_vao(m_vao);
+    shader->set_vec3("color", glm::vec3(0, 1, 0));
+    glDrawElementsInstanced(GL_LINES, 24, GL_UNSIGNED_INT, 0, m_vbo_instance.get_size() / sizeof(glm::mat4));
+  }
+
+  void BoundingBoxPass::handle_visible_bbox_toggle(Object3D* obj, bool is_visible)
   {
     // TODO: better impl
     update();
   }
 
-  void LinesPass::handle_scene_visible_bbox_toggle(bool is_visible)
+  void BoundingBoxPass::handle_scene_visible_bbox_toggle(bool is_visible)
   {
     m_is_scene_bbox_visible = is_visible;
+    update();
+  }
+
+  void BoundingBoxPass::handle_object_change(Object3D* obj, const ObjectChangeInfo& info)
+  {
+    if (info.is_transformation_change)
+    {
+      update();
+    }
   }
 
   ShadowsPass::ShadowsPass(SceneRenderer* scene, GeometryPass* gp) : RenderPass(scene)
@@ -672,9 +704,9 @@ namespace fury
   {
     if (m_polys.empty())
       return;
-    Shader& shader = ShaderStorage::get(ShaderStorage::ShaderType::LINES);
+    Shader& shader = ShaderStorage::get(ShaderStorage::ShaderType::SIMPLE);
     shader.bind();
-    shader.set_vec3("lineColor", glm::vec3(0, 1, 0));
+    shader.set_vec3("color", glm::vec3(0, 1, 0));
     m_vao.bind();
     size_t first = 0;
     for (const Polyline& poly : m_polys)

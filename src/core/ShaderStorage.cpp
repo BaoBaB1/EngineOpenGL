@@ -58,8 +58,8 @@ namespace fury
       }
       {
         ShaderDescription d;
-        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//lines.vert" });
-        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//lines.frag" });
+        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//simple.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//simple.frag" });
         d.vertex_layout = VertexLayout(0, -1, 1, -1);
         descriptions.push_back(d);
       }
@@ -75,6 +75,13 @@ namespace fury
         ShaderDescription d;
         d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//shadow_map.vert" });
         d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//shadow_map.frag" });
+        d.vertex_layout = VertexLayout(0, -1, -1, -1);
+        descriptions.push_back(d);
+      }
+      {
+        ShaderDescription d;
+        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//bounding_box.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//simple.frag" });
         d.vertex_layout = VertexLayout(0, -1, -1, -1);
         descriptions.push_back(d);
       }
