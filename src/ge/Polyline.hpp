@@ -9,11 +9,9 @@ namespace fury
 
   class Polyline : public Object3D {
   public:
-    inline constexpr static int32_t type = 5;
     Polyline();
     Polyline(std::initializer_list<Vertex> points);
-    bool has_surface() const override { return false; }
-    int get_type() const override { return type; }
+    uint32_t get_type() const override { return ObjectsRegistry::get_id<Polyline>(); }
     std::optional<RayHit> hit(const Ray& ray) const override { return {}; }
     void add(const Vertex& point);
     const std::vector<Vertex>& get_points() const { return get_mesh(0).vertices(); }

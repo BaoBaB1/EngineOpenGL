@@ -19,7 +19,7 @@
 #include "ge/Pyramid.hpp"
 #include "ge/BezierCurve.hpp"
 #include "ge/Skybox.hpp"
-#include "ge/GeometryFactory.hpp"
+#include "ObjectsRegistry.hpp"
 #include "utils/Utils.hpp"
 #include "AssetManager.hpp"
 
@@ -234,7 +234,7 @@ namespace fury
     {
       int32_t obj_type;
       ifs.read(reinterpret_cast<char*>(&obj_type), sizeof(int32_t));
-      std::unique_ptr<Object3D> obj = GeometryFactory::create_from_type(obj_type);
+      std::unique_ptr<Object3D> obj = ObjectsRegistry::create(obj_type);
       obj->read(ifs);
       m_drawables.push_back(std::move(obj));
     }

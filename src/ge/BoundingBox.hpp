@@ -1,9 +1,6 @@
 #pragma once
 
-#include "Entity.hpp"
 #include "IRayHittable.hpp"
-#include "ge/Vertex.hpp"
-#include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <array>
 

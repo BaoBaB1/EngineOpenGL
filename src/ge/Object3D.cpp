@@ -5,11 +5,7 @@
 
 namespace fury
 {
-  Object3D::Object3D() : Entity("Object")
-  {
-  }
-
-  Object3D::Object3D(const std::string& name) : Entity(name)
+  Object3D::Object3D(const std::string& name) : m_name(name)
   {
   }
 
@@ -335,7 +331,7 @@ namespace fury
 
   void Object3D::apply_shading(ShadingProcessor::ShadingMode mode)
   {
-    if (get_flag(IS_FIXED_SHADING))
+    if (get_flag(IS_FIXED_SHADING) || !has_surface())
       return;
     if (mode != m_shading_mode)
     {
