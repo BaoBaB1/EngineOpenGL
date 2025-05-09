@@ -30,6 +30,11 @@ namespace fury
     ifs.read(reinterpret_cast<char*>(&m_render_config), sizeof(RenderConfig));
     ifs.read(reinterpret_cast<char*>(&m_bbox.min()), sizeof(glm::vec3));
     ifs.read(reinterpret_cast<char*>(&m_bbox.max()), sizeof(glm::vec3));
+    size_t name_len = 0;
+    ifs.read(reinterpret_cast<char*>(&name_len), sizeof(size_t));
+    m_name.clear();
+    m_name.resize(name_len);
+    ifs.read(reinterpret_cast<char*>(m_name.data()), name_len);
 
     // read geometry data
     size_t meshes_count = 0;
@@ -97,6 +102,9 @@ namespace fury
     ofs.write(reinterpret_cast<const char*>(&m_render_config), sizeof(RenderConfig));
     ofs.write(reinterpret_cast<const char*>(&m_bbox.min()), sizeof(glm::vec3));
     ofs.write(reinterpret_cast<const char*>(&m_bbox.max()), sizeof(glm::vec3));
+    const size_t name_len = m_name.size();
+    ofs.write(reinterpret_cast<const char*>(&name_len), sizeof(size_t));
+    ofs.write(reinterpret_cast<const char*>(m_name.data()), name_len);
 
     // write geometry data
     const size_t meshes_count = m_meshes->size();

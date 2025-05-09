@@ -120,11 +120,11 @@ namespace fury
     float m_delta_time = 0.f;
     bool m_need_update = false;
     glm::vec3 m_rotation_axis = glm::vec3(0.f);
-    uint32_t m_flags = 0;
+    uint32_t m_flags = HAS_SURFACE;
     ShadingMode m_shading_mode = ShadingMode::NO_SHADING;
     BoundingBox m_bbox;             // bounding box which covers all meshes
     RenderConfig m_render_config;
     std::array<std::shared_ptr<std::vector<Mesh>>, ShadingMode::LAST_ITEM + 1> m_cached_meshes;
-    std::string m_name;
+    std::string m_name = "Object";
   };
 }
