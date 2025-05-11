@@ -91,6 +91,7 @@ namespace fury
     file_explorer_component->on_close += new InstanceListener(this, &SceneRenderer::handle_file_explorer_closing);
     gizmo_component->on_object_change += new InstanceListener(this, &SceneRenderer::handle_object_change);
     scene_info_component->on_polygon_mode_change += new InstanceListener(this, &SceneRenderer::change_polygon_mode);
+    scene_info_component->msaa_button_click += new InstanceListener(this, &SceneRenderer::handle_msaa_button_toggle);
     on_new_object_added += new InstanceListener(this, &SceneRenderer::handle_added_object);
     m_camera.set_screen_size({ w, h });
     m_camera.set_position(glm::vec3(-4.f, 2.f, 3.f));
@@ -107,13 +108,22 @@ namespace fury
 
     auto& main_scene_fbo = m_fbos["main"];
     main_scene_fbo.bind();
-    main_scene_fbo.attach_texture(w, h, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE);
-    main_scene_fbo.attach_renderbuffer(w, h, GL_DEPTH24_STENCIL8, GL_DEPTH_STENCIL_ATTACHMENT);
+    main_scene_fbo.attach_texture(Texture2D(w, h, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE));
+    RenderBufferCreateInfo info = { w, h };
+    main_scene_fbo.attach_renderbuffer(info);
     main_scene_fbo.unbind();
+
+    auto& main_ms = m_fbos["mainMS"];
+    main_ms.bind();
+    main_ms.attach_texture_ms(Texture2DMS(w, h, GL_RGB));
+    RenderBufferCreateInfo info2 = { w, h };
+    info2.is_multisampled = true;
+    main_ms.attach_renderbuffer(info2);
+    main_ms.unbind();
 
     auto& shadows_fbo = m_fbos["shadowMap"];
     shadows_fbo.bind();
-    shadows_fbo.attach_texture(SHADOWMAP_WIDTH, SHADOWMAP_HEIGHT, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT, false);
+    shadows_fbo.attach_texture(Texture2D(SHADOWMAP_WIDTH, SHADOWMAP_HEIGHT, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT), false);
     shadows_fbo.texture()->bind();
     // anything that is out of depth map is not in shadow
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
@@ -158,6 +168,7 @@ namespace fury
   void SceneRenderer::render()
   {
     const auto& main_fbo = m_fbos.at("main");
+    const auto& main_fbo_ms = m_fbos.at("mainMS");
     GLFWwindow* gl_window = m_window->gl_window();
     while (!glfwWindowShouldClose(gl_window))
     {
@@ -165,9 +176,18 @@ namespace fury
       tick();
       glPolygonMode(GL_FRONT_AND_BACK, m_polygon_mode);
 
+      const int w = m_window->width();
+      const int h = m_window->height();
       // render to a custom framebuffer
-      main_fbo.bind();
-      glViewport(0, 0, m_window->width(), m_window->height());
+      if (m_MSAA_enabled)
+      {
+        main_fbo_ms.bind();
+      }
+      else
+      {
+        main_fbo.bind();
+      }
+      glViewport(0, 0, w, h);
       glClearColor(0.07f, 0.13f, 0.17f, 1.0f);
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
       glEnable(GL_DEPTH_TEST);
@@ -180,7 +200,16 @@ namespace fury
       }
       //m_debug_pass->tick();
       m_ui.tick();
-      main_fbo.unbind();
+
+      if (m_MSAA_enabled)
+      {
+        // copy pixels from MSAA FBO to FBO that's texture is being rendered
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, main_fbo_ms.id());
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, main_fbo.id());
+        glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+      }
+      glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
       m_screen_quad.tick();
       if (m_show_shadow_map)
         m_shadow_map_quad.tick();
@@ -357,9 +386,19 @@ namespace fury
         continue;
       }
       fbo.bind();
-      // resize texture and render buffer
-      fbo.texture()->resize(width, height, fbo.texture()->internal_fmt(), fbo.texture()->format(), fbo.texture()->pixel_data_type());
-      fbo.attach_renderbuffer(width, height, fbo.rb_internal_format(), fbo.rb_attachment());
+      if (auto& tex = fbo.texture())
+      {
+        tex->resize(width, height, fbo.texture()->internal_fmt(), fbo.texture()->format(), fbo.texture()->pixel_data_type());
+      }
+      if (auto& texMS = fbo.texture_ms())
+      {
+        // multisample texture is immutable, so replace old one with the new one
+        fbo.attach_texture_ms(Texture2DMS(width, height, texMS->get_format(), texMS->get_samples()));
+      }
+      RenderBufferCreateInfo info = fbo.get_info();
+      info.w = width;
+      info.h = height;
+      fbo.attach_renderbuffer(info);
       fbo.unbind();
     }
     glViewport(0, 0, width, height);
@@ -470,7 +509,14 @@ namespace fury
     {
       calculate_scene_bbox();
       update_shadow_map();
-      m_fbos.at("main").bind();
+      if (m_MSAA_enabled)
+      {
+        m_fbos.at("mainMS").bind();
+      }
+      else
+      {
+        m_fbos.at("main").bind();
+      }
     }
   }
 
@@ -518,6 +564,11 @@ namespace fury
     }
   }
 
+  void SceneRenderer::handle_msaa_button_toggle(bool enabled)
+  {
+    m_MSAA_enabled = enabled;
+  }
+
   void SceneRenderer::remove_object(Object3D* obj)
   {
     on_object_delete.notify(obj);
@@ -530,7 +581,14 @@ namespace fury
     update_shadow_map();
     m_debug_pass->update();
     calculate_scene_bbox();
-    m_fbos.at("main").bind();
+    if (m_MSAA_enabled)
+    {
+      m_fbos.at("mainMS").bind();
+    }
+    else
+    {
+      m_fbos.at("main").bind();
+    }
   }
 
   //void SceneRenderer::create_scene()
@@ -671,5 +729,6 @@ namespace
     glEnable(GL_STENCIL_TEST);
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_MULTISAMPLE);
   }
 }

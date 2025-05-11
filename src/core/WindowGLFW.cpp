@@ -42,6 +42,7 @@ namespace fury
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
     // Tell GLFW we are using the CORE profile (only modern functions)
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_SAMPLES, 4); 
     m_window = glfwCreateWindow(width, height, title, nullptr, glfwGetCurrentContext());
     if (m_window == nullptr) {
       Logger::critical("Failed to create GLFW window");

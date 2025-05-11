@@ -65,9 +65,9 @@ namespace fury
       mesh.append_face(Face({ ind, ind2, ind3 }));
       return;
     }
-    Vertex ab((a + b) / 2);
-    Vertex bc((b + c) / 2);
-    Vertex ac((a + c) / 2);
+    Vertex ab((a.position + b.position) / 2.f);
+    Vertex bc((b.position + c.position) / 2.f);
+    Vertex ac((a.position + c.position) / 2.f);
     ab.color = bc.color = ac.color = m_color;
     // ORDER IS IMPORTANT !!! 
     subdivide_triangles(subdivision_level - 1, a, ab, ac);

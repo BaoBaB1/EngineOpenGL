@@ -62,6 +62,7 @@ namespace fury
     void update_shadow_map();
     void handle_file_explorer_opening();
     void handle_file_explorer_closing();
+    void handle_msaa_button_toggle(bool enabled);
     void remove_object(Object3D* obj);
     friend class SceneInfo;
   private:
@@ -74,6 +75,7 @@ namespace fury
     ScreenQuad m_screen_quad;
     ScreenQuad m_shadow_map_quad;
     bool m_show_shadow_map = false;
+    bool m_MSAA_enabled = true;
     Skybox m_skybox;
     WindowGLFW* m_window;
     Ui m_ui;

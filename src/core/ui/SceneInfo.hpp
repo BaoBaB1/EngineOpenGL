@@ -21,6 +21,7 @@ namespace fury
 		Event<Object3D*, const ObjectChangeInfo&> on_object_change;
 		Event<int> on_polygon_mode_change;
 		Event<bool> on_show_scene_bbox;
+		Event<bool> msaa_button_click;
 	private:
 		void render_object_properties(Object3D& drawable);
 		void render_xyz_markers(float offset_from_left, float width);
@@ -29,6 +30,7 @@ namespace fury
 		uint16_t m_guizmo_operation;
 		bool m_fill_polygons = true;
 		bool m_show_scene_bbox = false;
+		bool m_use_msaa = true;
 		glm::vec3 m_obj_translation;
 		glm::vec3 m_obj_scale;
 		glm::vec3 m_obj_rotation_axis;

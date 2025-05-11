@@ -101,6 +101,10 @@ namespace fury
       {
         on_show_scene_bbox.notify(m_show_scene_bbox);
       }
+      if (ImGui::Checkbox("Use MSAA", &m_use_msaa))
+      {
+        msaa_button_click.notify(m_use_msaa);
+      }
     }
 
     if (!m_scene->get_selected_objects().empty())

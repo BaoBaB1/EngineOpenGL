@@ -28,9 +28,9 @@ namespace fury
       // 0 <= t <= 1
       for (float t = 0.0; t <= 1.0; t += step)
       {
-        Vertex res = ((1 - t) * (1 - t) * m_start_pnt) +
-          (2 * t * (1 - t) * m_control_points[0]) +
-          (t * t * m_end_pnt);
+        Vertex res = ((1 - t) * (1 - t) * m_start_pnt.position) +
+          (2 * t * (1 - t) * m_control_points[0].position) +
+          (t * t * m_end_pnt.position);
         res.color = m_color;
         vertices.push_back(res);
       }
@@ -43,17 +43,17 @@ namespace fury
       // P2 - control point
       // P3 - end point
       // 0 <= t <= 1
-      const Vertex& P0 = m_start_pnt;
-      const Vertex& P1 = m_control_points[0];
-      const Vertex& P2 = m_control_points[1];
-      const Vertex& P3 = m_end_pnt;
+      const glm::vec3& P0 = m_start_pnt.position;
+      const glm::vec3& P1 = m_control_points[0].position;
+      const glm::vec3& P2 = m_control_points[1].position;
+      const glm::vec3& P3 = m_end_pnt.position;
       for (float t = 0.0; t <= 1.0; t += step)
       {
         Vertex res =
-          (std::pow((1 - t), 3) * P0) +
-          (3 * std::pow((1 - t), 2) * t * P1) +
+          (std::pow((1 - t), 3.f) * P0) +
+          (3 * std::pow((1 - t), 2.f) * t * P1) +
           (3 * (1 - t) * t * t * P2) +
-          (std::pow(t, 3) * P3);
+          (std::pow(t, 3.f) * P3);
         res.color = m_color;
         vertices.push_back(res);
       }

@@ -49,15 +49,15 @@ namespace fury
       Vertex& v3 = mesh.vertices()[face.data[2]];
       if (cnt % 2 == 0)
       {
-        v1.texture = glm::vec2();
-        v2.texture = glm::vec2(1.f, 0.f);
-        v3.texture = glm::vec2(1.f, 1.f);
+        v1.uv = glm::vec2();
+        v2.uv = glm::vec2(1.f, 0.f);
+        v3.uv = glm::vec2(1.f, 1.f);
       }
       else
       {
-        v1.texture = glm::vec2();
-        v2.texture = glm::vec2(1.f, 1.f);
-        v3.texture = glm::vec2(0.f, 1.f);
+        v1.uv = glm::vec2();
+        v2.uv = glm::vec2(1.f, 1.f);
+        v3.uv = glm::vec2(0.f, 1.f);
       }
       cnt++;
     }

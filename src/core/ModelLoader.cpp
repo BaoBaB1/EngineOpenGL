@@ -64,7 +64,7 @@ namespace fury
         }
         if (has_texture_coords)
         {
-          v.texture = glm::vec2(inmesh->mTextureCoords[0][vidx].x, 1 - inmesh->mTextureCoords[0][vidx].y);
+          v.uv = glm::vec2(inmesh->mTextureCoords[0][vidx].x, 1 - inmesh->mTextureCoords[0][vidx].y);
         }
         outmesh.append_vertex(v);
       }

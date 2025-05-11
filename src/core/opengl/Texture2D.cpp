@@ -32,6 +32,7 @@ namespace fury
     m_fmt = format;
     m_pixel_data_type = pixel_data_type;
     bind();
+    // TODO: IS CALLING THIS MULTIPLE TIMES CAUSE MEMORY LEAK WITHOUT FREE BEFORE?
     glTexImage2D(GL_TEXTURE_2D, 0, internalformat, w, h, 0, format, m_pixel_data_type, nullptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, /*GL_NEAREST*/GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, /*GL_NEAREST*/GL_LINEAR);
