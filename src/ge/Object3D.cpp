@@ -2,6 +2,7 @@
 #include "core/Logger.hpp"
 #include "utils/Utils.hpp"
 #include "core/AssetManager.hpp"
+#include "core/TextureManager.hpp"
 
 namespace fury
 {
@@ -77,7 +78,7 @@ namespace fury
           Logger::error("Failed to read object's texture with relative path {}.", file);
           continue;
         }
-        mesh.set_texture(std::make_shared<Texture2D>(absolute_path.value()), ttype);
+        mesh.set_texture(TextureManager::get(absolute_path.value()), ttype);
       }
 
       // mesh bbox

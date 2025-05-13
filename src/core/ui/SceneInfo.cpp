@@ -5,6 +5,7 @@
 #include "core/SceneRenderer.hpp"
 #include "core/WindowGLFW.hpp"
 #include "core/ObjectChangeInfo.hpp"
+#include "core/TextureManager.hpp"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -303,7 +304,7 @@ namespace fury
                 ctx.select_texture = true;
                 auto callback = [=, &mesh](const std::string& file)
                   {
-                    mesh.set_texture(std::make_shared<Texture2D>(file), tt);
+                    mesh.set_texture(TextureManager::get(file), tt);
                   };
                 m_scene->get_ui().get_component<FileExplorer>("FileExplorer")->open(ctx, callback);
               }

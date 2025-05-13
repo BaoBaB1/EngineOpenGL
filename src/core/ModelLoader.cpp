@@ -1,6 +1,7 @@
 #include "ModelLoader.hpp"
 #include "Logger.hpp"
 #include "AssetManager.hpp"
+#include "TextureManager.hpp"
 #include <assimp/Importer.hpp>
 
 namespace
@@ -188,7 +189,7 @@ namespace
       // tex_path is relative to file's folder
       aiString tex_path;
       material->GetTexture(assimp_tex_type, 0, &tex_path);
-      mesh.set_texture(std::make_shared<Texture2D>(file.parent_path() / tex_path.C_Str()), engine_tex_type);
+      mesh.set_texture(TextureManager::get(file.parent_path() / tex_path.C_Str()), engine_tex_type);
     }
   }
 
