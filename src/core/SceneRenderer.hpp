@@ -41,6 +41,7 @@ namespace fury
     WindowGLFW* get_window() { return m_window; }
     Ui& get_ui() { return m_ui; }
     const DirectionalLight& get_directional_light() const { return m_directional_light; }
+    void create_default_scene();
     void render();
     void save(const std::string& file) const;
     void load(const std::string& file);
@@ -49,7 +50,7 @@ namespace fury
     Event<Object3D*> on_object_delete;
   private:
     void tick() override;
-    //void create_scene();
+    void prepare_scene_for_rendering();
     void select_object(Object3D* obj, bool click_from_menu_item);  // temporary function. remove when selection of multiple elements is supported
     void render_skybox();
     void handle_mouse_click(int button, int x, int y);

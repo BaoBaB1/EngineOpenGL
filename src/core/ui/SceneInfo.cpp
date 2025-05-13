@@ -35,15 +35,15 @@ static std::string texture_type_to_str(fury::TextureType type)
   switch (type)
   {
   case fury::TextureType::GENERIC:
-    return "Generic";
+    return "Generic texture";
   case fury::TextureType::DIFFUSE:
-    return "Diffuse";
+    return "Diffuse texture";
   case fury::TextureType::AMBIENT:
-    return "Ambient";
+    return "Ambient texture";
   case fury::TextureType::SPECULAR:
-    return "Specular";
+    return "Specular texture";
   default:
-    return "Unknown";
+    return "Unknown texture";
   }
 }
 

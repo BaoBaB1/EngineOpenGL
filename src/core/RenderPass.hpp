@@ -118,6 +118,7 @@ namespace fury
     VertexBufferObject m_vbo_instance;
     ElementBufferObject m_ebo;
     bool m_is_scene_bbox_visible = false;
+    uint32_t m_instances = 0;
   };
 
   class DebugPass : public RenderPass

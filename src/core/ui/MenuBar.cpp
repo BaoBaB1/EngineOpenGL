@@ -103,6 +103,11 @@ namespace fury
           }
         }
 
+        if (ImGui::MenuItem("Create default scene"))
+        {
+          m_scene->create_default_scene();
+        }
+
         if (ImGui::MenuItem("Clear"))
         {
           m_scene->clear();

@@ -577,6 +577,7 @@ namespace fury
       mat = glm::translate(mat, m_scene->get_bbox().center());
       mat = glm::scale(mat, m_scene->get_bbox().max() - m_scene->get_bbox().min());
     }
+    m_instances = instance_data.size();
     m_vbo_instance.bind();
     m_vbo_instance.resize_if_smaller(instance_data.size() * sizeof(glm::mat4));
     m_vbo_instance.set_data(instance_data.data(), m_vbo_instance.get_size(), 0);
@@ -585,13 +586,13 @@ namespace fury
 
   void BoundingBoxPass::tick()
   {
-    if (m_vbo_instance.get_size() == 0)
+    if (m_instances == 0)
       return;
     Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::BOUNDING_BOX);
     BindGuard bg_shader(shader);
     BindGuard bg_vao(m_vao);
     shader->set_vec3("color", glm::vec3(0, 1, 0));
-    glDrawElementsInstanced(GL_LINES, 24, GL_UNSIGNED_INT, 0, m_vbo_instance.get_size() / sizeof(glm::mat4));
+    glDrawElementsInstanced(GL_LINES, 24, GL_UNSIGNED_INT, 0, m_instances);
   }
 
   void BoundingBoxPass::handle_visible_bbox_toggle(Object3D* obj, bool is_visible)

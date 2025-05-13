@@ -20,6 +20,7 @@
 #include "ge/BezierCurve.hpp"
 #include "ge/Skybox.hpp"
 #include "ObjectsRegistry.hpp"
+#include "TextureManager.hpp"
 #include "utils/Utils.hpp"
 #include "AssetManager.hpp"
 
@@ -94,8 +95,6 @@ namespace fury
     scene_info_component->msaa_button_click += new InstanceListener(this, &SceneRenderer::handle_msaa_button_toggle);
     on_new_object_added += new InstanceListener(this, &SceneRenderer::handle_added_object);
     m_camera.set_screen_size({ w, h });
-    m_camera.set_position(glm::vec3(-4.f, 2.f, 3.f));
-    m_camera.look_at(glm::vec3(2.f, 0.5f, 0.5f));
 
     CursorPositionHandler* cursor_pos_handler = m_window->get_input_handler<CursorPositionHandler>(UserInputHandler::CURSOR_POSITION);
     MouseInputHandler* mouse_input_handler = m_window->get_input_handler<MouseInputHandler>(UserInputHandler::MOUSE_INPUT);
@@ -268,40 +267,7 @@ namespace fury
       m_drawables.push_back(std::move(obj));
     }
     ifs.close();
-
-    // fill scene's structs
-    for (size_t i = 0; i < m_drawables.size(); i++)
-    {
-      auto& drawable = m_drawables[i];
-      if (drawable->is_selected())
-      {
-        m_selected_objects.push_back(drawable.get());
-      }
-      // calculate object center + bbox
-      drawable->update();
-    }
-
-    calculate_scene_bbox();
-    // setup directional light
-    // center is in world space
-    const glm::vec3 bbox_center = m_bbox.center();
-    const glm::vec3 dir_light_position = glm::vec3(bbox_center.x + 0.12, bbox_center.y + 0.33, bbox_center.z + 0.7);
-    const glm::vec3 dir_light_target = bbox_center;
-    constexpr float val = 6.f;
-    m_directional_light.proj_matrix = glm::ortho<float>(-val, val, -val, val, -10.f, 10.f);
-    m_directional_light.view_matrix = glm::lookAt(dir_light_position, dir_light_target, glm::vec3(0, 1, 0));
-    m_directional_light.direction = glm::normalize(dir_light_target - dir_light_position);
-
-    // update render passes in accordance with the new scene
-    for (auto& render_pass : m_render_passes)
-    {
-      render_pass->update();
-    }
-    update_shadow_map();
-    
-    // fix to avoid camera jumps ???
-    // again, cursor pos in handler can have huge offset difference at this point
-    m_window->get_input_handler<CursorPositionHandler>(UserInputHandler::CURSOR_POSITION)->update_ignore_frames();
+    prepare_scene_for_rendering();
   }
 
   void SceneRenderer::clear()
@@ -591,75 +557,117 @@ namespace fury
     }
   }
 
-  //void SceneRenderer::create_scene()
-  //{
-  //  Vertex arr[6];
-  //  arr[0].position = glm::vec3(0.f, 1.f, 0.f), arr[0].color = glm::vec4(0.f, 1.f, 0.f, 1.f);
-  //  arr[1].position = glm::vec3(0.f, 0.f, 0.f), arr[1].color = glm::vec4(0.f, 1.f, 0.f, 1.f);
-  //  arr[2].position = glm::vec3(0.f, 0.f, 0.f), arr[2].color = glm::vec4(1.f, 0.f, 0.f, 1.f);
-  //  arr[3].position = glm::vec3(1.f, 0.f, 0.f), arr[3].color = glm::vec4(1.f, 0.f, 0.f, 1.f);
-  //  arr[4].position = glm::vec3(0.f, 0.f, 0.f), arr[4].color = glm::vec4(0.f, 0.f, 1.f, 1.f);
-  //  arr[5].position = glm::vec3(0.f, 0.f, 1.f), arr[5].color = glm::vec4(0.f, 0.f, 1.f, 1.f);
-  //  auto origin = std::make_unique<Polyline>();
-  //  for (int i = 0; i < 6; i++) {
-  //    origin->add(arr[i]);
-  //  }
-  //  m_drawables.push_back(std::move(origin));
-  //
-  //  auto& sun = std::make_unique<Icosahedron>();
-  //  sun->light_source(true);
-  //  sun->translate(glm::vec3(0.f, 0.6f, 2.f));
-  //  sun->set_color(glm::vec4(1.f, 1.f, 0.f, 1.f));
-  //  sun->set_is_fixed_shading(true);
-  //  sun->scale(glm::vec3(0.3f));
-  //  sun->subdivide_triangles(4);
-  //  sun->project_points_on_sphere();
-  //  m_drawables.push_back(std::move(sun));
-  //  m_light_sources.insert(1);
-  //
-  //  auto& sphere = std::make_unique<Icosahedron>();
-  //  sphere->translate(glm::vec3(2.5f, 0.5f, 2.f));
-  //  sphere->set_color(glm::vec4(1.f, 0.f, 0.f, 1.f));
-  //  sphere->subdivide_triangles(4);
-  //  sphere->project_points_on_sphere();
-  //  sphere->scale(glm::vec3(0.3f));
-  //  sphere->apply_shading(Object3D::ShadingMode::SMOOTH_SHADING);
-  //  m_drawables.push_back(std::move(sphere));
-  //
-  //  auto& c = std::make_unique<Cube>();
-  //  c->translate(glm::vec3(0.25f));
-  //  c->scale(glm::vec3(0.5f));
-  //  c->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
-  //  c->get_mesh(0).set_texture(std::make_shared<Texture2D>(AssetManager::get_from_relative("textures/brick.jpg").value()), TextureType::GENERIC);
-  //  m_drawables.push_back(std::move(c));
-  //
-  //  auto& c2 = std::make_unique<Cube>();
-  //  c2->translate(glm::vec3(1.25f, 1.f, 1.f));
-  //  c2->set_color(glm::vec4(0.4f, 1.f, 0.4f, 1.f));
-  //  c2->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
-  //  c2->visible_normals(true);
-  //  m_drawables.push_back(std::move(c2));
-  //
-  //  auto& pyr = std::make_unique<Pyramid>();
-  //  pyr->translate(glm::vec3(0.75f, 0.65f, 2.25f));
-  //  pyr->scale(glm::vec3(0.5f));
-  //  pyr->set_color(glm::vec4(0.976f, 0.212f, 0.98f, 1.f));
-  //  pyr->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
-  //  m_drawables.push_back(std::move(pyr));
-  //
-  //  auto& bc = std::make_unique<BezierCurve>(BezierCurveType::Quadratic);
-  //  bc->set_start_point(Vertex());
-  //  bc->set_end_point(Vertex(2.5f, 0.f, 0.f));
-  //  bc->set_control_points({ Vertex(1.25f, 2.f, 0.f) });
-  //  bc->set_color(glm::vec4(1.f, 0.f, 0.f, 1.f));
-  //  m_drawables.push_back(std::move(bc));
-  //
-  //  auto& bc2 = std::make_unique<BezierCurve>(BezierCurveType::Cubic);
-  //  bc2->set_start_point(Vertex());
-  //  bc2->set_end_point(Vertex(0.f, 0.f, -2.5f));
-  //  bc2->set_control_points({ Vertex(0.f, 2.f, -1.25f), Vertex {0.f, -2.f, -1.75} });
-  //  m_drawables.push_back(std::move(bc2));
-  //}
+  void SceneRenderer::create_default_scene()
+  {
+    m_camera.set_position(glm::vec3(-4.f, 2.f, 3.f));
+    m_camera.look_at(glm::vec3(2.f, 0.5f, 0.5f));
+    m_drawables.clear();
+    m_selected_objects.clear();
+
+    Vertex arr[6];
+    arr[0].position = glm::vec3(0.f, 1.f, 0.f), arr[0].color = glm::vec4(0.f, 1.f, 0.f, 1.f);
+    arr[1].position = glm::vec3(0.f, 0.f, 0.f), arr[1].color = glm::vec4(0.f, 1.f, 0.f, 1.f);
+    arr[2].position = glm::vec3(0.f, 0.f, 0.f), arr[2].color = glm::vec4(1.f, 0.f, 0.f, 1.f);
+    arr[3].position = glm::vec3(1.f, 0.f, 0.f), arr[3].color = glm::vec4(1.f, 0.f, 0.f, 1.f);
+    arr[4].position = glm::vec3(0.f, 0.f, 0.f), arr[4].color = glm::vec4(0.f, 0.f, 1.f, 1.f);
+    arr[5].position = glm::vec3(0.f, 0.f, 1.f), arr[5].color = glm::vec4(0.f, 0.f, 1.f, 1.f);
+    auto origin = std::make_unique<Polyline>();
+    for (int i = 0; i < 6; i++) {
+      origin->add(arr[i]);
+    }
+    m_drawables.push_back(std::move(origin));
+
+    auto& sun = std::make_unique<Icosahedron>();
+    sun->translate(glm::vec3(0.f, 0.6f, 2.f));
+    sun->set_color(glm::vec4(1.f, 1.f, 0.f, 1.f));
+    sun->set_is_fixed_shading(true);
+    sun->scale(glm::vec3(0.3f));
+    sun->subdivide_triangles(4);
+    sun->project_points_on_sphere();
+    m_drawables.push_back(std::move(sun));
+
+    auto& sphere = std::make_unique<Icosahedron>();
+    sphere->translate(glm::vec3(2.5f, 0.5f, 2.f));
+    sphere->set_color(glm::vec4(1.f, 0.f, 0.f, 1.f));
+    sphere->subdivide_triangles(4);
+    sphere->project_points_on_sphere();
+    sphere->scale(glm::vec3(0.3f));
+    sphere->apply_shading(Object3D::ShadingMode::SMOOTH_SHADING);
+    m_drawables.push_back(std::move(sphere));
+
+    auto& c = std::make_unique<Cube>();
+    c->translate(glm::vec3(0.25f));
+    c->scale(glm::vec3(0.5f));
+    c->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
+    c->get_mesh(0).set_texture(TextureManager::get(AssetManager::get_from_relative("textures/brick.jpg").value()), TextureType::GENERIC);
+    m_drawables.push_back(std::move(c));
+
+    auto& c2 = std::make_unique<Cube>();
+    c2->translate(glm::vec3(1.25f, 1.f, 1.f));
+    c2->set_color(glm::vec4(0.4f, 1.f, 0.4f, 1.f));
+    c2->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
+    c2->visible_normals(true);
+    m_drawables.push_back(std::move(c2));
+
+    auto& pyr = std::make_unique<Pyramid>();
+    pyr->translate(glm::vec3(0.75f, 0.65f, 2.25f));
+    pyr->scale(glm::vec3(0.5f));
+    pyr->set_color(glm::vec4(0.976f, 0.212f, 0.98f, 1.f));
+    pyr->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
+    m_drawables.push_back(std::move(pyr));
+
+    auto& bc = std::make_unique<BezierCurve>(BezierCurveType::Quadratic);
+    bc->set_start_point(Vertex());
+    bc->set_end_point(Vertex(2.5f, 0.f, 0.f));
+    bc->set_control_points({ Vertex(1.25f, 2.f, 0.f) });
+    bc->set_color(glm::vec4(1.f, 0.f, 0.f, 1.f));
+    m_drawables.push_back(std::move(bc));
+
+    auto& bc2 = std::make_unique<BezierCurve>(BezierCurveType::Cubic);
+    bc2->set_start_point(Vertex());
+    bc2->set_end_point(Vertex(0.f, 0.f, -2.5f));
+    bc2->set_control_points({ Vertex(0.f, 2.f, -1.25f), Vertex {0.f, -2.f, -1.75} });
+    m_drawables.push_back(std::move(bc2));
+
+    prepare_scene_for_rendering();
+  }
+
+  void SceneRenderer::prepare_scene_for_rendering()
+  {
+    // fill scene's structs
+    for (size_t i = 0; i < m_drawables.size(); i++)
+    {
+      auto& drawable = m_drawables[i];
+      if (drawable->is_selected())
+      {
+        m_selected_objects.push_back(drawable.get());
+      }
+      // calculate object center + bbox
+      drawable->update();
+    }
+
+    calculate_scene_bbox();
+    // setup directional light
+    // center is in world space
+    const glm::vec3 bbox_center = m_bbox.center();
+    const glm::vec3 dir_light_position = glm::vec3(bbox_center.x + 0.12, bbox_center.y + 0.33, bbox_center.z + 0.7);
+    const glm::vec3 dir_light_target = bbox_center;
+    constexpr float val = 6.f;
+    m_directional_light.proj_matrix = glm::ortho<float>(-val, val, -val, val, -10.f, 10.f);
+    m_directional_light.view_matrix = glm::lookAt(dir_light_position, dir_light_target, glm::vec3(0, 1, 0));
+    m_directional_light.direction = glm::normalize(dir_light_target - dir_light_position);
+
+    // update render passes in accordance with the new scene
+    for (auto& render_pass : m_render_passes)
+    {
+      render_pass->update();
+    }
+    update_shadow_map();
+
+    // fix to avoid camera jumps ???
+    // again, cursor pos in handler can have huge offset difference at this point
+    m_window->get_input_handler<CursorPositionHandler>(UserInputHandler::CURSOR_POSITION)->update_ignore_frames();
+  }
 
   void SceneRenderer::select_object(Object3D* obj, bool click_from_menu_item)
   {
