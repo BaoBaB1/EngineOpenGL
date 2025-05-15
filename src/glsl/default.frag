@@ -55,25 +55,29 @@ float CalculateShadowValue()
 	// scale to range [0, 1] because depth values in shadow map are in range [0, 1]
 	ndc = ndc * 0.5 + 0.5;
 	// everything that is out of shadow map or if normal is facing away from light
-	if (ndc.z > 1.f || dot(normal, -normalize(lightDirGlobal)) <= 0.0f)
+	float dp = dot(normal, -normalize(lightDirGlobal));
+	if (ndc.z > 1.f || dp <= 0.0f || dp < 0.1)
 	{
 		return 0;
 	}
 	// closest depth from light's perspective
 	float closestDepth = texture(shadowMap, ndc.xy).r;
 	float currentDepth = ndc.z;
-	float bias = max(0.005 * (1.0 - dot(normal, -normalize(lightDirGlobal))), 0.001);
+	float bias = max(0.005 * (1.0 - dp), 0.001);
 	float shadow = 0.0;
 	vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
-	for(int x = -1; x <= 1; ++x)
+	int n = 1;
+	int total_texels = 0;
+	for(int x = -n; x <= n; ++x)
 	{
-			for(int y = -1; y <= 1; ++y)
+			for(int y = -n; y <= n; ++y)
 			{
-					float pcfDepth = texture(shadowMap, ndc.xy + vec2(x, y) * texelSize).r;
-					shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+				total_texels++;
+				float pcfDepth = texture(shadowMap, ndc.xy + vec2(x, y) * texelSize).r;
+				shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
 			}
 	}
-	return shadow / 9.0;
+	return shadow / total_texels;
 }
 
 void main()

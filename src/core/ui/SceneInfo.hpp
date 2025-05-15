@@ -24,7 +24,7 @@ namespace fury
 		Event<bool> msaa_button_click;
 	private:
 		void render_object_properties(Object3D& drawable);
-		void render_xyz_markers(float offset_from_left, float width);
+		void render_xyz_markers(float offset_from_left, float width, float spacing);
 		void handle_key_press(KeyboardHandler::InputKey key, KeyboardHandler::KeyState state);
 	private:
 		uint16_t m_guizmo_operation;

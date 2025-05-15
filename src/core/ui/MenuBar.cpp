@@ -25,6 +25,7 @@ namespace fury
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, menubar_item_spacing);
     if (ImGui::BeginMainMenuBar())
     {
+      m_size = ImGui::GetWindowSize();
       if (ImGui::BeginMenu("File"))
       {
         if (ImGui::MenuItem("Import"))

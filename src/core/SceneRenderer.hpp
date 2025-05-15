@@ -27,6 +27,7 @@ namespace fury
     glm::mat4 proj_matrix;;
     glm::mat4 view_matrix;
     glm::vec3 direction;
+    glm::vec3 position;
   };
 
   class SceneRenderer : public ITickable

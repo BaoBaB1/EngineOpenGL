@@ -92,8 +92,10 @@ namespace fury
     ImGui::Dummy(ImVec2(0, 5));
 
     ImGui::SetNextItemOpen(true, ImGuiCond_::ImGuiCond_Once);
+    bool is_general_header_opened = false;
     if (ImGui::CollapsingHeader("General"))
     {
+      is_general_header_opened = true;
       if (ImGui::Checkbox("Fill polygons", &m_fill_polygons))
       {
         on_polygon_mode_change.notify(m_fill_polygons ? GL_FILL : GL_LINE);
@@ -110,11 +112,13 @@ namespace fury
 
     if (!m_scene->get_selected_objects().empty())
     {
+      if (is_general_header_opened)
+        ImGui::Dummy({ 0, 5 });
       render_object_properties(*m_scene->get_selected_objects().back());
     }
-
     ImGuiIO& io = ImGui::GetIO();
-    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+    ImGui::Separator();
+    ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
     ImGui::End();
 
     ImGui::Render();
@@ -125,139 +129,85 @@ namespace fury
   {
     ImGui::SetNextItemOpen(true, ImGuiCond_::ImGuiCond_Once);
     const std::string& name = drawable.get_name();
-    if (ImGui::TreeNode(name.c_str()))
+    if (ImGui::TreeNodeEx(name.c_str(), ImGuiTreeNodeFlags_CollapsingHeader))
     {
+      const ImVec2 wsize = ImGui::GetWindowSize();
       // translation
       ImGui::Separator();
+      ImVec2 text_size = ImGui::CalcTextSize("Translation");
+      ImGui::SetCursorPosX((wsize.x / 2.f) - (text_size.x / 2.f));
       ImGui::Text("Translation");
+      
       ImGui::PushItemWidth(-1);
-      const float item_width = ImGui::CalcItemWidth() - 5; // -5 to leave some offset from right
+      // 3 sliders + 2 spacings
+      const ImVec2 item_spacing = ImGui::GetStyle().ItemSpacing;
+      const float available_width = ImGui::CalcItemWidth() - (item_spacing.x * 2);
+      const float slider_width = available_width / 3.f;
       ImGui::PopItemWidth();
-      const float offset_from_left = ImGui::GetStyle().IndentSpacing;
-      const float win_space_for_items_x = ImGui::GetWindowSize().x - offset_from_left;
 
-      render_xyz_markers(offset_from_left, win_space_for_items_x);
-      ImGui::PushItemWidth(-1);
+      render_xyz_markers(item_spacing.x, slider_width, item_spacing.x);
       m_obj_translation = drawable.translation();
       glm::vec3 old_translation = drawable.translation();
-      if (ImGui::InputFloat3("##translationLabel", &m_obj_translation.x))
-      {
-        drawable.translate(m_obj_translation - old_translation);
-      }
-      ImGui::PopItemWidth();
-      ImGui::Dummy(ImVec2(0.f, 5.f));
-      ImGui::GetStyle().ItemSpacing.x = 3.f;
-      ImGui::PushItemWidth(item_width / 3);
-
       ObjectChangeInfo transformation_change;
       transformation_change.is_transformation_change = true;
-      if (ImGui::SliderFloat("##X", &m_obj_translation.x, -50.0f, 50.0f))
+
+      ImGui::PushItemWidth(slider_width);
+      for (int i = 0; i < 3; i++)
       {
-        drawable.translate(glm::vec3(m_obj_translation.x - old_translation.x, 0.f, 0.f));
-        on_object_change.notify(&drawable, transformation_change);
+        ImGui::PushID(&m_obj_translation.x + i);
+        if (ImGui::InputFloat("##translation", &m_obj_translation.x + i))
+        {
+          drawable.translate(m_obj_translation - old_translation);
+          on_object_change.notify(&drawable, transformation_change);
+        }
+        ImGui::PopID();
+        ImGui::SameLine();
+      }
+      ImGui::Dummy(ImVec2(0.f, 5.f));
+      for (int i = 0; i < 3; i++)
+      {
+        ImGui::PushID(&m_obj_translation.x + i);
+        if (ImGui::SliderFloat("##translation2", &m_obj_translation.x + i, -10.0f, 10.0f))
+        {
+          drawable.translate(m_obj_translation - old_translation);
+          on_object_change.notify(&drawable, transformation_change);
+        }
+        ImGui::PopID();
+        ImGui::SameLine();
       }
 
-      ImGui::SameLine();
-      if (ImGui::SliderFloat("##Y", &m_obj_translation.y, -50.0f, 50.0f))
-      {
-        drawable.translate(glm::vec3(0.f, m_obj_translation.y - old_translation.y, 0.f));
-        on_object_change.notify(&drawable, transformation_change);
-      }
-
-      ImGui::SameLine();
-      if (ImGui::SliderFloat("##Z", &m_obj_translation.z, -50.0f, 50.0f))
-      {
-        drawable.translate(glm::vec3(0.f, 0.f, m_obj_translation.z - old_translation.z));
-        on_object_change.notify(&drawable, transformation_change);
-      }
-
-      // scale
+      ImGui::NewLine();
       ImGui::Separator();
+      text_size = ImGui::CalcTextSize("Scale");
+      ImGui::SetCursorPosX((wsize.x / 2.f) - (text_size.x / 2.f));
       ImGui::Text("Scale");
-      render_xyz_markers(offset_from_left, win_space_for_items_x);
-      ImGui::PushItemWidth(-1);
-      glm::vec3 scale = drawable.scale();
+      render_xyz_markers(item_spacing.x, slider_width, item_spacing.x);
       m_obj_scale = drawable.scale();
-      if (ImGui::InputFloat3("##scaleLabel", &scale.x))
+      for (int i = 0; i < 3; i++)
       {
-        if (scale.x > 0 && scale.y > 0 && scale.z > 0)
-          drawable.scale(scale);
+        ImGui::PushID(&m_obj_scale.x + i);
+        if (ImGui::InputFloat("##scale", &m_obj_scale.x + i))
+        {
+          drawable.scale(m_obj_scale);
+          on_object_change.notify(&drawable, transformation_change);
+        }
+        ImGui::PopID();
+        ImGui::SameLine();
       }
+      ImGui::Dummy(ImVec2(0.f, 5.f));
+      for (int i = 0; i < 3; i++)
+      {
+        ImGui::PushID(&m_obj_scale.x + i);
+        if (ImGui::SliderFloat("##scale2", &m_obj_scale.x + i, 0.1f, 5.0f))
+        {
+          drawable.scale(m_obj_scale);
+          on_object_change.notify(&drawable, transformation_change);
+        }
+        ImGui::PopID();
+        ImGui::SameLine();
+      }
+      ImGui::NewLine();
       ImGui::PopItemWidth();
-      ImGui::Dummy(ImVec2(0, 5));
-      ImGui::PushItemWidth(item_width / 3);
-
-      if (ImGui::SliderFloat("##X2", &m_obj_scale.x, 0.1f, 3.f))
-      {
-        drawable.scale(m_obj_scale);
-        on_object_change.notify(&drawable, transformation_change);
-      }
-
-      ImGui::SameLine();
-      if (ImGui::SliderFloat("##Y2", &m_obj_scale.y, 0.1f, 3.f))
-      {
-        drawable.scale(m_obj_scale);
-        on_object_change.notify(&drawable, transformation_change);
-      }
-
-      ImGui::SameLine();
-      if (ImGui::SliderFloat("##Z2", &m_obj_scale.z, 0.1f, 3.f))
-      {
-        drawable.scale(m_obj_scale);
-        on_object_change.notify(&drawable, transformation_change);
-      }
-      ImGui::PopItemWidth();
-
-      // rotation
-      ImGui::Separator();
-      ImGui::Text("Rotation");
-      bool rotating = drawable.is_rotating();
-      float old_rot_angle = drawable.rotation_angle();
-      m_obj_rotation_angle = old_rot_angle;
-      m_obj_rotation_axis = drawable.rotation_axis();
-
-      // TODO: rework rotations
-      if (ImGui::Checkbox("Rotate every frame", &rotating))
-        drawable.rotating(rotating);
-
-      if (ImGui::SliderFloat("Angle(deg)", &m_obj_rotation_angle, -360.f, 360.f))
-      {
-        if (!drawable.is_rotating())
-          drawable.rotate(m_obj_rotation_angle - old_rot_angle, m_obj_rotation_axis);
-      }
-
-      render_xyz_markers(offset_from_left, win_space_for_items_x);
-      if (ImGui::SliderFloat("##X3", &m_obj_rotation_axis.x, 0.f, 1.f))
-      {
-        if (!drawable.is_rotating())
-        {
-          drawable.rotate(m_obj_rotation_angle, m_obj_rotation_axis);
-          // TODO: set in SceneRenderer::tick() as well
-          on_object_change.notify(&drawable, transformation_change);
-        }
-      }
-
-      ImGui::SameLine();
-      if (ImGui::SliderFloat("##Y3", &m_obj_rotation_axis.y, 0.f, 1.f))
-      {
-        if (!drawable.is_rotating())
-        {
-          drawable.rotate(m_obj_rotation_angle, m_obj_rotation_axis);
-          // TODO: set in SceneRenderer::tick() as well
-          on_object_change.notify(&drawable, transformation_change);
-        }
-      }
-
-      ImGui::SameLine();
-      if (ImGui::SliderFloat("##Z3", &m_obj_rotation_axis.z, 0.f, 1.f))
-      {
-        if (!drawable.is_rotating())
-        {
-          drawable.rotate(m_obj_rotation_angle, m_obj_rotation_axis);
-          // TODO: set in SceneRenderer::tick() as well
-          on_object_change.notify(&drawable, transformation_change);
-        }
-      }
 
       // other properties
       ImGui::Separator();
@@ -338,7 +288,7 @@ namespace fury
         const float width_of_next_checkbox = ImGui::CalcTextSize("Visible normals").x
           + ImGui::GetFrameHeight() + ImGui::GetCurrentContext()->Style.ItemInnerSpacing.x;
         constexpr float x_offset = 25;
-        if (same_line_cursor_pos.x + x_offset + width_of_next_checkbox > win_space_for_items_x)
+        if (same_line_cursor_pos.x + x_offset + width_of_next_checkbox > ImGui::GetWindowSize().x)
         {
           ImGui::SetCursorPos(next_line_cursor_pos);
         }
@@ -364,7 +314,7 @@ namespace fury
             modes[i] = std::make_pair(mode, ::shading_mode_to_str(mode));
           }
           std::string current_mode = ::shading_mode_to_str(drawable.shading_mode());
-          ImGui::SetNextItemWidth(win_space_for_items_x / 2);
+          ImGui::SetNextItemWidth(ImGui::GetWindowSize().x / 2);
           if (ImGui::BeginCombo("Shading mode", current_mode.c_str()))
           {
             for (int i = 0; i < 3; i++)
@@ -382,20 +332,19 @@ namespace fury
             }
             ImGui::EndCombo();
           }
-          ImGui::Separator();
         }
       }
-      ImGui::TreePop();
     }
   }
 
-  void SceneInfo::render_xyz_markers(float offset_from_left, float width)
+  void SceneInfo::render_xyz_markers(float offset_from_left, float item_width, float spacing)
   {
     constexpr static const char* XYZ[] = { "X", "Y", "Z" };
     for (int i = 0; i < 3; i++)
     {
       // center labels over input fields
-      ImGui::SetCursorPosX(offset_from_left + (width / 3 * i) + width / 6);
+      ImVec2 size = ImGui::CalcTextSize(XYZ[i]);
+      ImGui::SetCursorPosX(offset_from_left + (item_width / 2.f) + (item_width * i) + (spacing * i) - (size.x / 2.f));
       ImGui::Text(XYZ[i]);
       if (i < 2)
         ImGui::SameLine();

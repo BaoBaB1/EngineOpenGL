@@ -140,7 +140,7 @@ namespace fury
     shader->set_int("shadowMap", 4);
     shader->set_matrix4f("lightSpaceVPMatrix", dir_light.proj_matrix * dir_light.view_matrix);
     shader->set_vec3("lightDirGlobal", dir_light.direction);
-    shader->set_vec3("lightPos", glm::mat4(1.f) * glm::vec4(glm::vec3(-4.f, 2.f, 3.f), 1));
+    shader->set_vec3("lightPos", glm::mat4(1.f) * glm::vec4(dir_light.position, 1));
     shader->set_vec3("lightColor", glm::vec3(1.f));
 
     // set shadow map

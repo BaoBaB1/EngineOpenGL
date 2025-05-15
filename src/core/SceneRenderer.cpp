@@ -93,6 +93,7 @@ namespace fury
     gizmo_component->on_object_change += new InstanceListener(this, &SceneRenderer::handle_object_change);
     scene_info_component->on_polygon_mode_change += new InstanceListener(this, &SceneRenderer::change_polygon_mode);
     scene_info_component->msaa_button_click += new InstanceListener(this, &SceneRenderer::handle_msaa_button_toggle);
+    scene_info_component->on_object_change += new InstanceListener(this, &SceneRenderer::handle_object_change);
     on_new_object_added += new InstanceListener(this, &SceneRenderer::handle_added_object);
     m_camera.set_screen_size({ w, h });
 
@@ -125,6 +126,8 @@ namespace fury
     shadows_fbo.attach_texture(Texture2D(SHADOWMAP_WIDTH, SHADOWMAP_HEIGHT, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT), false);
     shadows_fbo.texture()->bind();
     // anything that is out of depth map is not in shadow
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
     float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -446,7 +449,8 @@ namespace fury
           update_shadow_map();
         }
       }
-      else if (key == Key::BACKSPACE && !m_selected_objects.empty())
+      else if (key == Key::BACKSPACE && !m_selected_objects.empty() 
+        && !m_ui.get_component<SceneInfo>("SceneInfo")->is_visible()) // if it's visible, we can use backspace to remove values from imgui's input fields
       {
         assert(m_selected_objects.size() == 1);
         Object3D* selected_obj = m_selected_objects.front();
@@ -505,11 +509,17 @@ namespace fury
     auto& shadows_fbo = m_fbos.at("shadowMap");
     shadows_fbo.bind();
     glEnable(GL_DEPTH_TEST);
-    glCullFace(GL_FRONT);
+    glDisable(GL_CULL_FACE);
+    //glEnable(GL_POLYGON_OFFSET_FILL);
+    //glPolygonOffset(1, 1);
+    // TODO: gap between coplanar planes ...
+    //glCullFace(GL_FRONT);
     glViewport(0, 0, SHADOWMAP_WIDTH, SHADOWMAP_HEIGHT);
     glClear(GL_DEPTH_BUFFER_BIT);
     m_shadows_pass->update();
     glCullFace(GL_BACK);
+    glEnable(GL_CULL_FACE);
+    //glDisable(GL_POLYGON_OFFSET_FILL);
     shadows_fbo.unbind();
     glViewport(0, 0, m_window->width(), m_window->height());
   }
@@ -656,6 +666,7 @@ namespace fury
     m_directional_light.proj_matrix = glm::ortho<float>(-val, val, -val, val, -10.f, 10.f);
     m_directional_light.view_matrix = glm::lookAt(dir_light_position, dir_light_target, glm::vec3(0, 1, 0));
     m_directional_light.direction = glm::normalize(dir_light_target - dir_light_position);
+    m_directional_light.position = dir_light_position + val * -m_directional_light.direction;
 
     // update render passes in accordance with the new scene
     for (auto& render_pass : m_render_passes)
@@ -735,6 +746,9 @@ namespace
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glEnable(GL_STENCIL_TEST);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_MULTISAMPLE);
