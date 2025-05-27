@@ -3,6 +3,7 @@
 #include "utils/Utils.hpp"
 #include "core/AssetManager.hpp"
 #include "core/TextureManager.hpp"
+#include "core/EnumFactoryMap.hpp"
 
 namespace fury
 {
@@ -10,9 +11,61 @@ namespace fury
   {
   }
 
+  Object3D::Object3D(const Object3D& other)
+  {
+    m_meshes = other.m_meshes;
+    m_center = other.m_center;
+    m_model_mat = other.m_model_mat;
+    m_color = other.m_color;
+    m_delta_time = other.m_delta_time;
+    m_need_update = other.m_need_update;
+    m_flags = other.m_flags;
+    m_shading_mode = other.m_shading_mode;
+    m_bbox = other.m_bbox;
+    m_render_config = other.m_render_config;
+    m_cached_meshes = other.m_cached_meshes;
+    m_name = other.m_name;
+    m_controllers.clear();
+    m_controllers.reserve(other.m_controllers.size());
+    for (const auto& c : other.m_controllers)
+    {
+      auto& added = m_controllers.emplace_back(c->clone());
+      added->set_object(this);
+    }
+  }
+
+  Object3D& Object3D::operator=(const Object3D& other)
+  {
+    if (this != &other)
+    {
+      m_meshes = other.m_meshes;
+      m_center = other.m_center;
+      m_model_mat = other.m_model_mat;
+      m_color = other.m_color;
+      m_delta_time = other.m_delta_time;
+      m_need_update = other.m_need_update;
+      m_flags = other.m_flags;
+      m_shading_mode = other.m_shading_mode;
+      m_bbox = other.m_bbox;
+      m_render_config = other.m_render_config;
+      m_cached_meshes = other.m_cached_meshes;
+      m_name = other.m_name;
+      m_controllers.clear();
+      m_controllers.reserve(other.m_controllers.size());
+      for (const auto& c : other.m_controllers)
+      {
+        auto& added = m_controllers.emplace_back(c->clone());
+        added->set_object(this);
+      }
+    }
+    return *this;
+  }
+
+
   void Object3D::read(std::ifstream& ifs)
   {
     m_meshes->clear();
+    m_controllers.clear();
     for (auto& m : m_cached_meshes)
     {
       if (m)
@@ -23,8 +76,6 @@ namespace fury
     ifs.read(reinterpret_cast<char*>(&m_center), sizeof(glm::vec3));
     ifs.read(reinterpret_cast<char*>(&m_model_mat), sizeof(glm::mat4));
     ifs.read(reinterpret_cast<char*>(&m_color), sizeof(glm::vec4));
-    ifs.read(reinterpret_cast<char*>(&m_rotation_axis), sizeof(glm::vec3));
-    ifs.read(reinterpret_cast<char*>(&m_rotation_angle), sizeof(float));
     ifs.read(reinterpret_cast<char*>(&m_need_update), sizeof(bool));
     ifs.read(reinterpret_cast<char*>(&m_flags), sizeof(decltype(m_flags)));
     ifs.read(reinterpret_cast<char*>(&m_shading_mode), sizeof(decltype(m_shading_mode)));
@@ -85,6 +136,23 @@ namespace fury
       ifs.read(reinterpret_cast<char*>(&mesh.bbox().min()), sizeof(glm::vec3));
       ifs.read(reinterpret_cast<char*>(&mesh.bbox().max()), sizeof(glm::vec3));
     }
+
+    // read controllers data
+    int32_t sz = 0;
+    ifs.read(reinterpret_cast<char*>(&sz), sizeof(int32_t));
+    if (sz)
+    {
+      m_controllers.reserve(sz);
+      for (int i = 0; i < sz; i++)
+      {
+        ObjectController::Type t;
+        ifs.read(reinterpret_cast<char*>(&t), sizeof(ObjectController::Type));
+        auto controller = EnumFactoryMap<ObjectController::Type, ObjectController>::create(t);
+        controller->read(ifs);
+        controller->set_object(this);
+        m_controllers.push_back(std::move(controller));
+      }
+    }
   }
 
   void Object3D::write(std::ofstream& ofs) const
@@ -95,8 +163,6 @@ namespace fury
     ofs.write(reinterpret_cast<const char*>(&m_center), sizeof(glm::vec3));
     ofs.write(reinterpret_cast<const char*>(&m_model_mat), sizeof(glm::mat4));
     ofs.write(reinterpret_cast<const char*>(&m_color), sizeof(glm::vec4));
-    ofs.write(reinterpret_cast<const char*>(&m_rotation_axis), sizeof(glm::vec3));
-    ofs.write(reinterpret_cast<const char*>(&m_rotation_angle), sizeof(float));
     ofs.write(reinterpret_cast<const char*>(&m_need_update), sizeof(bool));
     ofs.write(reinterpret_cast<const char*>(&m_flags), sizeof(decltype(m_flags)));
     ofs.write(reinterpret_cast<const char*>(&m_shading_mode), sizeof(decltype(m_shading_mode)));
@@ -154,16 +220,26 @@ namespace fury
       ofs.write(reinterpret_cast<const char*>(&mesh.bbox().min()), sizeof(glm::vec3));
       ofs.write(reinterpret_cast<const char*>(&mesh.bbox().max()), sizeof(glm::vec3));
     }
+
+    // controllers data
+    const int32_t sz = static_cast<int32_t>(m_controllers.size());
+    ofs.write(reinterpret_cast<const char*>(&sz), sizeof(int32_t));
+    if (sz)
+    {
+      for (const auto& c : m_controllers)
+      {
+        ObjectController::Type t = c->get_type();
+        ofs.write(reinterpret_cast<const char*>(&t), sizeof(ObjectController::Type));
+        c->write(ofs);
+      }
+    }
   }
 
   void Object3D::rotate(float angle, const glm::vec3& axis)
   {
     if (axis == glm::vec3())
       return;
-    constexpr float rotation_speed = 10.f;
-    m_rotation_angle = angle;
-    m_rotation_axis = axis;
-    m_model_mat = glm::rotate(m_model_mat, glm::radians(angle * m_delta_time * rotation_speed), glm::normalize(axis));
+    m_model_mat = glm::rotate(m_model_mat, glm::radians(angle), glm::normalize(axis));
   }
 
   void Object3D::scale(const glm::vec3& scale)
@@ -263,6 +339,64 @@ namespace fury
   void Object3D::add_mesh(const Mesh& mesh)
   {
     m_meshes->push_back(mesh);
+  }
+
+  ObjectController* Object3D::attach_controller(ObjectController::Type type)
+  {
+    auto pos = m_controllers.end();
+    for (auto it = m_controllers.begin(); it != m_controllers.end(); ++it)
+    {
+      if ((*it)->get_type() == type)
+      {
+        pos = it;
+      }
+    }
+    if (pos != m_controllers.end())
+    {
+      // TODO: magic_enum
+      auto controller_type_to_str = [](ObjectController::Type t)
+        {
+          switch (t)
+          {
+          case ObjectController::Type::ROTATION:
+            return "ROTATION";
+          default:
+            return "UNKNOWN";
+          }
+        };
+      Logger::error("Controller {} already exists for object {}.", controller_type_to_str(type), m_name);
+      return nullptr;
+    }
+    auto& controller = m_controllers.emplace_back(
+      EnumFactoryMap<ObjectController::Type, ObjectController>::create(ObjectController::Type::ROTATION)
+    );
+    controller->set_object(this);
+    return controller.get();
+  }
+
+  ObjectController* Object3D::get_controller(ObjectController::Type type)
+  {
+    for (const auto& c : m_controllers)
+    {
+      if (c->get_type() == type)
+      {
+        return c.get();
+      }
+    }
+    return nullptr;
+  }
+
+  bool Object3D::remove_controller(ObjectController::Type type)
+  {
+    for (auto it = m_controllers.begin(); it != m_controllers.end(); ++it)
+    {
+      if ((*it)->get_type() == type)
+      {
+        m_controllers.erase(it);
+        return true;
+      }
+    }
+    return false;
   }
 
   void Object3D::calculate_bbox(bool force)

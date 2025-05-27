@@ -714,16 +714,21 @@ namespace fury
   {
     ImGuiIO& io = ImGui::GetIO();
     m_camera.scale_speed(io.DeltaTime);
+    bool need_update_shadow_map = false;
     for (auto& obj : m_drawables)
     {
       obj->set_delta_time(io.DeltaTime);
-      if (obj->is_rotating())
+      for (const auto& c : obj->get_controllers())
       {
-        obj->rotate(obj->rotation_angle(), obj->rotation_axis());
+        c->set_delta_time(io.DeltaTime);
+        c->tick();
+        need_update_shadow_map |= c->is_enabled();
       }
     }
 
     m_cam_controller.tick();
+    if (need_update_shadow_map)
+      update_shadow_map();
 
     double x, y;
     glfwGetCursorPos(m_window->gl_window(), &x, &y);

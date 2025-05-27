@@ -6,6 +6,7 @@
 #include "core/WindowGLFW.hpp"
 #include "core/ObjectChangeInfo.hpp"
 #include "core/TextureManager.hpp"
+#include "core/RotationController.hpp"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -188,8 +189,11 @@ namespace fury
         ImGui::PushID(&m_obj_scale.x + i);
         if (ImGui::InputFloat("##scale", &m_obj_scale.x + i))
         {
-          drawable.scale(m_obj_scale);
-          on_object_change.notify(&drawable, transformation_change);
+          if (m_obj_scale.x != 0 && m_obj_scale.y != 0 && m_obj_scale.z != 0)
+          {
+            drawable.scale(m_obj_scale);
+            on_object_change.notify(&drawable, transformation_change);
+          }
         }
         ImGui::PopID();
         ImGui::SameLine();
@@ -208,6 +212,26 @@ namespace fury
       }
       ImGui::NewLine();
       ImGui::PopItemWidth();
+
+      if (ObjectController* controller = drawable.get_controller(ObjectController::Type::ROTATION))
+      {
+        ImGui::Separator();
+        text_size = ImGui::CalcTextSize("Rotation");
+        ImGui::SetCursorPosX((wsize.x / 2.f) - (text_size.x / 2.f));
+        ImGui::Text("Rotation");
+        bool rotating = controller->is_enabled();
+        if (ImGui::Checkbox("Rotate", &rotating))
+        {
+          if (rotating)
+            controller->enable();
+          else
+            controller->disable();
+        }
+        const glm::vec3 axis = static_cast<RotationController*>(controller)->get_rotation_axis();
+        const float angle = static_cast<RotationController*>(controller)->get_rotation_angle();
+        ImGui::TextWrapped("Rotation axis [%.3f, %.3f, %.3f]", axis.x, axis.y, axis.z);
+        ImGui::Text("Rotation angle %.3f degrees", angle);
+      }
 
       // other properties
       ImGui::Separator();

@@ -6,6 +6,7 @@
 #include "ge/ShadingProcessor.hpp"
 #include "core/ISerializable.hpp"
 #include "core/ObjectsRegistry.hpp"
+#include "core/ObjectController.hpp"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <optional>
@@ -41,6 +42,10 @@ namespace fury
     static T* cast_to(Object3D* obj) { return static_cast<T*>(obj); }
     Object3D() = default;
     Object3D(const std::string& name);
+    Object3D(Object3D&&) = default;
+    Object3D& operator=(Object3D&&) = default;
+    Object3D(const Object3D& other);
+    Object3D& operator=(const Object3D& other);
     virtual uint32_t get_type() const { return ObjectsRegistry::get_id<Object3D>(); }
     void read(std::ifstream&) override;
     void write(std::ofstream&) const override;
@@ -55,26 +60,25 @@ namespace fury
     void set_render_config(const RenderConfig& cfg) { m_render_config = cfg; }
     void set_meshes_data(const std::shared_ptr<std::vector<Mesh>>& meshes) { m_meshes = meshes; }
     void rotate(float angle, const glm::vec3& axis);
-    void set_rotation_angle(float angle) { m_rotation_angle = angle; }
     void set_name(const std::string& name) { m_name = name; }
     void scale(const glm::vec3& scale);
     void translate(const glm::vec3& translation);
     void add_mesh(Mesh&& mesh);
     void add_mesh(const Mesh& mesh);
+    const std::vector<std::unique_ptr<ObjectController>>& get_controllers() const { return m_controllers; }
+    ObjectController* attach_controller(ObjectController::Type type);
+    ObjectController* get_controller(ObjectController::Type type);
+    bool remove_controller(ObjectController::Type type);
     Mesh& emplace_mesh() { return m_meshes->emplace_back(); }
     void calculate_bbox(bool force = false);
-    float rotation_angle() const { return m_rotation_angle; }
-    glm::vec3 rotation_axis() const { return m_rotation_axis; }
     glm::vec3 translation() const { return m_model_mat[3]; }
     glm::vec3 scale() const { return glm::vec3(glm::length(m_model_mat[0]), glm::length(m_model_mat[1]), glm::length(m_model_mat[2])); }
     void light_source(bool val) { set_flag(LIGHT_SOURCE, val); }
-    void rotating(bool val) { set_flag(ROTATE_EACH_FRAME, val); }
     void visible_normals(bool val) { set_flag(VISIBLE_NORMALS, val); }
     void visible_bbox(bool val) { set_flag(VISIBLE_BBOX, val); }
     void select(bool val) { set_flag(IS_SELECTED, val); }
     void set_is_fixed_shading(bool val) { set_flag(IS_FIXED_SHADING, val); }
     bool is_normals_visible() const { return get_flag(VISIBLE_NORMALS); }
-    bool is_rotating() const { return get_flag(ROTATE_EACH_FRAME); }
     bool is_light_source() const { return get_flag(LIGHT_SOURCE); }
     bool is_bbox_visible() const { return get_flag(VISIBLE_BBOX); }
     bool is_selected() const { return get_flag(IS_SELECTED); }
@@ -98,13 +102,12 @@ namespace fury
   protected:
     enum Flag
     {
-      ROTATE_EACH_FRAME = (1 << 0),
-      VISIBLE_NORMALS = (1 << 1),
-      LIGHT_SOURCE = (1 << 2),
-      VISIBLE_BBOX = (1 << 3),
-      IS_SELECTED = (1 << 4),
-      IS_FIXED_SHADING = (1 << 5),
-      HAS_SURFACE = (1 << 6)
+      VISIBLE_NORMALS = (1 << 0),
+      LIGHT_SOURCE = (1 << 1),
+      VISIBLE_BBOX = (1 << 2),
+      IS_SELECTED = (1 << 3),
+      IS_FIXED_SHADING = (1 << 4),
+      HAS_SURFACE = (1 << 5)
     };
   protected:
     void set_flag(Flag flag, bool value) { value ? set_flag(flag) : clear_flag(flag); }
@@ -116,14 +119,13 @@ namespace fury
     mutable glm::vec3 m_center = glm::vec3(0.f);
     glm::mat4 m_model_mat = glm::mat4(1.f);
     glm::vec4 m_color = glm::vec4(1.f);
-    float m_rotation_angle = 0.f;
     float m_delta_time = 0.f;
     bool m_need_update = false;
-    glm::vec3 m_rotation_axis = glm::vec3(0.f);
     uint32_t m_flags = HAS_SURFACE;
     ShadingMode m_shading_mode = ShadingMode::NO_SHADING;
     BoundingBox m_bbox;             // bounding box which covers all meshes
     RenderConfig m_render_config;
+    std::vector<std::unique_ptr<ObjectController>> m_controllers;
     std::array<std::shared_ptr<std::vector<Mesh>>, ShadingMode::LAST_ITEM + 1> m_cached_meshes;
     std::string m_name = "Object";
   };

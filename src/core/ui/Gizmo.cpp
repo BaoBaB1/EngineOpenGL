@@ -9,7 +9,6 @@
 #include <ImGuizmo.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/matrix_decompose.hpp>
 
 namespace fury
 {
@@ -52,15 +51,6 @@ namespace fury
         static_cast<ImGuizmo::OPERATION>(m_guizmo_operation), gizmo_mode, glm::value_ptr(model_mat));
       if (ImGuizmo::IsUsing() && obj->model_matrix() != model_mat)
       {
-        if (m_guizmo_operation == ImGuizmo::OPERATION::ROTATE)
-        {
-          glm::vec3 translation, scale, skew;
-          glm::quat rotation;
-          glm::vec4 perspective;
-          glm::decompose(model_mat, scale, rotation, translation, skew, perspective);
-          obj->set_rotation_angle(glm::degrees(glm::angle(rotation)));
-          //obj->m_rotation_axis = glm::axis(rotation);
-        }
         obj->model_matrix() = model_mat;
         ObjectChangeInfo info;
         info.is_transformation_change = true;
