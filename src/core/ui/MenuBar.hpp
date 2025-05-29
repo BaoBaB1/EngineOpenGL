@@ -19,8 +19,8 @@ namespace fury
 	public:
 		MenuBar(SceneRenderer* scene);
 		void tick() override;
-		const ImVec2& get_size() const { return m_size; }
+		const float get_height() const { return m_height; }
 	private:
-		ImVec2 m_size;
+		float m_height = 0;
 	};
 }

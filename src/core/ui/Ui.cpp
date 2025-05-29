@@ -25,7 +25,7 @@ namespace fury
     ImGui_ImplOpenGL3_Init();
 
     m_components["MenuBar"] = std::make_unique<MenuBar>(scene);
-    m_components["SceneInfo"] = std::make_unique<SceneInfo>(scene);
+    m_components["SceneInfo"] = std::make_unique<SceneInfo>(scene, static_cast<MenuBar*>(m_components.at("MenuBar").get()));
     m_components["Gizmo"] = std::make_unique<Gizmo>(scene);
     m_components["FileExplorer"] = std::make_unique<FileExplorer>(scene);
   }

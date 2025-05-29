@@ -88,8 +88,10 @@ namespace fury
     SceneInfo* scene_info_component = m_ui.get_component<SceneInfo>("SceneInfo");
     Gizmo* gizmo_component = m_ui.get_component<Gizmo>("Gizmo");
     FileExplorer* file_explorer_component = m_ui.get_component<FileExplorer>("FileExplorer");
-    file_explorer_component->on_open += new InstanceListener(this, &SceneRenderer::handle_file_explorer_opening);
-    file_explorer_component->on_close += new InstanceListener(this, &SceneRenderer::handle_file_explorer_closing);
+    file_explorer_component->on_show += new InstanceListener(this, &SceneRenderer::handle_ui_component_opening);
+    file_explorer_component->on_hide += new InstanceListener(this, &SceneRenderer::handle_ui_component_closing);
+    scene_info_component->on_show += new InstanceListener(this, &SceneRenderer::handle_ui_component_opening);
+    scene_info_component->on_hide += new InstanceListener(this, &SceneRenderer::handle_ui_component_closing);
     gizmo_component->on_object_change += new InstanceListener(this, &SceneRenderer::handle_object_change);
     scene_info_component->on_polygon_mode_change += new InstanceListener(this, &SceneRenderer::change_polygon_mode);
     scene_info_component->msaa_button_click += new InstanceListener(this, &SceneRenderer::handle_msaa_button_toggle);
@@ -253,6 +255,7 @@ namespace fury
     // cleanup current scene
     m_drawables.clear();
     m_selected_objects.clear();
+    m_opened_ui_components = 0;
 
     ifs.read(reinterpret_cast<char*>(&m_polygon_mode), sizeof(GLint));
     ifs.read(reinterpret_cast<char*>(&m_camera), sizeof(Camera));
@@ -377,6 +380,12 @@ namespace fury
   {
     using Key = KeyboardHandler::InputKey;
     using State = KeyboardHandler::KeyState;
+
+    if (m_ui.get_component<FileExplorer>("FileExplorer")->is_visible())
+    {
+      return;
+    }
+
     // pressed once. if we want to know if key is being held, then need to use KeyboardHandler::get_pressed_keys() each frame
     if (state == State::PRESSED)
     {
@@ -389,9 +398,9 @@ namespace fury
           obj->select(false);
         }
       }
-      else if (key == Key::LEFT_SHIFT)
+      else if (key == Key::LEFT_SHIFT && m_opened_ui_components == 0)
       {
-        if (m_camera.freezed() && !m_ui.get_component("SceneInfo")->is_visible())
+        if (m_camera.freezed())
         {
           glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
           m_camera.unfreeze();
@@ -449,13 +458,18 @@ namespace fury
           update_shadow_map();
         }
       }
-      else if (key == Key::BACKSPACE && !m_selected_objects.empty() 
+      else if (key == Key::BACKSPACE && !m_selected_objects.empty()
         && !m_ui.get_component<SceneInfo>("SceneInfo")->is_visible()) // if it's visible, we can use backspace to remove values from imgui's input fields
       {
         assert(m_selected_objects.size() == 1);
         Object3D* selected_obj = m_selected_objects.front();
         remove_object(m_selected_objects.front());
         m_selected_objects.pop_back();
+      }
+      else if (key == Key::GRAVE_ACCENT)
+      {
+        SceneInfo* scene_info = m_ui.get_component<SceneInfo>("SceneInfo");
+        scene_info->is_visible() ? scene_info->hide() : scene_info->show();
       }
     }
   }
@@ -524,16 +538,17 @@ namespace fury
     glViewport(0, 0, m_window->width(), m_window->height());
   }
 
-  void SceneRenderer::handle_file_explorer_opening()
+  void SceneRenderer::handle_ui_component_opening()
   {
     m_camera.freeze();
     glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    m_opened_ui_components++;
   }
 
-  void SceneRenderer::handle_file_explorer_closing()
+  void SceneRenderer::handle_ui_component_closing()
   {
-    // if scene info panel is visible, keep camera frozen because it is frozen when you open this panel
-    if (!m_ui.get_component("SceneInfo")->is_visible())
+    m_opened_ui_components--;
+    if (m_opened_ui_components == 0)
     {
       m_camera.unfreeze();
       glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);

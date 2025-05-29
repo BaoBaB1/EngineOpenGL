@@ -49,27 +49,24 @@ namespace fury
 
   void KeyboardHandler::key_callback(int key, int scancode, int action, int mods)
   {
-    if (!disabled())
+    auto iter = ::mapped_keys.find(key);
+    if (iter != ::mapped_keys.end())
     {
-      auto iter = ::mapped_keys.find(key);
-      if (iter != ::mapped_keys.end())
+      InputKey ckey = iter->second;
+      switch (action)
       {
-        InputKey ckey = iter->second;
-        switch (action)
-        {
-        case GLFW_RELEASE:
-          m_keystate[ckey] = KeyState::RELEASED;
-          m_pressed_keys.erase(m_pressed_key_map[ckey]);
-          m_pressed_key_map.erase(ckey);
-          on_key_state_change.notify(ckey, KeyState::RELEASED);
-          break;
-        case GLFW_PRESS:
-          m_keystate[ckey] = KeyState::PRESSED;
-          m_pressed_keys.push_back(ckey);
-          m_pressed_key_map.emplace(std::make_pair(ckey, std::prev(m_pressed_keys.end())));
-          on_key_state_change.notify(ckey, KeyState::PRESSED);
-          break;
-        }
+      case GLFW_RELEASE:
+        m_keystate[ckey] = KeyState::RELEASED;
+        m_pressed_keys.erase(m_pressed_key_map[ckey]);
+        m_pressed_key_map.erase(ckey);
+        on_key_state_change.notify(ckey, KeyState::RELEASED);
+        break;
+      case GLFW_PRESS:
+        m_keystate[ckey] = KeyState::PRESSED;
+        m_pressed_keys.push_back(ckey);
+        m_pressed_key_map.emplace(std::make_pair(ckey, std::prev(m_pressed_keys.end())));
+        on_key_state_change.notify(ckey, KeyState::PRESSED);
+        break;
       }
     }
   }

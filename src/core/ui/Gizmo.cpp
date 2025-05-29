@@ -6,6 +6,7 @@
 #include "core/WindowGLFW.hpp"
 #include "ge/Object3D.hpp"
 
+#include <imgui.h>
 #include <ImGuizmo.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>

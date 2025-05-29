@@ -6,6 +6,8 @@
 #include "ge/Cube.hpp"
 #include "core/ModelLoader.hpp"
 
+#include <imgui.h>
+
 namespace fury
 {
   MenuBar::MenuBar(SceneRenderer* scene) : UiComponent(scene)
@@ -25,7 +27,7 @@ namespace fury
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, menubar_item_spacing);
     if (ImGui::BeginMainMenuBar())
     {
-      m_size = ImGui::GetWindowSize();
+      m_height = ImGui::GetWindowHeight();
       if (ImGui::BeginMenu("File"))
       {
         if (ImGui::MenuItem("Import"))

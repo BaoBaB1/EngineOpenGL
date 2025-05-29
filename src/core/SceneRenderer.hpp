@@ -62,8 +62,8 @@ namespace fury
     void handle_object_change(Object3D* obj, const ObjectChangeInfo& info);
     void calculate_scene_bbox();
     void update_shadow_map();
-    void handle_file_explorer_opening();
-    void handle_file_explorer_closing();
+    void handle_ui_component_opening();
+    void handle_ui_component_closing();
     void handle_msaa_button_toggle(bool enabled);
     void remove_object(Object3D* obj);
     friend class SceneInfo;
@@ -87,5 +87,6 @@ namespace fury
     GLint m_polygon_mode = GL_FILL;
     BoundingBox m_bbox;
     DirectionalLight m_directional_light;
+    int m_opened_ui_components = 0;
   };
 }

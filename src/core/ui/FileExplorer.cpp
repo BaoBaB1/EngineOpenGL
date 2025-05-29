@@ -41,18 +41,6 @@ namespace fury
     }
   }
 
-  void FileExplorer::show() 
-  { 
-    UiComponent::show();
-    on_open.notify();
-  }
-
-  void FileExplorer::hide()
-  {
-    UiComponent::hide();
-    on_close.notify();
-  }
-
   void FileExplorer::open(const OpenFileExplorerContext& ctx, std::function<void(const std::string&)> callback)
   {
     m_callback = callback;

@@ -50,10 +50,8 @@ static std::string texture_type_to_str(fury::TextureType type)
 
 namespace fury
 {
-  SceneInfo::SceneInfo(SceneRenderer* scene) : UiComponent(scene)
+  SceneInfo::SceneInfo(SceneRenderer* scene, MenuBar* menubar) : UiComponent(scene), m_menubar(menubar)
   {
-    KeyboardHandler* kh = scene->get_window()->get_input_handler<KeyboardHandler>(UserInputHandler::HandlerType::KEYBOARD);
-    kh->on_key_state_change += new InstanceListener(this, &SceneInfo::handle_key_press);
   }
 
   void SceneInfo::tick()
@@ -66,9 +64,9 @@ namespace fury
     // stick menu to the right side of window
     const ImVec2 sz = ImVec2(window->width(), window->height());
     constexpr float scale_factor = 0.2f;
-    MenuBar* menubar_component = m_scene->get_ui().get_component<MenuBar>("MenuBar");
-    ImGui::SetNextWindowSize(ImVec2(sz.x * scale_factor, sz.y - menubar_component->get_size().y));
-    ImGui::SetNextWindowPos(ImVec2(sz.x - sz.x * scale_factor, menubar_component->get_size().y));
+    const float menubar_height = m_menubar->get_height();
+    ImGui::SetNextWindowSize(ImVec2(sz.x * scale_factor, sz.y - menubar_height));
+    ImGui::SetNextWindowPos(ImVec2(sz.x - sz.x * scale_factor, menubar_height));
     ImGui::Begin("Scene properties", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
     ImGui::Text("Scene objects");
@@ -372,25 +370,6 @@ namespace fury
       ImGui::Text(XYZ[i]);
       if (i < 2)
         ImGui::SameLine();
-    }
-  }
-
-  void SceneInfo::handle_key_press(KeyboardHandler::InputKey key, KeyboardHandler::KeyState state)
-  {
-    if (key == KeyboardHandler::InputKey::GRAVE_ACCENT && state == KeyboardHandler::KeyState::PRESSED)
-    {
-      m_is_visible = !m_is_visible;
-      if (m_is_visible)
-      {
-        // disable any camera movement
-        m_scene->get_camera().freeze();
-        glfwSetInputMode(m_scene->get_window()->gl_window(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-      }
-      else
-      {
-        m_scene->get_camera().unfreeze();
-        glfwSetInputMode(m_scene->get_window()->gl_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-      }
     }
   }
 }

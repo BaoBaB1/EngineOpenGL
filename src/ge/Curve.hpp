@@ -1,8 +1,6 @@
 #pragma once
 
-#include <vector>
 #include "ge/Object3D.hpp"
-#include "ge/Vertex.hpp"
 
 namespace fury
 {
