@@ -24,14 +24,17 @@ namespace fury
 	private:
 		void render_object_properties(Object3D& drawable);
 		void render_xyz_markers(float offset_from_left, float width, float spacing);
+		void render_fps_locks();
 	private:
 		uint16_t m_guizmo_operation;
 		bool m_fill_polygons = true;
 		bool m_show_scene_bbox = false;
 		bool m_use_msaa = true;
+		bool m_use_vsync = true;
 		glm::vec3 m_obj_translation;
 		glm::vec3 m_obj_scale;
 		glm::vec4 m_obj_color;
 		MenuBar* m_menubar = nullptr;
+		int m_fps_cap = 0;
 	};
 }

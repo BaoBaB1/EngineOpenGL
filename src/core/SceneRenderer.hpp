@@ -11,6 +11,7 @@
 #include "RenderPass.hpp"
 #include "ge/BoundingBox.hpp"
 #include "ObjectChangeInfo.hpp"
+#include "FPSLimiter.hpp"
 #include <vector>
 #include <memory>
 #include <string>
@@ -47,6 +48,8 @@ namespace fury
     void save(const std::string& file) const;
     void load(const std::string& file);
     void clear();
+    void set_fps_limit(uint32_t fps) { m_fps_limiter.set_limit(fps); }
+    uint32_t get_fps_limit() const { return m_fps_limiter.get_limit(); }
     Event<Object3D*> on_new_object_added;
     Event<Object3D*> on_object_delete;
   private:
@@ -88,5 +91,6 @@ namespace fury
     BoundingBox m_bbox;
     DirectionalLight m_directional_light;
     int m_opened_ui_components = 0;
+    FPSLimiter m_fps_limiter;
   };
 }

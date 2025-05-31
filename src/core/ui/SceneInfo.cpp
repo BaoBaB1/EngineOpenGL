@@ -107,6 +107,18 @@ namespace fury
       {
         msaa_button_click.notify(m_use_msaa);
       }
+      if (ImGui::Checkbox("VSync", &m_use_vsync))
+      {
+        if (m_use_vsync)
+        {
+          m_scene->set_fps_limit(glfwGetVideoMode(glfwGetPrimaryMonitor())->refreshRate);
+        }
+        else
+        {
+          m_scene->set_fps_limit(m_fps_cap);
+        }
+      }
+      render_fps_locks();
     }
 
     if (!m_scene->get_selected_objects().empty())
@@ -371,5 +383,49 @@ namespace fury
       if (i < 2)
         ImGui::SameLine();
     }
+  }
+
+  void SceneInfo::render_fps_locks()
+  {
+    static constexpr std::array<std::pair<std::string_view, int>, 8> fps_locks = { {
+        {"0", 0}, {"30", 30}, {"60", 60}, {"120", 120}, {"144", 144}, {"180", 180}, {"240", 240}, {"360", 360}} };
+    static const char* selected_fps_lock = nullptr;
+    static bool once = true;
+    if (once)
+    {
+      const uint32_t fps_lock = m_scene->get_fps_limit();
+      for (const auto& [label, fps] : fps_locks)
+      {
+        if (fps_lock == fps)
+        {
+          selected_fps_lock = label.data();
+          m_fps_cap = fps;
+          break;
+        }
+      }
+      once = false;
+    }
+    if (m_use_vsync)
+      ImGui::BeginDisabled();
+    if (ImGui::BeginCombo("FPS lock", selected_fps_lock))
+    {
+      for (const auto& [label, fps] : fps_locks)
+      {
+        bool is_selected = (selected_fps_lock && (selected_fps_lock == label));
+        if (ImGui::Selectable(label.data(), is_selected))
+        {
+          selected_fps_lock = label.data();
+          m_scene->set_fps_limit(fps);
+          m_fps_cap = fps;
+        }
+        if (is_selected)
+        {
+          ImGui::SetItemDefaultFocus();
+        }
+      }
+      ImGui::EndCombo();
+    }
+    if (m_use_vsync)
+      ImGui::EndDisabled();
   }
 }

@@ -147,6 +147,7 @@ namespace fury
     m_skybox.set_cubemap(Cubemap(skybox_faces));
     m_screen_quad.init(main_scene_fbo.texture()->id());
     m_shadow_map_quad.init(shadow_map_data, shadows_fbo.texture()->id(), true);
+    m_fps_limiter.set_limit(glfwGetVideoMode(glfwGetPrimaryMonitor())->refreshRate);
 
     UniformBuffer& ubo = PipelineUBOManager::get("cameraData");
     ubo.bind();
@@ -217,6 +218,8 @@ namespace fury
       m_screen_quad.tick();
       if (m_show_shadow_map)
         m_shadow_map_quad.tick();
+
+      m_fps_limiter.wait();
       glfwSwapBuffers(gl_window);
     }
   }
@@ -229,6 +232,7 @@ namespace fury
       Logger::error("Save failed to open file {}.", file);
       return;
     }
+    // Save fps cap ???
     ofs.write(reinterpret_cast<const char*>(&m_polygon_mode), sizeof(GLint));
     ofs.write(reinterpret_cast<const char*>(&m_camera), sizeof(Camera));
     const size_t drawables_count = m_drawables.size();
