@@ -17,6 +17,8 @@ namespace fury
   class SceneRenderer;
   class Polyline;
   struct ObjectChangeInfo;
+  class ItemSelectionWheel;
+  struct SelectionWheelSlot;
 
   class RenderPass : public ITickable
   {
@@ -119,6 +121,24 @@ namespace fury
     ElementBufferObject m_ebo;
     bool m_is_scene_bbox_visible = false;
     uint32_t m_instances = 0;
+  };
+
+  class SelectionWheelPass : public RenderPass
+  {
+  public:
+    SelectionWheelPass(SceneRenderer* scene, ItemSelectionWheel* wheel);
+    void update() override;
+    void tick() override;
+  private:
+    ItemSelectionWheel* m_wheel = nullptr;
+    // fop all wheel geometry
+    VertexArrayObject m_vao;
+    VertexBufferObject m_vbo;
+    // for icons
+    VertexArrayObject m_vao_icons;
+    VertexBufferObject m_vbo_icons;
+    glm::mat4 m_ortho = glm::mat4(1.f);
+    std::vector<const SelectionWheelSlot*> m_slots_with_icons;
   };
 
   class DebugPass : public RenderPass

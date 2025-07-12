@@ -1,5 +1,6 @@
 #include "RenderPass.hpp"
 #include "ge/Object3D.hpp"
+#include "ge/ItemSelectionWheel.hpp"
 #include "WindowGLFW.hpp"
 #include "ObjectChangeInfo.hpp"
 #include "BindGuard.hpp"
@@ -728,5 +729,132 @@ namespace fury
   void DebugPass::clear()
   {
     m_polys.clear();
+  }
+
+  SelectionWheelPass::SelectionWheelPass(SceneRenderer* scene, ItemSelectionWheel* wheel) : RenderPass(scene), m_wheel(wheel)
+  {
+    const auto& slots = wheel->get_slots();
+    if (slots.empty())
+    {
+      Logger::info("Selection wheel with 0 slots.");
+      return;
+    }
+
+    const int w = scene->get_window()->width();
+    const int h = scene->get_window()->height();
+    // arc points + closing lines
+    const int num_arc_points = slots[0].arcs_data.size() / 2;
+    const int arc_size = 2 * num_arc_points * sizeof(glm::vec2);
+    const int total_size = (arc_size * slots.size()) + (slots.size() * 4 * sizeof(glm::vec2));
+    m_slots_with_icons.reserve(slots.size());
+    m_ortho = glm::ortho<float>(-w / 2, w / 2, -h / 2, h / 2);
+    m_vao.bind();
+    m_vbo.bind();
+    m_vao.link_attrib(0, 2, GL_FLOAT, 0, 0);
+    m_vbo.resize(total_size);
+    std::vector<glm::vec2> slot_closing_lines;
+    std::vector<glm::vec2> slot_tri_strip_data(num_arc_points * 2);
+    slot_closing_lines.reserve(slots.size() * 4);
+    int vbo_bytes_offset = 0;
+    for (const auto& slot : slots)
+    {
+      if (slot.icon)
+        m_slots_with_icons.push_back(&slot);
+      for (int i = 0; i < num_arc_points; i++)
+      {
+        // 1 point from inner circle and 1 from outer, so that we can use TRIANGLE_STRIP mode and draw segment with triangles
+        slot_tri_strip_data[2 * i] = slot.arcs_data[i];
+        slot_tri_strip_data[2 * i + 1] = slot.arcs_data[num_arc_points + i];
+      }
+      m_vbo.set_data(slot_tri_strip_data.data(), slot_tri_strip_data.size() * sizeof(glm::vec2), vbo_bytes_offset);
+      slot_closing_lines.insert(slot_closing_lines.end(), slot.arcs_closing_lines_data, slot.arcs_closing_lines_data + 4);
+      vbo_bytes_offset += slot_tri_strip_data.size() * sizeof(glm::vec2);
+    }
+    m_vbo.set_data(slot_closing_lines.data(), slot_closing_lines.size() * sizeof(glm::vec2), vbo_bytes_offset);
+    m_vbo.unbind();
+    m_vao.unbind();
+
+    struct IconVertex
+    {
+      glm::vec2 pos;
+      glm::vec2 pad;
+      glm::vec2 uv;
+      glm::vec2 pad2;
+    };
+
+    m_vao_icons.bind();
+    m_vbo_icons.bind();
+    m_vao_icons.link_attrib(0, 2, GL_FLOAT, sizeof(IconVertex), nullptr);
+    m_vao_icons.link_attrib(1, 2, GL_FLOAT, sizeof(IconVertex), reinterpret_cast<void*>(offsetof(IconVertex, uv)));
+    m_vbo_icons.resize(m_slots_with_icons.size() * sizeof(IconVertex) * 6); // 6 vertices to render texture quad
+    for (int i = 0; i < m_slots_with_icons.size(); i++)
+    {
+      const SelectionWheelSlot& slot = *m_slots_with_icons[i];
+      IconVertex icon_data[6] = {};
+      icon_data[0].uv = { 0, 0 };
+      icon_data[0].pos = slot.center - slot.icon_size;
+      icon_data[1].uv = { 1, 0 };
+      icon_data[1].pos = { slot.center.x + slot.icon_size, slot.center.y - slot.icon_size };
+      icon_data[2].uv = { 0, 1 };
+      icon_data[2].pos = { slot.center.x - slot.icon_size, slot.center.y + slot.icon_size };
+      icon_data[3].uv = { 0, 1 };
+      icon_data[3].pos = { slot.center.x - slot.icon_size, slot.center.y + slot.icon_size };
+      icon_data[4].uv = { 1, 0 };
+      icon_data[4].pos = { slot.center.x + slot.icon_size, slot.center.y - slot.icon_size };
+      icon_data[5].uv = { 1, 1 };
+      icon_data[5].pos = slot.center + slot.icon_size;
+      m_vbo.set_data(icon_data, sizeof(icon_data), i * sizeof(icon_data));
+    }
+    m_vbo_icons.unbind();
+    m_vao_icons.unbind();
+  }
+
+  void SelectionWheelPass::update()
+  {
+  }
+
+  void SelectionWheelPass::tick()
+  {
+    if (!m_wheel->is_visible())
+      return;
+    Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::SELECTION_WHEEL);
+    shader->bind();
+    shader->set_vec3("color", glm::vec3(1, 0, 0));
+    shader->set_matrix4f("projectionMatrix", m_ortho);
+    m_vao.bind();
+    glDisable(GL_DEPTH_TEST);
+    const int n_arc_points = m_wheel->get_slots()[0].arcs_data.size() / 2;
+    SelectionWheelSlot* selected_slot = m_wheel->get_selected_slot();
+    for (int i = 0; i < m_wheel->get_slots().size(); i++)
+    {
+      shader->set_bool("isSlotSelected", selected_slot == m_wheel->get_slot(i));
+      glDrawArrays(GL_TRIANGLE_STRIP, i * n_arc_points * 2, n_arc_points * 2);
+    }
+    // set it to false, because if the last slot is selected, it makes closing lines off all segments "selected"
+    shader->set_bool("isSlotSelected", false);
+    shader->set_vec3("color", glm::vec3(0, 0, 0));
+    glLineWidth(5);
+    // draw edges of inner and outer arcs
+    glDrawArrays(GL_LINES, n_arc_points * 2 * m_wheel->get_slots().size(), m_wheel->get_slots().size() * 4);
+    m_vao.unbind();
+    shader->unbind();
+
+    // render slots icons
+    if (!m_slots_with_icons.empty())
+    {
+      shader = &ShaderStorage::get(ShaderStorage::ShaderType::SELECTION_WHEEL_ICON);
+      shader->bind();
+      shader->set_matrix4f("projectionMatrix", m_ortho);
+      m_vao_icons.bind();
+      glActiveTexture(GL_TEXTURE0);
+      for (int i = 0; i < m_slots_with_icons.size(); i++)
+      {
+        m_slots_with_icons[i]->icon->bind();
+        glDrawArrays(GL_TRIANGLES, i * 6, 6);
+        m_slots_with_icons[i]->icon->unbind();
+      }
+    }
+    glEnable(GL_DEPTH_TEST);
+    glLineWidth(1);
   }
 }

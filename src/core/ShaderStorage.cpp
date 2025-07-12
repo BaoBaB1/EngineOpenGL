@@ -85,6 +85,20 @@ namespace fury
         d.vertex_layout = VertexLayout(0, -1, -1, -1);
         descriptions.push_back(d);
       }
+      {
+        ShaderDescription d;
+        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//selection_wheel.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//selection_wheel.frag" });
+        d.vertex_layout = VertexLayout(0, -1, -1, -1);
+        descriptions.push_back(d);
+      }
+      {
+        ShaderDescription d;
+        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//selection_wheel_icon.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//selection_wheel_icon.frag" });
+        d.vertex_layout = VertexLayout(0, -1, -1, -1);
+        descriptions.push_back(d);
+      }
       for (int i = 0; i < ShaderStorage::LAST_ITEM; i++)
       {
         shaders.emplace(static_cast<ShaderStorage::ShaderType>(i), Shader(descriptions[i].sources, descriptions[i].vertex_layout));

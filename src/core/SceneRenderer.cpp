@@ -157,9 +157,24 @@ namespace fury
 
     ::setup_opengl();
     
+    SelectionWheelConfig cfg;
+    cfg.items_count = 6;
+    cfg.inner_circle_radius_px = 200;
+    cfg.outer_circle_radius_px = 400;
+    cfg.slots_spacing_deg = 0;
+    m_selection_wheel.init(m_window, cfg);
+
+    // TODO: remove later. just for testing purposes now
+    for (int i = 0; i < cfg.items_count; i++)
+    {
+      if (i % 2 == 0)
+        m_selection_wheel.get_slot(i)->icon = TextureManager::get(AssetManager::get_from_relative("textures/brick.jpg").value()).get();
+    }
+
     m_render_passes.emplace_back(std::make_unique<GeometryPass>(this, shadows_fbo.texture()->id()));
     m_render_passes.emplace_back(std::make_unique<NormalsPass>(this));
     m_render_passes.emplace_back(std::make_unique<BoundingBoxPass>(this));
+    m_render_passes.emplace_back(std::make_unique<SelectionWheelPass>(this, &m_selection_wheel));
     m_shadows_pass = std::make_unique<ShadowsPass>(this, static_cast<GeometryPass*>(m_render_passes[0].get()));
     m_debug_pass = std::make_unique<DebugPass>(this);
     
@@ -192,7 +207,6 @@ namespace fury
       {
         main_fbo.bind();
       }
-      glViewport(0, 0, w, h);
       glClearColor(0.07f, 0.13f, 0.17f, 1.0f);
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
       glEnable(GL_DEPTH_TEST);
@@ -303,6 +317,10 @@ namespace fury
   {
     if (button == GLFW_MOUSE_BUTTON_LEFT)
     {
+      if (m_selection_wheel.is_visible())
+      {
+        return;
+      }
       y = static_cast<int>(m_camera.get_screen_size().y) - y;
       Ray ray = m_camera.cast_ray(x, y);
       std::pair<Object3D*, float> hit_info = { nullptr, INFINITY };
@@ -475,6 +493,23 @@ namespace fury
         SceneInfo* scene_info = m_ui.get_component<SceneInfo>("SceneInfo");
         scene_info->is_visible() ? scene_info->hide() : scene_info->show();
       }
+      else if (key == Key::Q)
+      {
+        const bool will_be_visible = !m_selection_wheel.is_visible();
+        m_selection_wheel.select(-1);
+        m_selection_wheel.set_is_visible(will_be_visible);
+        if (will_be_visible)
+        {
+          m_camera.freeze();
+          glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+          m_opened_ui_components++;
+        }
+        else
+        {
+          // camera unfreeze is managed by tick() function
+          m_opened_ui_components--;
+        }
+      }
     }
   }
 
@@ -552,11 +587,6 @@ namespace fury
   void SceneRenderer::handle_ui_component_closing()
   {
     m_opened_ui_components--;
-    if (m_opened_ui_components == 0)
-    {
-      m_camera.unfreeze();
-      glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    }
   }
 
   void SceneRenderer::handle_msaa_button_toggle(bool enabled)
@@ -748,6 +778,12 @@ namespace fury
     m_cam_controller.tick();
     if (need_update_shadow_map)
       update_shadow_map();
+
+    if (m_opened_ui_components == 0)
+    {
+      m_camera.unfreeze();
+      glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    }
 
     double x, y;
     glfwGetCursorPos(m_window->gl_window(), &x, &y);

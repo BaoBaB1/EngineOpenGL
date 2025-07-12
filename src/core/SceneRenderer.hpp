@@ -12,6 +12,7 @@
 #include "ge/BoundingBox.hpp"
 #include "ObjectChangeInfo.hpp"
 #include "FPSLimiter.hpp"
+#include "ge/ItemSelectionWheel.hpp"
 #include <vector>
 #include <memory>
 #include <string>
@@ -92,5 +93,6 @@ namespace fury
     DirectionalLight m_directional_light;
     int m_opened_ui_components = 0;
     FPSLimiter m_fps_limiter;
+    ItemSelectionWheel m_selection_wheel;
   };
 }

@@ -19,6 +19,8 @@ namespace fury
       NORMALS,
       SHADOW_MAP,
       BOUNDING_BOX,
+      SELECTION_WHEEL,
+      SELECTION_WHEEL_ICON,
       LAST_ITEM
     };
     static void init();

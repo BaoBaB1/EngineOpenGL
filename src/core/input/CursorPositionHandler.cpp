@@ -28,6 +28,10 @@ namespace fury
         --m_ignore_frames;
         return;
       }
+      // seems like setting cursor mode to GLFW_CURSOR_DISABLED recenters cursor pos to the center of the window, 
+      // and sometimes(?) indirectly triggers cursor callback without actual mouse movement
+      if (xpos == m_cur_pos[0] && ypos == m_cur_pos[1])
+        return;
       m_prev_pos[0] = m_cur_pos[0];
       m_prev_pos[1] = m_cur_pos[1];
       m_cur_pos[0] = xpos;

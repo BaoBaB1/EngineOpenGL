@@ -1,7 +1,6 @@
 #include <GLFW/glfw3.h>
 #include "MouseInputHandler.hpp"
 #include "core/WindowGLFW.hpp"
-#include <cassert>
 
 namespace fury
 {

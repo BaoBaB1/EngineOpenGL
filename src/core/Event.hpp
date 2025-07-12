@@ -11,6 +11,7 @@ namespace fury
 	{
 	public:
 		virtual void notify(Args... args) const = 0;
+		virtual void* owner() const { return nullptr; }
 		virtual ~EventListener() = default;
 	};
 
@@ -36,6 +37,7 @@ namespace fury
 	public:
 		using ClassFunc = ReturnType(Class::*)(Args...);
 		InstanceListener(Class* instance, ClassFunc func) : m_func(func), m_instance(instance) {}
+		void* owner() const override { return m_instance; }
 		void notify(Args... args) const override
 		{
 			(m_instance->*m_func)(args...);
@@ -81,6 +83,31 @@ namespace fury
 				}
 			}
 			return false;
+		}
+
+		bool remove_by_owner(void* owner)
+		{
+			for (size_t i = 0; i < m_listeners.size(); i++)
+			{
+				if (m_listeners[i].get()->owner() == owner)
+				{
+					m_listeners.erase(m_listeners.begin() + i);
+					return true;
+				}
+			}
+			return false;
+		}
+
+		Listener* get(void* owner)
+		{
+			for (const auto& listener : m_listeners)
+			{
+				if (listener.get()->owner() == owner)
+				{
+					return listener.get();
+				}
+			}
+			return nullptr;
 		}
 
 		Listener* get(size_t idx) { return m_listeners[idx].get(); }
