@@ -18,15 +18,11 @@ namespace fury
     };
   public:
     OnlyMovable(UserInputHandler)
-    virtual void enable() { m_disabled = false; }
-    virtual void disable() { m_disabled = true; }
-    bool disabled() const { return m_disabled; }
-    HandlerType type() const { return m_type; }
+    HandlerType get_type() const { return m_type; }
   protected:
     UserInputHandler(WindowGLFW* window, HandlerType type) : m_type(type), m_window(window) {}
   protected:
-    HandlerType m_type;
+    HandlerType m_type = HandlerType::LAST_ITEM;
     WindowGLFW* m_window = nullptr;
-    bool m_disabled = false;
   };
 };

@@ -1,14 +1,14 @@
 #include "ShaderStorage.hpp"
-#include <vector>
-#include <string>
+#include "utils/Utils.hpp"
 
 namespace
 {
   struct ShaderDescription
   {
-    std::vector<std::pair<fury::ShaderStage, std::string_view>> sources;
-    fury::VertexLayout vertex_layout;
+    std::vector<std::pair<fury::ShaderStage, std::filesystem::path>> sources;
+    fury::ShaderStorage::ShaderType shader_type;
   };
+  const std::filesystem::path GLSL_FOLDER = fury::utils::get_project_root_dir() / "src" / "glsl";
 }
 
 namespace fury
@@ -20,88 +20,88 @@ namespace fury
     if (shaders.empty())
     {
       std::vector<ShaderDescription> descriptions;
-      descriptions.reserve(ShaderStorage::LAST_ITEM + 1);
+      descriptions.reserve(ShaderStorage::LAST_ITEM);
       {
         ShaderDescription d;
-        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//default.vert" });
-        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//default.frag" });
-        d.vertex_layout = VertexLayout(0, 1, 2, 3);
+        d.sources.push_back({ ShaderStage::VERTEX, GLSL_FOLDER / "default.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, GLSL_FOLDER / "default.frag" });
+        d.shader_type = ShaderStorage::ShaderType::DEFAULT;
         descriptions.push_back(d);
       }
       {
         ShaderDescription d;
-        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//outlining.vert" });
-        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//outlining.frag" });
-        d.vertex_layout = VertexLayout(0, 1, -1, -1);
+        d.sources.push_back({ ShaderStage::VERTEX,  GLSL_FOLDER / "outlining.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, GLSL_FOLDER / "outlining.frag" });
+        d.shader_type = ShaderStorage::ShaderType::OUTLINING;
         descriptions.push_back(d);
       }
       {
         ShaderDescription d;
-        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//skybox.vert" });
-        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//skybox.frag" });
-        d.vertex_layout = VertexLayout(0, -1, -1, -1);
+        d.sources.push_back({ ShaderStage::VERTEX, GLSL_FOLDER / "skybox.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, GLSL_FOLDER / "skybox.frag" });
+        d.shader_type = ShaderStorage::ShaderType::SKYBOX;
         descriptions.push_back(d);
       }
       {
         ShaderDescription d;
-        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//screen_quad.vert" });
-        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//screen_quad.frag" });
-        d.vertex_layout = VertexLayout(0, -1, -1, 1);
+        d.sources.push_back({ ShaderStage::VERTEX, GLSL_FOLDER / "screen_quad.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, GLSL_FOLDER / "screen_quad.frag" });
+        d.shader_type = ShaderStorage::ShaderType::SCREEN_QUAD;
         descriptions.push_back(d);
       }
       {
         ShaderDescription d;
-        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//depth_picking.vert" });
-        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//depth_picking.frag" });
-        d.vertex_layout = VertexLayout(0, -1, -1, -1);
+        d.sources.push_back({ ShaderStage::VERTEX, GLSL_FOLDER / "depth_picking.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, GLSL_FOLDER / "depth_picking.frag" });
+        d.shader_type = ShaderStorage::ShaderType::DEPTH_PICKING;
         descriptions.push_back(d);
       }
       {
         ShaderDescription d;
-        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//simple.vert" });
-        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//simple.frag" });
-        d.vertex_layout = VertexLayout(0, -1, 1, -1);
+        d.sources.push_back({ ShaderStage::VERTEX, GLSL_FOLDER / "simple.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, GLSL_FOLDER / "simple.frag" });
+        d.shader_type = ShaderStorage::ShaderType::SIMPLE;
         descriptions.push_back(d);
       }
       {
         ShaderDescription d;
-        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//normals.vert" });
-        d.sources.push_back({ ShaderStage::GEOMETRY, ".//src//glsl//normals.geom" });
-        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//normals.frag" });
-        d.vertex_layout = VertexLayout(0, 1, -1, -1);
+        d.sources.push_back({ ShaderStage::VERTEX, GLSL_FOLDER / "normals.vert" });
+        d.sources.push_back({ ShaderStage::GEOMETRY, GLSL_FOLDER / "normals.geom" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, GLSL_FOLDER / "normals.frag" });
+        d.shader_type = ShaderStorage::ShaderType::NORMALS;
         descriptions.push_back(d);
       }
       {
         ShaderDescription d;
-        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//shadow_map.vert" });
-        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//shadow_map.frag" });
-        d.vertex_layout = VertexLayout(0, -1, -1, -1);
+        d.sources.push_back({ ShaderStage::VERTEX, GLSL_FOLDER / "shadow_map.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, GLSL_FOLDER / "shadow_map.frag" });
+        d.shader_type = ShaderStorage::ShaderType::SHADOW_MAP;
         descriptions.push_back(d);
       }
       {
         ShaderDescription d;
-        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//bounding_box.vert" });
-        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//simple.frag" });
-        d.vertex_layout = VertexLayout(0, -1, -1, -1);
+        d.sources.push_back({ ShaderStage::VERTEX, GLSL_FOLDER / "bounding_box.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, GLSL_FOLDER / "simple.frag" });
+        d.shader_type = ShaderStorage::ShaderType::BOUNDING_BOX;
         descriptions.push_back(d);
       }
       {
         ShaderDescription d;
-        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//selection_wheel.vert" });
-        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//selection_wheel.frag" });
-        d.vertex_layout = VertexLayout(0, -1, -1, -1);
+        d.sources.push_back({ ShaderStage::VERTEX, GLSL_FOLDER / "selection_wheel.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, GLSL_FOLDER / "selection_wheel.frag" });
+        d.shader_type = ShaderStorage::ShaderType::SELECTION_WHEEL;
         descriptions.push_back(d);
       }
       {
         ShaderDescription d;
-        d.sources.push_back({ ShaderStage::VERTEX, ".//src//glsl//selection_wheel_icon.vert" });
-        d.sources.push_back({ ShaderStage::FRAGMENT, ".//src//glsl//selection_wheel_icon.frag" });
-        d.vertex_layout = VertexLayout(0, -1, -1, -1);
+        d.sources.push_back({ ShaderStage::VERTEX, GLSL_FOLDER / "selection_wheel_icon.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, GLSL_FOLDER / "selection_wheel_icon.frag" });
+        d.shader_type = ShaderStorage::ShaderType::SELECTION_WHEEL_ICON;
         descriptions.push_back(d);
       }
-      for (int i = 0; i < ShaderStorage::LAST_ITEM; i++)
+      for (const ShaderDescription& desc : descriptions)
       {
-        shaders.emplace(static_cast<ShaderStorage::ShaderType>(i), Shader(descriptions[i].sources, descriptions[i].vertex_layout));
+        shaders.emplace(desc.shader_type, Shader(desc.sources));
       }
     }
   }

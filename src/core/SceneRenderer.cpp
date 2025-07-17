@@ -4,7 +4,6 @@
 #include "opengl/VertexArrayObject.hpp"
 #include "opengl/VertexBufferObject.hpp"
 #include "opengl/ElementBufferObject.hpp"
-#include "Debug.hpp"
 #include "Camera.hpp"
 #include "input/KeyboardHandler.hpp"
 #include "input/CursorPositionHandler.hpp"
@@ -44,15 +43,15 @@ constexpr int SHADOWMAP_HEIGHT = 2048;
 
 namespace
 {
-  void setup_opengl();
-  constexpr std::array<std::string_view, 6> skybox_faces =
+  const std::filesystem::path SKYBOX_TEXTURES_FOLDER = fury::AssetManager::get_assets_folder() / "textures" / "skybox";
+  std::array<std::filesystem::path, 6> skybox_faces =
   {
-    ".\\.\\assets\\textures\\skybox\\right.jpg",
-    ".\\.\\assets\\textures\\skybox\\left.jpg",
-    ".\\.\\assets\\textures\\skybox\\top.jpg",
-    ".\\.\\assets\\textures\\skybox\\bottom.jpg",
-    ".\\.\\assets\\textures\\skybox\\front.jpg",
-    ".\\.\\assets\\textures\\skybox\\back.jpg"
+    SKYBOX_TEXTURES_FOLDER / "right.jpg",
+    SKYBOX_TEXTURES_FOLDER / "left.jpg",
+    SKYBOX_TEXTURES_FOLDER / "top.jpg",
+    SKYBOX_TEXTURES_FOLDER / "bottom.jpg",
+    SKYBOX_TEXTURES_FOLDER / "front.jpg",
+    SKYBOX_TEXTURES_FOLDER / "back.jpg"
   };
 
   constexpr std::array<float, 24> init_shadow_map_data()
@@ -75,6 +74,8 @@ namespace
     return shadow_map_data;
   };
   constexpr std::array shadow_map_data = init_shadow_map_data();
+
+  void setup_opengl();
 }
 
 namespace fury

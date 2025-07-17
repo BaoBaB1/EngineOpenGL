@@ -16,7 +16,6 @@ namespace fury
 
   void Ui::init(SceneRenderer* scene)
   {
-    //m_scene = scene;
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();

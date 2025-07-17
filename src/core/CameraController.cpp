@@ -52,14 +52,17 @@ namespace fury
 
 	CameraController::~CameraController()
 	{
-		if (m_cursor_pos_listener && m_cursor_handler)
-		{
-			m_cursor_handler->on_cursor_position_change -= m_cursor_pos_listener;
-		}
+		m_cursor_handler->on_cursor_position_change.remove_by_owner(this);
 	}
 
 	void CameraController::init(Camera* camera, KeyboardHandler* keyboard_handler, CursorPositionHandler* cursor_handler)
 	{
+		if (m_camera || m_cursor_handler || m_keyboard_handler)
+		{
+			Logger::error("Camera controller already initialized.");
+			return;
+		}
+
 		if (!camera)
 		{
 			constexpr auto msg = "Camera for camera controller is null";
@@ -83,13 +86,8 @@ namespace fury
 		}
 		else
 		{
-			if (m_cursor_handler)
-			{
-				m_cursor_handler->on_cursor_position_change -= m_cursor_pos_listener;
-			}
 			m_cursor_handler = cursor_handler;
 			m_cursor_handler->on_cursor_position_change += new InstanceListener(this, &CameraController::handle_cursor_move);
-			m_cursor_pos_listener = m_cursor_handler->on_cursor_position_change.back();
 		}
 	}
 

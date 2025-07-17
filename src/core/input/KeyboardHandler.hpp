@@ -34,8 +34,8 @@ namespace fury
 
     OnlyMovable(KeyboardHandler)
     KeyboardHandler(WindowGLFW* window);
+    void reset();
     KeyboardHandler::KeyState get_keystate(KeyboardHandler::InputKey key) const;
-    void disable() override;
     const std::list<InputKey>& get_pressed_keys() const { return m_pressed_keys; }
     Event<InputKey, KeyState> on_key_state_change;
   private:

@@ -16,7 +16,7 @@ namespace fury
 		CameraController() = default;
 		CameraController(Camera* camera, KeyboardHandler* khandler, CursorPositionHandler* chandler);
 		OnlyMovable(CameraController)
-			~CameraController();
+		~CameraController();
 		void init(Camera* camera, KeyboardHandler* keyboard_handler, CursorPositionHandler* cursor_handler);
 		void tick() override;
 	private:
@@ -26,6 +26,5 @@ namespace fury
 		CursorPositionHandler* m_cursor_handler = nullptr;
 		KeyboardHandler* m_keyboard_handler = nullptr;
 		Camera* m_camera = nullptr;
-		void* m_cursor_pos_listener = nullptr;
 	};
 }

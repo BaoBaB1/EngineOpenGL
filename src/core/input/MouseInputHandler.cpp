@@ -16,14 +16,11 @@ namespace fury
 
   void MouseInputHandler::click_callback(GLFWwindow* window, int button, int action, int mods) const
   {
-    if (!disabled())
+    if (action == GLFW_PRESS)
     {
-      if (action == GLFW_PRESS)
-      {
-        double x, y;
-        glfwGetCursorPos(window, &x, &y);
-        on_button_click.notify(button, static_cast<int>(x), static_cast<int>(y));
-      }
+      double x, y;
+      glfwGetCursorPos(window, &x, &y);
+      on_button_click.notify(button, static_cast<int>(x), static_cast<int>(y));
     }
   }
 }

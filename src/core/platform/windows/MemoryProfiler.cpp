@@ -1,5 +1,5 @@
 #include "MemoryProfiler.hpp"
-#include "Logger.hpp"
+#include "core/Logger.hpp"
 
 namespace fury
 {

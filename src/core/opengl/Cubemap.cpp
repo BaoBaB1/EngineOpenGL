@@ -12,6 +12,11 @@ namespace fury
     set_textures(textures);
   }
 
+  Cubemap::Cubemap(const std::array<std::filesystem::path, 6>& textures)
+  {
+    set_textures(textures);
+  }
+
   void Cubemap::bind() const
   {
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_id);

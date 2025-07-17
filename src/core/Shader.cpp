@@ -1,6 +1,6 @@
 #include "Shader.hpp"
 #include "Logger.hpp"
-#include "Debug.hpp"
+#include "opengl/Debug.hpp"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <string>
@@ -31,14 +31,13 @@ static bool read_shader_file_content(const char* const file, std::string& conten
 
 namespace fury
 {
-  Shader::Shader(const std::vector<std::pair<ShaderStage, std::string_view>>& description, const VertexLayout& layout)
+  Shader::Shader(const std::vector<std::pair<ShaderStage, std::filesystem::path>>& description)
   {
     assert(description.size() >= 2);
     load(description);
-    m_vertex_layout = layout;
   }
 
-  void Shader::load(const std::vector<std::pair<ShaderStage, std::string_view>>& description)
+  void Shader::load(const std::vector<std::pair<ShaderStage, std::filesystem::path>>& description)
   {
     if (description.size() < 2)
     {
@@ -54,25 +53,25 @@ namespace fury
     for (const auto& [stage, source] : description)
     {
       std::string content;
-      if (!read_shader_file_content(source.data(), content))
+      if (!read_shader_file_content(source.string().c_str(), content))
       {
-        throw std::runtime_error(std::string("Error reading shader file ") + source.data() + "\n");
+        throw std::runtime_error(fmt::format("Error reading shader file {}.", source.string()));
       }
       GLuint shader = glCreateShader(static_cast<int>(stage));
       auto data = content.data();
       glShaderSource(shader, 1, &data, NULL);
       glCompileShader(shader);
-      if (fury::opengl_check_error(std::string("glCompileShader failed with source ") + source.data()))
+      if (fury::opengl_check_error(fmt::format("glCompileShader failed with source {}", source.string())))
       {
         return;
       }
       glAttachShader(m_id, shader);
-      if (fury::opengl_check_error(std::string("glAttachShader failed with source ") + source.data()))
+      if (fury::opengl_check_error(fmt::format("glAttachShader failed with source  {}", source.string())))
       {
         return;
       }
       glLinkProgram(m_id);
-      if (fury::opengl_check_error(std::string("glLinkProgram failed with source ") + source.data()))
+      if (fury::opengl_check_error(fmt::format("glLinkProgram failed with source {}", source.string())))
       {
         return;
       }

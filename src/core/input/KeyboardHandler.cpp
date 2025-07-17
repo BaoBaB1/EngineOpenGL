@@ -77,9 +77,8 @@ namespace fury
     return m_keystate.at(key);
   }
 
-  void KeyboardHandler::disable()
+  void KeyboardHandler::reset()
   {
-    m_disabled = true;
     m_pressed_keys.clear();
     m_pressed_key_map.clear();
     for (int i = 0; i < static_cast<int>(InputKey::LAST); i++)

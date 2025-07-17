@@ -15,10 +15,10 @@ file(GLOB_RECURSE SOURCES
 	)
 
 if (NOT WIN32)
-	list(FILTER SOURCES	EXCLUDE	REGEX ".*MemoryProfiler.*")
+	list(FILTER SOURCES	EXCLUDE	REGEX ".*platform/windows.*")
 endif()
 
-add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/src/core/OpenGLMain.cpp ${SOURCES})
+add_executable(${PROJECT_NAME} ${SOURCES})
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(${PROJECT_NAME} PUBLIC glfw glad glm imgui assimp ImGuiFileDialog ImGuizmo stb spdlog)

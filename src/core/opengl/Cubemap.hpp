@@ -2,6 +2,7 @@
 
 #include "Texture.hpp"
 #include <array>
+#include <filesystem>
 
 namespace fury
 {
@@ -12,6 +13,7 @@ namespace fury
     OnlyMovable(Cubemap)
     Cubemap(const std::array<std::string, 6>& textures);
     Cubemap(const std::array<std::string_view, 6>& textures);
+    Cubemap(const std::array<std::filesystem::path, 6>& textures);
     template<typename T>
     void set_textures(const std::array<T, 6>& textures);
     void bind() const override;
@@ -28,13 +30,17 @@ namespace fury
     for (size_t i = 0; i < textures.size(); i++)
     {
       std::unique_ptr<unsigned char, StbDeleter> data;
-      if constexpr (std::is_same_v<T, std::string>)
+      if constexpr (std::is_same_v<std::decay_t<T>, std::string>)
       {
         data = Texture::load(textures[i].c_str());
       }
-      else if constexpr (std::is_same_v<T, std::string_view>)
+      else if constexpr (std::is_same_v<std::decay_t<T>, std::string_view>)
       {
         data = Texture::load(textures[i].data());
+      }
+      else if constexpr (std::is_same_v<std::decay_t<T>, std::filesystem::path>)
+      {
+        data = Texture::load(textures[i].string().data());
       }
       else
       {

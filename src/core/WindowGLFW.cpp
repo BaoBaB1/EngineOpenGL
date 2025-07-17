@@ -2,7 +2,6 @@
 #include "input/KeyboardHandler.hpp"
 #include "input/CursorPositionHandler.hpp"
 #include "input/MouseInputHandler.hpp"
-#include "Debug.hpp"
 #include "Logger.hpp"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
