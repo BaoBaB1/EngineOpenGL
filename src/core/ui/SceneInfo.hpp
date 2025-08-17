@@ -14,6 +14,7 @@ namespace fury
 	{
 	public:
 		SceneInfo(SceneRenderer* scene, MenuBar* menubar);
+		bool is_grid_visible() const { return m_show_grid; }
 		void tick() override;
 		Event<Object3D*, bool> on_visible_normals_button_pressed;
 		Event<Object3D*, bool> on_visible_bbox_button_pressed;
@@ -27,10 +28,12 @@ namespace fury
 		void render_fps_locks();
 	private:
 		uint16_t m_guizmo_operation;
+		// TODO: bitfield or enum if there will be a lot of bools
 		bool m_fill_polygons = true;
 		bool m_show_scene_bbox = false;
 		bool m_use_msaa = true;
 		bool m_use_vsync = true;
+		bool m_show_grid = false;
 		glm::vec3 m_obj_translation;
 		glm::vec3 m_obj_scale;
 		glm::vec4 m_obj_color;

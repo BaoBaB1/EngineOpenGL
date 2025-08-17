@@ -107,6 +107,9 @@ namespace fury
       {
         msaa_button_click.notify(m_use_msaa);
       }
+      if (ImGui::Checkbox("Show grid", &m_show_grid))
+      {
+      }
       if (ImGui::Checkbox("VSync", &m_use_vsync))
       {
         if (m_use_vsync)

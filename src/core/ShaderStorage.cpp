@@ -99,6 +99,13 @@ namespace fury
         d.shader_type = ShaderStorage::ShaderType::SELECTION_WHEEL_ICON;
         descriptions.push_back(d);
       }
+      {
+        ShaderDescription d;
+        d.sources.push_back({ ShaderStage::VERTEX, GLSL_FOLDER / "grid.vert" });
+        d.sources.push_back({ ShaderStage::FRAGMENT, GLSL_FOLDER / "grid.frag" });
+        d.shader_type = ShaderStorage::ShaderType::GRID;
+        descriptions.push_back(d);
+      }
       for (const ShaderDescription& desc : descriptions)
       {
         shaders.emplace(desc.shader_type, Shader(desc.sources));

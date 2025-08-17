@@ -141,6 +141,16 @@ namespace fury
     std::vector<const SelectionWheelSlot*> m_slots_with_icons;
   };
 
+  class InfiniteGridPass : public RenderPass
+  {
+  public:
+    InfiniteGridPass(SceneRenderer* scene);
+    void update() override {}
+    void tick() override;
+  private:
+    VertexArrayObject m_vao;
+  };
+
   class DebugPass : public RenderPass
   {
   public:

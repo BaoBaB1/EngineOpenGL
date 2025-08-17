@@ -176,6 +176,7 @@ namespace fury
     m_render_passes.emplace_back(std::make_unique<NormalsPass>(this));
     m_render_passes.emplace_back(std::make_unique<BoundingBoxPass>(this));
     m_render_passes.emplace_back(std::make_unique<SelectionWheelPass>(this, &m_selection_wheel));
+    m_render_passes.emplace_back(std::make_unique<InfiniteGridPass>(this));
     m_shadows_pass = std::make_unique<ShadowsPass>(this, static_cast<GeometryPass*>(m_render_passes[0].get()));
     m_debug_pass = std::make_unique<DebugPass>(this);
     

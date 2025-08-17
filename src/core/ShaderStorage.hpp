@@ -21,6 +21,7 @@ namespace fury
       BOUNDING_BOX,
       SELECTION_WHEEL,
       SELECTION_WHEEL_ICON,
+      GRID,
       LAST_ITEM
     };
     static void init();

@@ -857,4 +857,20 @@ namespace fury
     glEnable(GL_DEPTH_TEST);
     glLineWidth(1);
   }
+
+  InfiniteGridPass::InfiniteGridPass(SceneRenderer* scene) : RenderPass(scene)
+  {
+  }
+
+  void InfiniteGridPass::tick()
+  {
+    if (!m_scene->get_ui().get_component<SceneInfo>("SceneInfo")->is_grid_visible())
+    {
+      return;
+    }
+    Shader& shader = ShaderStorage::get(ShaderStorage::ShaderType::GRID);
+    BindChainFIFO bchain({ &shader, &m_vao });
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+  }
+
 }
