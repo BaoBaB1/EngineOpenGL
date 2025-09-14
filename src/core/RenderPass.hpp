@@ -50,6 +50,7 @@ namespace fury
     void render_selected_objects();
     void on_new_scene_object(Object3D* obj);
     void handle_object_change(Object3D* obj, const ObjectChangeInfo& info);
+    void update_lights_data();
   private:
     // share all buffers data with shadow pass to avoid same data duplication
     friend class ShadowsPass;
@@ -58,6 +59,8 @@ namespace fury
     VertexBufferObject m_vbo_indices;
     VertexBufferObject m_vbo_arrays;
     ElementBufferObject m_ebo;
+    SSBO m_lights_data_ssbo;
+    SSBO m_lights_shadow_matrices_ssbo;
     std::map<const Object3D*, std::vector<MeshRenderOffsets>> m_render_offsets;
     std::vector<const Object3D*> m_objects_indices_rendering_mode;
     std::vector<const Object3D*> m_objects_arrays_rendering_mode;

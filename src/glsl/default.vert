@@ -1,9 +1,35 @@
 #version 440 core
 
+const int g_directionalLightType = 0;
+
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 aNormal;
 layout (location = 2) in vec4 aColor;
 layout (location = 3) in vec2 aTextCoord;
+
+struct LightInfo
+{
+	// common info
+	vec4 pos;
+	vec4 dir;
+	vec4 ambient;
+	vec4 diffuse;
+	vec4 specular;
+
+	// attenuation info for point light
+	float constant;
+	float linear;
+	float quadratic;
+
+	// info for spot light
+	float cutoff;
+	float outerCutoff;
+	int smoothSpotLight;
+
+	// 0 - directional, 1 - point, 2 - spot
+	int type;
+	int shadowMatrixBufferIndex;
+};
 
 layout (std140, binding = 0) uniform CameraData
 {
@@ -11,14 +37,25 @@ layout (std140, binding = 0) uniform CameraData
 	mat4 projectionMatrix;
 } camData;
 
+layout (std430, binding = 2) buffer Lights
+{
+	LightInfo lightInfos[];
+};
+
+layout (std430, binding = 3) buffer ShadowMatrices
+{
+	// matrices for transformation to light space. now only for directional light
+	mat4 shadowMatrices[];
+};
+
 uniform mat4 modelMatrix;
-uniform mat4 lightSpaceVPMatrix;
+uniform int numLights;
 
 out vec3 normal;
 out vec4 color;
 out vec3 fragment;
 out vec2 uv;
-out vec4 fragPosLightSpace;
+out vec4 fragPosDirectionalLightSpace;
 
 void main()
 {
@@ -27,5 +64,11 @@ void main()
 	normal = normalize(transpose(inverse(mat3(modelMatrix))) * aNormal);
 	color = aColor;
 	uv = aTextCoord;
-	fragPosLightSpace = lightSpaceVPMatrix * vec4(fragment, 1);
+	for (int i = 0; i < numLights; i++)
+	{
+		if (lightInfos[i].type == g_directionalLightType)
+		{
+			fragPosDirectionalLightSpace = shadowMatrices[lightInfos[i].shadowMatrixBufferIndex] * vec4(fragment, 1);
+		}
+	}
 }

@@ -13,24 +13,17 @@
 #include "ObjectChangeInfo.hpp"
 #include "FPSLimiter.hpp"
 #include "ge/ItemSelectionWheel.hpp"
+#include "Light.hpp"
 #include <vector>
 #include <memory>
 #include <string>
 #include <map>
-#include <unordered_set>
 
 namespace fury
 {
   class Object3D;
   class Skybox;
-
-  struct DirectionalLight
-  {
-    glm::mat4 proj_matrix;;
-    glm::mat4 view_matrix;
-    glm::vec3 direction;
-    glm::vec3 position;
-  };
+  constexpr static int SCENE_MAX_LIGHTS = 12;
 
   class SceneRenderer : public ITickable
   {
@@ -43,7 +36,9 @@ namespace fury
     BoundingBox& get_bbox() { return m_bbox; }
     WindowGLFW* get_window() { return m_window; }
     Ui& get_ui() { return m_ui; }
-    const DirectionalLight& get_directional_light() const { return m_directional_light; }
+    std::vector<const Light*> get_valid_lights() const;
+    std::vector<const Light*> get_active_lights() const;
+    std::vector<Light*> get_lights(LightType type);
     void create_default_scene();
     void render();
     void save(const std::string& file) const;
@@ -70,6 +65,10 @@ namespace fury
     void handle_ui_component_closing();
     void handle_msaa_button_toggle(bool enabled);
     void remove_object(Object3D* obj);
+    void cleanup();
+    int64_t find_object_with_attached_light(const Light* light) const;
+    void setup_directional_light(Light* light);
+    Light* get_empty_light();
     friend class SceneInfo;
   private:
     // store pointers to make virtual methods work
@@ -78,6 +77,7 @@ namespace fury
     std::vector<std::unique_ptr<RenderPass>> m_render_passes;
     std::unique_ptr<ShadowsPass> m_shadows_pass;
     std::unique_ptr<DebugPass> m_debug_pass;
+    std::array<Light, SCENE_MAX_LIGHTS> m_lights;
     ScreenQuad m_screen_quad;
     ScreenQuad m_shadow_map_quad;
     bool m_show_shadow_map = false;
@@ -90,7 +90,6 @@ namespace fury
     std::map<std::string, FrameBufferObject> m_fbos;
     GLint m_polygon_mode = GL_FILL;
     BoundingBox m_bbox;
-    DirectionalLight m_directional_light;
     int m_opened_ui_components = 0;
     FPSLimiter m_fps_limiter;
     ItemSelectionWheel m_selection_wheel;

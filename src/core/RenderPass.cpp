@@ -37,7 +37,10 @@ namespace fury
     // TODO: remove listener in dctor
     scene->on_new_object_added += new InstanceListener(this, &GeometryPass::on_new_scene_object);
     SceneInfo* scene_info_component = scene->get_ui().get_component<SceneInfo>("SceneInfo");
+    Gizmo* gizmo_component = scene->get_ui().get_component<Gizmo>("Gizmo");
+    gizmo_component->on_object_change += new InstanceListener(this, &GeometryPass::handle_object_change);
     scene_info_component->on_object_change += new InstanceListener(this, &GeometryPass::handle_object_change);
+    scene_info_component->light_visibility_toggle += new FunctionListener(std::function([this](const Light*, bool) { update_lights_data(); }));
   }
 
   void GeometryPass::on_new_scene_object(Object3D* obj)
@@ -73,6 +76,37 @@ namespace fury
     {
       update();
     }
+    else if (info.is_transformation_change)
+    {
+      for (const Light* l : m_scene->get_active_lights())
+      {
+        if (l->get_parent() == obj)
+        {
+          // TODO: handle scale and rotations as well
+          const_cast<Light*>(l)->update_position(glm::vec3(l->get_description().position) + info.position_change);
+          update_lights_data();
+          return;
+        }
+      }
+    }
+  }
+
+  void GeometryPass::update_lights_data()
+  {
+    const std::vector<const Light*> lights = m_scene->get_active_lights();
+    m_lights_data_ssbo.bind();
+    m_lights_data_ssbo.resize_if_smaller(lights.size() * sizeof(LightDescription));
+    m_lights_data_ssbo.set_binding_point(2);
+    for (size_t i = 0; i < lights.size(); i++)
+    {
+      m_lights_data_ssbo.set_data(&lights[i]->get_description(), sizeof(LightDescription), i * sizeof(LightDescription));
+    }
+    m_lights_data_ssbo.unbind();
+    m_lights_shadow_matrices_ssbo.bind();
+    m_lights_shadow_matrices_ssbo.resize_if_smaller(Light::shadow_matrices.size() * sizeof(glm::mat4));
+    m_lights_shadow_matrices_ssbo.set_binding_point(3);
+    m_lights_shadow_matrices_ssbo.set_data(Light::shadow_matrices.data(), Light::shadow_matrices.size() * sizeof(glm::mat4), 0);
+    m_lights_shadow_matrices_ssbo.unbind();
   }
 
   void GeometryPass::allocate_memory_for_buffers()
@@ -131,7 +165,6 @@ namespace fury
   {
     Camera& camera = m_scene->get_camera();
     Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::DEFAULT);
-    const DirectionalLight& dir_light = m_scene->get_directional_light();
     shader->bind();
     shader->set_vec3("viewPos", camera.position());
     shader->set_int("defaultTexture", 0);
@@ -139,10 +172,22 @@ namespace fury
     shader->set_int("diffuseTex", 2);
     shader->set_int("specularTex", 3);
     shader->set_int("shadowMap", 4);
-    shader->set_matrix4f("lightSpaceVPMatrix", dir_light.proj_matrix * dir_light.view_matrix);
-    shader->set_vec3("lightDirGlobal", dir_light.direction);
-    shader->set_vec3("lightPos", glm::mat4(1.f) * glm::vec4(dir_light.position, 1));
-    shader->set_vec3("lightColor", glm::vec3(1.f));
+    shader->set_int("numLights", m_scene->get_active_lights().size());
+    const std::vector<Light*> spot_lights = m_scene->get_lights(LightType::SPOT);
+    assert(spot_lights.empty() || spot_lights.size() == 1);
+    if (!spot_lights.empty())
+    {
+      // TODO: fix this
+      // now if it's a spot light, then it's attached to the camera position
+      Light* camera_pos_light = spot_lights.front();
+      if (glm::vec3(camera_pos_light->get_description().position) != m_scene->get_camera().position() ||
+        glm::vec3(camera_pos_light->get_description().dir) != m_scene->get_camera().target())
+      {
+        camera_pos_light->update_position(m_scene->get_camera().position());
+        camera_pos_light->update_direction(m_scene->get_camera().target());
+        update_lights_data();
+      }
+    }
 
     // set shadow map
     glActiveTexture(GL_TEXTURE0 + 4);
@@ -173,7 +218,7 @@ namespace fury
       {
         const Object3D* obj = ppobj[obj_i];
         shader->set_matrix4f("modelMatrix", obj->model_matrix());
-        shader->set_bool("applyShading", obj->shading_mode() != Object3D::ShadingMode::NO_SHADING && !obj->is_light_source());
+        shader->set_bool("applyShading", obj->shading_mode() != Object3D::ShadingMode::NO_SHADING);
 
         if (obj->is_selected() && obj->has_surface())
         {
@@ -326,6 +371,7 @@ namespace fury
 
     allocate_memory_for_buffers();
     split_objects();
+    update_lights_data();
     m_render_offsets.clear();
 
     size_t vbo_indices_offset = 0;
@@ -623,10 +669,16 @@ namespace fury
 
   void ShadowsPass::update()
   {
+    // currently only create shadows from directional light
+    const auto dir_lights = m_scene->get_lights(LightType::DIRECTIONAL);
+    if (dir_lights.empty())
+    {
+      return;
+    }
+    assert(dir_lights.size() == 1);
     Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::SHADOW_MAP);
     shader->bind();
-    shader->set_matrix4f("lightViewMatrix", m_scene->get_directional_light().view_matrix);
-    shader->set_matrix4f("lightProjectionMatrix", m_scene->get_directional_light().proj_matrix);
+    shader->set_matrix4f("lightViewProjMatrix", dir_lights.front()->get_shadow_matrix());
     for (int i = 0; i < 2; i++)
     {
       const Object3D** ppobj = nullptr;

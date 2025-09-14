@@ -16,36 +16,12 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-static std::string shading_mode_to_str(fury::Object3D::ShadingMode mode)
+namespace
 {
-  switch (mode)
-  {
-  case fury::Object3D::ShadingMode::SMOOTH_SHADING:
-    return "Smooth shading";
-  case fury::Object3D::ShadingMode::FLAT_SHADING:
-    return "Flat shading";
-  case fury::Object3D::ShadingMode::NO_SHADING:
-    return "No shading";
-  default:
-    return "Unknown";
-  }
-}
-
-static std::string texture_type_to_str(fury::TextureType type)
-{
-  switch (type)
-  {
-  case fury::TextureType::GENERIC:
-    return "Generic texture";
-  case fury::TextureType::DIFFUSE:
-    return "Diffuse texture";
-  case fury::TextureType::AMBIENT:
-    return "Ambient texture";
-  case fury::TextureType::SPECULAR:
-    return "Specular texture";
-  default:
-    return "Unknown texture";
-  }
+  using namespace fury;
+  const char* shading_mode_to_str(Object3D::ShadingMode mode);
+  const char* texture_type_to_str(TextureType type);
+  const char* light_type_to_str(LightType type);
 }
 
 namespace fury
@@ -124,6 +100,44 @@ namespace fury
       render_fps_locks();
     }
 
+    // lights section
+    const auto lights = m_scene->get_valid_lights();
+    static std::vector<const char*> light_names;
+    static int selected_light_idx = -1;
+    ImGui::Separator();
+    ImGui::Text("Lights");
+    ImGui::Text(fmt::format("Active lights {}. Valid lights {}.", m_scene->get_active_lights().size(), lights.size()).c_str());
+    // clear vector in case some lights were added/removed from scene 
+    // (lights.size() check is not reliable, because we could remove and add new light at the same time)
+    light_names.clear();
+    for (const Light* light : lights)
+    {
+      light_names.push_back(::light_type_to_str(light->get_type()));
+    }
+    const int light_list_visible_items = std::min(light_names.size(), 6ULL);
+    ImGui::ListBox("##", &selected_light_idx, light_names.data(), light_names.size(), light_list_visible_items);
+    if (selected_light_idx != -1)
+    {
+      const Light* selected_light = lights[selected_light_idx];
+      bool active = selected_light->is_enabled();
+      if (ImGui::Checkbox("Active", &active))
+      {
+        if (active)
+        {
+          const_cast<Light*>(selected_light)->enable();
+        }
+        else
+        {
+          const_cast<Light*>(selected_light)->disable();
+        }
+        light_visibility_toggle.notify(selected_light, active);
+      }
+      if (selected_light->get_parent())
+      {
+        ImGui::Text("Attached to %s", selected_light->get_parent()->get_name().c_str());
+      }
+    }
+    
     if (!m_scene->get_selected_objects().empty())
     {
       if (is_general_header_opened)
@@ -171,7 +185,9 @@ namespace fury
         ImGui::PushID(&m_obj_translation.x + i);
         if (ImGui::InputFloat("##translation", &m_obj_translation.x + i))
         {
-          drawable.translate(m_obj_translation - old_translation);
+          reinterpret_cast<glm::vec3&>(drawable.model_matrix()[3]) = m_obj_translation;
+          // in world space
+          transformation_change.position_change = m_obj_translation - old_translation;
           on_object_change.notify(&drawable, transformation_change);
         }
         ImGui::PopID();
@@ -183,7 +199,9 @@ namespace fury
         ImGui::PushID(&m_obj_translation.x + i);
         if (ImGui::SliderFloat("##translation2", &m_obj_translation.x + i, -10.0f, 10.0f))
         {
-          drawable.translate(m_obj_translation - old_translation);
+          reinterpret_cast<glm::vec3&>(drawable.model_matrix()[3]) = m_obj_translation;
+          // in world space
+          transformation_change.position_change = m_obj_translation - old_translation;
           on_object_change.notify(&drawable, transformation_change);
         }
         ImGui::PopID();
@@ -274,7 +292,7 @@ namespace fury
             // push mesh address, so that it will give unique hash for each object's mesh
             ImGui::PushID(&mesh);
             ImGui::PushID(&j);
-            if (ImGui::TreeNode((::texture_type_to_str(tt).c_str())))
+            if (ImGui::TreeNode((::texture_type_to_str(tt))))
             {
               int tex_id = 0;
               if (auto tex = mesh.get_texture(tt))
@@ -431,4 +449,56 @@ namespace fury
     if (m_use_vsync)
       ImGui::EndDisabled();
   }
+}
+
+namespace
+{
+  // TODO: magic_enum
+  using namespace fury;
+  const char* shading_mode_to_str(Object3D::ShadingMode mode)
+  {
+    switch (mode)
+    {
+    case Object3D::ShadingMode::SMOOTH_SHADING:
+      return "Smooth shading";
+    case Object3D::ShadingMode::FLAT_SHADING:
+      return "Flat shading";
+    case Object3D::ShadingMode::NO_SHADING:
+      return "No shading";
+    default:
+      return "Unknown";
+    }
+  }
+
+  const char* texture_type_to_str(TextureType type)
+  {
+    switch (type)
+    {
+    case TextureType::GENERIC:
+      return "Generic texture";
+    case TextureType::DIFFUSE:
+      return "Diffuse texture";
+    case TextureType::AMBIENT:
+      return "Ambient texture";
+    case TextureType::SPECULAR:
+      return "Specular texture";
+    default:
+      return "Unknown texture";
+    }
+  }
+
+  const char* light_type_to_str(LightType type)
+  {
+    switch (type)
+    {
+    case LightType::DIRECTIONAL:
+      return "Directional light";
+    case LightType::POINT:
+      return "Point light";
+    case LightType::SPOT:
+      return "Spot light";
+    default:
+      return "Unknown light";
+    }
+  };
 }

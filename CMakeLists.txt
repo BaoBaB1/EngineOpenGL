@@ -26,6 +26,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY $
 if (WIN32)
 	target_compile_definitions(${PROJECT_NAME} PRIVATE NOMINMAX)
 endif()
+target_compile_definitions(${PROJECT_NAME} PRIVATE GLM_FORCE_CTOR_INIT)
 
 add_subdirectory(tests)
 

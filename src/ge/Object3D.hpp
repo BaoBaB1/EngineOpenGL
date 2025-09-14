@@ -73,13 +73,11 @@ namespace fury
     void calculate_bbox(bool force = false);
     glm::vec3 translation() const { return m_model_mat[3]; }
     glm::vec3 scale() const { return glm::vec3(glm::length(m_model_mat[0]), glm::length(m_model_mat[1]), glm::length(m_model_mat[2])); }
-    void light_source(bool val) { set_flag(LIGHT_SOURCE, val); }
     void visible_normals(bool val) { set_flag(VISIBLE_NORMALS, val); }
     void visible_bbox(bool val) { set_flag(VISIBLE_BBOX, val); }
     void select(bool val) { set_flag(IS_SELECTED, val); }
     void set_is_fixed_shading(bool val) { set_flag(IS_FIXED_SHADING, val); }
     bool is_normals_visible() const { return get_flag(VISIBLE_NORMALS); }
-    bool is_light_source() const { return get_flag(LIGHT_SOURCE); }
     bool is_bbox_visible() const { return get_flag(VISIBLE_BBOX); }
     bool is_selected() const { return get_flag(IS_SELECTED); }
     bool is_fixed_shading() const { return get_flag(IS_FIXED_SHADING); }
@@ -103,11 +101,10 @@ namespace fury
     enum Flag
     {
       VISIBLE_NORMALS = (1 << 0),
-      LIGHT_SOURCE = (1 << 1),
-      VISIBLE_BBOX = (1 << 2),
-      IS_SELECTED = (1 << 3),
-      IS_FIXED_SHADING = (1 << 4),
-      HAS_SURFACE = (1 << 5)
+      VISIBLE_BBOX = (1 << 1),
+      IS_SELECTED = (1 << 2),
+      IS_FIXED_SHADING = (1 << 3),
+      HAS_SURFACE = (1 << 4)
     };
   protected:
     void set_flag(Flag flag, bool value) { value ? set_flag(flag) : clear_flag(flag); }

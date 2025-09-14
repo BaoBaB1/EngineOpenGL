@@ -8,11 +8,10 @@ layout (location = 0) in vec3 aPos;
 //	mat4 projectionMatrix;
 //} camData;
 
-uniform mat4 lightViewMatrix;
-uniform mat4 lightProjectionMatrix;
+uniform mat4 lightViewProjMatrix;
 uniform mat4 modelMatrix;
 
 void main()
 {
-    gl_Position = lightProjectionMatrix * lightViewMatrix * modelMatrix * vec4(aPos, 1.0);
+    gl_Position = lightViewProjMatrix * modelMatrix * vec4(aPos, 1.0);
 }

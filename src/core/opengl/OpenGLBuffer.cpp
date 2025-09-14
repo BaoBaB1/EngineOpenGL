@@ -18,7 +18,7 @@ namespace fury
   {
     if (offset + size_in_bytes > m_size)
     {
-      Logger::error("Could not set VBO data. offset + size_in_bytes > m_size");
+      Logger::error("Could not set VBO data. Allocated size {}, trying to set {} at offset {}.", m_size, size_in_bytes, offset);
       return;
     }
     glBufferSubData(m_type, offset, size_in_bytes, data);

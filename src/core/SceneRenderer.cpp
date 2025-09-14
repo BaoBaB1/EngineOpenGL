@@ -257,6 +257,19 @@ namespace fury
     {
       drawable->write(ofs);
     }
+    const std::vector<const Light*> lights = get_valid_lights();
+    const uint32_t lights_num = static_cast<uint32_t>(lights.size());
+    ofs.write(reinterpret_cast<const char*>(&lights_num), sizeof(uint32_t));
+    for (const Light* light : lights)
+    {
+      ofs.write(reinterpret_cast<const char*>(&light->get_description()), sizeof(LightDescription));
+      // TODO: better impl for attached lights
+      // index of object in drawables list if object has attached light
+      const int64_t parent = find_object_with_attached_light(light);
+      ofs.write(reinterpret_cast<const char*>(&parent), sizeof(int64_t));
+      const bool is_enabled = light->is_enabled();
+      ofs.write(reinterpret_cast<const char*>(&is_enabled), sizeof(bool));
+    }
     ofs.close();
     // fix to avoid camera jumps ???
     // again, cursor pos in handler can have huge offset difference at this point
@@ -272,10 +285,7 @@ namespace fury
       return;
     }
 
-    // cleanup current scene
-    m_drawables.clear();
-    m_selected_objects.clear();
-    m_opened_ui_components = 0;
+    cleanup();
 
     ifs.read(reinterpret_cast<char*>(&m_polygon_mode), sizeof(GLint));
     ifs.read(reinterpret_cast<char*>(&m_camera), sizeof(Camera));
@@ -291,6 +301,31 @@ namespace fury
       std::unique_ptr<Object3D> obj = ObjectsRegistry::create(obj_type);
       obj->read(ifs);
       m_drawables.push_back(std::move(obj));
+    }
+    // read lights
+    uint32_t num_lights;
+    ifs.read(reinterpret_cast<char*>(&num_lights), sizeof(uint32_t));
+    for (uint32_t i = 0; i < num_lights; i++)
+    {
+      LightDescription desc;
+      int64_t parent_idx;
+      bool is_enabled;
+      ifs.read(reinterpret_cast<char*>(&desc), sizeof(LightDescription));
+      ifs.read(reinterpret_cast<char*>(&parent_idx), sizeof(int64_t));
+      ifs.read(reinterpret_cast<char*>(&is_enabled), sizeof(bool));
+      m_lights[i].set_description(desc);
+      if (parent_idx != -1)
+      {
+        m_lights[i].set_parent(m_drawables[parent_idx].get());
+      }
+      if (is_enabled)
+      {
+        m_lights[i].enable();
+      }
+      else
+      {
+        m_lights[i].disable();
+      }
     }
     ifs.close();
     prepare_scene_for_rendering();
@@ -588,7 +623,8 @@ namespace fury
 
   void SceneRenderer::handle_ui_component_closing()
   {
-    m_opened_ui_components--;
+    // sometimes open/close is not paired (e.g. some function just closes some ui component)
+    m_opened_ui_components = std::max(0, --m_opened_ui_components);
   }
 
   void SceneRenderer::handle_msaa_button_toggle(bool enabled)
@@ -599,6 +635,29 @@ namespace fury
   void SceneRenderer::remove_object(Object3D* obj)
   {
     on_object_delete.notify(obj);
+    // TODO: use event for that
+    for (Light& light : m_lights)
+    {
+      if (light.get_parent() == obj)
+      {
+        if (int32_t idx = light.get_description().shadow_matrix_buffer_index; idx != -1)
+        {
+          // left shift
+          std::rotate(Light::shadow_matrices.begin() + idx, Light::shadow_matrices.begin() + idx + 1, Light::shadow_matrices.end());
+          Light::shadow_matrices.pop_back();
+          for (Light& light2 : m_lights)
+          {
+            if (&light2 != &light && light2.get_description().shadow_matrix_buffer_index != -1)
+            {
+              light2.get_description().shadow_matrix_buffer_index--;
+            }
+          }
+        }
+        // invalidate light
+        light = Light();
+        break;
+      }
+    }
     auto it = std::find_if(m_drawables.begin(), m_drawables.end(), [=](const auto& drawable) { return drawable.get() == obj; });
     m_drawables.erase(it);
     for (auto& rp : m_render_passes)
@@ -618,12 +677,117 @@ namespace fury
     }
   }
 
-  void SceneRenderer::create_default_scene()
+  void SceneRenderer::cleanup()
   {
-    m_camera.set_position(glm::vec3(-4.f, 2.f, 3.f));
-    m_camera.look_at(glm::vec3(2.f, 0.5f, 0.5f));
+    // cleanup current scene
     m_drawables.clear();
     m_selected_objects.clear();
+    m_lights.fill(Light());
+    Light::shadow_matrices.clear();
+    m_opened_ui_components = 0;
+    m_ui.get_component<SceneInfo>("SceneInfo")->hide();
+  }
+
+  int64_t SceneRenderer::find_object_with_attached_light(const Light* light) const
+  {
+    if (!light)
+    {
+      return -1;
+    }
+    for (size_t i = 0; i < m_drawables.size(); i++)
+    {
+      if (light->get_parent() == m_drawables[i].get())
+      {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  void SceneRenderer::setup_directional_light(Light* light)
+  {
+    // center is in world space
+    const glm::vec3 bbox_center = m_bbox.center();
+    const glm::vec3 dir_light_position = glm::vec3(bbox_center.x + 0.12, bbox_center.y + 0.33, bbox_center.z + 0.7);
+    const glm::vec3 dir_light_target = bbox_center;
+    constexpr static float cube_bound = 6.f;
+    LightDescription desc;
+    desc.type = LightType::DIRECTIONAL;
+    desc.dir = glm::vec4(glm::normalize(dir_light_target - dir_light_position), 1);
+    desc.position = glm::vec4(dir_light_position + cube_bound * -glm::vec3(desc.dir), 1);
+    const glm::mat4 proj_mat = glm::ortho<float>(-cube_bound, cube_bound, -cube_bound, cube_bound, -10.f, 10.f);
+    const glm::mat4 view_mat = glm::lookAt(dir_light_position, dir_light_target, glm::vec3(0, 1, 0));
+    light->set_description(desc);
+    light->set_shadow_matrix(proj_mat * view_mat);
+  }
+
+  Light* SceneRenderer::get_empty_light()
+  {
+    int pos = 0;
+    for (const Light& light : m_lights)
+    {
+      if (!light.is_valid())
+      {
+        break;
+      }
+      pos++;
+    }
+    if (pos == m_lights.size())
+    {
+      Logger::error("No empty lights.");
+      return nullptr;
+    }
+    return &m_lights[pos];
+  }
+
+  std::vector<const Light*> SceneRenderer::get_valid_lights() const
+  {
+    std::vector<const Light*> active_lights;
+    active_lights.reserve(m_lights.size());
+    for (const Light& l : m_lights)
+    {
+      if (l.is_valid())
+      {
+        active_lights.push_back(&l);
+      }
+    }
+    return active_lights;
+  }
+
+  std::vector<const Light*> SceneRenderer::get_active_lights() const
+  {
+    std::vector<const Light*> valid_lights = get_valid_lights();
+    std::vector<const Light*> active_lights;
+    active_lights.reserve(valid_lights.size());
+    for (const Light* l : valid_lights)
+    {
+      if (l->is_enabled())
+      {
+        active_lights.push_back(l);
+      }
+    }
+    return active_lights;
+  }
+
+  std::vector<Light*> SceneRenderer::get_lights(LightType type)
+  {
+    std::vector<Light*> lights;
+    lights.reserve(m_lights.size());
+    for (int i = 0; i < static_cast<int>(m_lights.size()); i++)
+    {
+      if (m_lights[i].get_type() == type)
+      {
+        lights.push_back(&m_lights[i]);
+      }
+    }
+    return lights;
+  }
+
+  void SceneRenderer::create_default_scene()
+  {
+    cleanup();
+    m_camera.set_position(glm::vec3(-4.f, 2.f, 3.f));
+    m_camera.look_at(glm::vec3(2.f, 0.5f, 0.5f));
 
     Vertex arr[6];
     arr[0].position = glm::vec3(0.f, 1.f, 0.f), arr[0].color = glm::vec4(0.f, 1.f, 0.f, 1.f);
@@ -690,6 +854,25 @@ namespace fury
     bc2->set_control_points({ Vertex(0.f, 2.f, -1.25f), Vertex {0.f, -2.f, -1.75} });
     m_drawables.push_back(std::move(bc2));
 
+    Light* light = get_empty_light();
+    setup_directional_light(light);
+    light->enable();
+    LightDescription desc;
+    desc.type = LightType::POINT;
+    desc.position = m_drawables[1]->model_matrix() * glm::vec4(m_drawables[1]->center(), 1);
+    light = get_empty_light();
+    light->set_description(desc);
+    light->set_parent(m_drawables[1].get());
+    light->disable();
+
+    // spot light from camera position
+    desc.type = LightType::SPOT;
+    desc.position = glm::vec4(m_camera.position(), 1);
+    desc.dir = glm::vec4(m_camera.target(), 1);
+    light = get_empty_light();
+    light->set_description(desc);
+    light->disable();
+
     prepare_scene_for_rendering();
   }
 
@@ -708,16 +891,47 @@ namespace fury
     }
 
     calculate_scene_bbox();
-    // setup directional light
-    // center is in world space
-    const glm::vec3 bbox_center = m_bbox.center();
-    const glm::vec3 dir_light_position = glm::vec3(bbox_center.x + 0.12, bbox_center.y + 0.33, bbox_center.z + 0.7);
-    const glm::vec3 dir_light_target = bbox_center;
-    constexpr float val = 6.f;
-    m_directional_light.proj_matrix = glm::ortho<float>(-val, val, -val, val, -10.f, 10.f);
-    m_directional_light.view_matrix = glm::lookAt(dir_light_position, dir_light_target, glm::vec3(0, 1, 0));
-    m_directional_light.direction = glm::normalize(dir_light_target - dir_light_position);
-    m_directional_light.position = dir_light_position + val * -m_directional_light.direction;
+
+    // if no lights present
+    if (get_valid_lights().empty())
+    {
+      {
+        Light* light = get_empty_light();
+        setup_directional_light(light);
+        light->disable();
+      }
+      {
+        assert(m_drawables.size() > 2);
+        LightDescription desc;
+        desc.type = LightType::POINT;
+        desc.position = m_drawables[1]->model_matrix() * glm::vec4(m_drawables[1]->center(), 1);
+        Light* light = get_empty_light();
+        light->set_description(desc);
+        light->set_parent(m_drawables[1].get());
+        light->enable();
+      }
+      {
+        // spot light from camera position
+        LightDescription desc;
+        desc.type = LightType::SPOT;
+        desc.position = glm::vec4(m_camera.position(), 1);
+        desc.dir = glm::vec4(m_camera.target(), 1);
+        Light* light = get_empty_light();
+        light->set_description(desc);
+        light->disable();
+      }
+    }
+    else
+    {
+      for (Light& light : m_lights)
+      {
+        if (light.get_type() == LightType::DIRECTIONAL)
+        {
+          setup_directional_light(&light);
+          break;
+        }
+      }
+    }
 
     // update render passes in accordance with the new scene
     for (auto& render_pass : m_render_passes)
