@@ -8,7 +8,6 @@ namespace fury
   class CursorPositionHandler : public UserInputHandler
   {
   public:
-    OnlyMovable(CursorPositionHandler)
     CursorPositionHandler(WindowGLFW* window);
     void update_current_pos(double x, double y) { m_cur_pos[0] = x, m_cur_pos[1] = y; }
     void update_ignore_frames() { m_ignore_frames = 3; }

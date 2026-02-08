@@ -2,7 +2,7 @@
 
 namespace fury
 {
-  Curve::Curve() : Object3D("Curve")
+  Curve::Curve()
   {
     emplace_mesh();
     m_render_config.use_indices = false;

@@ -6,7 +6,7 @@ namespace fury
 {
 	class Pyramid : public Object3D {
 	public:
+		FURY_REGISTER_DERIVED_CLASS(Pyramid, Object3D)
 		Pyramid();
-		uint32_t get_type() const override { return ObjectsRegistry::get_id<Pyramid>(); }
 	};
 }

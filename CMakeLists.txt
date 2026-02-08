@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.13.0)
 set(CMAKE_CXX_STANDARD 17)
 set(ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-set(PROJECT_NAME "OpenGLEngine")
+set(PROJECT_NAME "FuryEngine")
 project(${PROJECT_NAME})
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 

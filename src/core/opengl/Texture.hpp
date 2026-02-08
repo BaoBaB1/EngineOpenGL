@@ -13,7 +13,7 @@ namespace fury
     void operator()(unsigned char* data) { free(data); }
   };
 
-  enum class TextureType
+  enum class TextureType : uint8_t
   {
     GENERIC,
     AMBIENT,
@@ -25,8 +25,8 @@ namespace fury
   class Texture : public OpenGLObject
   {
   public:
-    OnlyMovable(Texture)
-      ~Texture();
+    FURY_OnlyMovable(Texture)
+    ~Texture();
     virtual void resize(int w, int h, GLint internalformat, GLint format, GLint type) = 0;
     virtual void init(const std::string& filename) = 0;
     std::unique_ptr<unsigned char, StbDeleter> load(const char* filename);
@@ -36,6 +36,8 @@ namespace fury
     int width() const { return m_width; }
     int height() const { return m_height; }
     int nchannels() const { return m_nchannels; }
+    void set_type(TextureType type) { m_type = type; }
+    TextureType get_type() const { return m_type; }
     const std::string& get_file() const { return m_file; }
   protected:
     Texture();
@@ -45,5 +47,6 @@ namespace fury
     int m_nchannels = 0;
     bool m_disabled = true;
     std::string m_file;
+    TextureType m_type = TextureType::GENERIC;
   };
 }

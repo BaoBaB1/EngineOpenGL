@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./utils/Macro.hpp"
+#include "core/Macros.hpp"
 
 namespace fury
 {
@@ -17,7 +17,7 @@ namespace fury
       LAST_ITEM
     };
   public:
-    OnlyMovable(UserInputHandler)
+    FURY_OnlyMovable(UserInputHandler)
     HandlerType get_type() const { return m_type; }
   protected:
     UserInputHandler(WindowGLFW* window, HandlerType type) : m_type(type), m_window(window) {}

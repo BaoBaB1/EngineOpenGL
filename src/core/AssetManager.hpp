@@ -11,11 +11,11 @@ namespace fury
   {
   public:
     static void init();
-    static std::optional<std::filesystem::path> get_from_relative(const std::string& asset);
-    static std::optional<std::string> get_from_absolute(const std::filesystem::path& asset);
+    static std::optional<std::filesystem::path> get_absolute_from_relative(const std::filesystem::path& asset);
+    static std::optional<std::filesystem::path> get_relative_from_absolute(const std::filesystem::path& asset);
     static std::string add(const std::filesystem::path& asset, const std::string& folder = "");
     static const std::filesystem::path& get_assets_folder();
   private:
-    static std::unordered_set<std::string> assets;
+    static std::unordered_set<std::filesystem::path> assets;
   };
 };

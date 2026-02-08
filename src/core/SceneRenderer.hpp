@@ -10,10 +10,12 @@
 #include "ge/Skybox.hpp"
 #include "RenderPass.hpp"
 #include "ge/BoundingBox.hpp"
-#include "ObjectChangeInfo.hpp"
 #include "FPSLimiter.hpp"
 #include "ge/ItemSelectionWheel.hpp"
 #include "Light.hpp"
+#include "Serialization.hpp"
+#include "ge/Object3D.hpp"
+#include "core/ObjectController.hpp"
 #include <vector>
 #include <memory>
 #include <string>
@@ -21,14 +23,15 @@
 
 namespace fury
 {
-  class Object3D;
   class Skybox;
-  constexpr static int SCENE_MAX_LIGHTS = 12;
+  struct ObjectChangeInfo;
 
   class SceneRenderer : public ITickable
   {
   public:
+    FURY_REGISTER_CLASS(SceneRenderer)
     SceneRenderer(WindowGLFW* window);
+    void tick(float dt) override;
     ~SceneRenderer();
     Camera& get_camera() { return m_camera; }
     std::vector<Object3D*>& get_selected_objects() { return m_selected_objects; }
@@ -36,8 +39,8 @@ namespace fury
     BoundingBox& get_bbox() { return m_bbox; }
     WindowGLFW* get_window() { return m_window; }
     Ui& get_ui() { return m_ui; }
-    std::vector<const Light*> get_valid_lights() const;
     std::vector<const Light*> get_active_lights() const;
+    std::vector<Light>& get_lights() { return m_lights; }
     std::vector<Light*> get_lights(LightType type);
     void create_default_scene();
     void render();
@@ -48,8 +51,15 @@ namespace fury
     uint32_t get_fps_limit() const { return m_fps_limiter.get_limit(); }
     Event<Object3D*> on_new_object_added;
     Event<Object3D*> on_object_delete;
+    // These have to be complete types...
+    FURY_DECLARE_SERIALIZABLE_FIELDS(
+      FURY_SERIALIZABLE_FIELD(1, &SceneRenderer::m_camera),
+      FURY_SERIALIZABLE_FIELD(2, &SceneRenderer::m_polygon_mode),
+      FURY_SERIALIZABLE_FIELD(3, &SceneRenderer::m_drawables),
+      FURY_SERIALIZABLE_FIELD(4, &SceneRenderer::m_lights),
+      FURY_SERIALIZABLE_FIELD(5, &SceneRenderer::m_controllers)
+    )
   private:
-    void tick() override;
     void prepare_scene_for_rendering();
     void select_object(Object3D* obj, bool click_from_menu_item);  // temporary function. remove when selection of multiple elements is supported
     void render_skybox();
@@ -66,9 +76,8 @@ namespace fury
     void handle_msaa_button_toggle(bool enabled);
     void remove_object(Object3D* obj);
     void cleanup();
-    int64_t find_object_with_attached_light(const Light* light) const;
     void setup_directional_light(Light* light);
-    Light* get_empty_light();
+    void create_default_lights();
     friend class SceneInfo;
   private:
     // store pointers to make virtual methods work
@@ -77,7 +86,8 @@ namespace fury
     std::vector<std::unique_ptr<RenderPass>> m_render_passes;
     std::unique_ptr<ShadowsPass> m_shadows_pass;
     std::unique_ptr<DebugPass> m_debug_pass;
-    std::array<Light, SCENE_MAX_LIGHTS> m_lights;
+    std::vector<Light> m_lights;
+    std::vector<std::unique_ptr<ObjectController>> m_controllers;
     ScreenQuad m_screen_quad;
     ScreenQuad m_shadow_map_quad;
     bool m_show_shadow_map = false;

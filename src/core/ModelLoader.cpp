@@ -15,19 +15,17 @@ namespace
 
 namespace fury
 {
-  std::optional<Object3D> ModelLoader::load(const std::string& file, unsigned int flags)
+  bool ModelLoader::load(const std::string& file, unsigned int flags, Object3D& model)
   {
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(file, flags);
-
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
     {
       Logger::error("Failed to load file {}. Assimp error {}.", file, importer.GetErrorString());
-      return std::nullopt;
+      return false;
     }
     else
     {
-      Object3D model;
       // calc extent to scale all vertices in range [-1, 1]
       calc_max_extent(scene->mRootNode, scene);
       const std::filesystem::path filepath = std::filesystem::path(file);
@@ -37,7 +35,7 @@ namespace fury
       model.set_shading_mode(ShadingProcessor::ShadingMode::SMOOTH_SHADING);
       model.set_is_fixed_shading(true);
       ::add_assets(filepath, model);
-      return model;
+      return true;
     }
   }
 
@@ -160,7 +158,7 @@ namespace
   {
     // to make outlining work properly if model's origin is at it's base and not 0,0,0
     model.calculate_bbox();
-    const auto& bbox = model.bbox();
+    const auto& bbox = model.get_bbox();
     glm::vec3 bbox_center = bbox.center();
     if (bbox_center != glm::vec3(0.f))
     {
@@ -173,7 +171,7 @@ namespace
       }
     }
     // also offset bbox bounds according to new vertex positions
-    model.bbox().init(bbox.min() - bbox_center, bbox.max() - bbox_center);
+    model.get_bbox().init(bbox.min() - bbox_center, bbox.max() - bbox_center);
   }
 
   void read_textures(fury::Mesh& mesh, const aiMaterial* material, const std::filesystem::path& file, 
@@ -189,7 +187,9 @@ namespace
       // tex_path is relative to file's folder
       aiString tex_path;
       material->GetTexture(assimp_tex_type, 0, &tex_path);
-      mesh.set_texture(TextureManager::get(file.parent_path() / tex_path.C_Str()), engine_tex_type);
+      auto tex = TextureManager::get(file.parent_path() / tex_path.C_Str());
+      tex->set_type(engine_tex_type);
+      mesh.set_texture(tex, engine_tex_type);
     }
   }
 
@@ -206,10 +206,12 @@ namespace
     AssetManager::add(file, filename);
     for (const Mesh& m : model.get_meshes())
     {
-      const auto textures = m.get_present_textures();
-      for (const auto& [ttype, tex] : textures)
+      for (int i = 0; i < static_cast<int>(TextureType::LAST); i++)
       {
-        AssetManager::add(tex->get_file(), filename);
+        if (auto tex = m.get_texture(static_cast<TextureType>(i)))
+        {
+          AssetManager::add(tex->get_file(), filename);
+        }
       }
     }
   }

@@ -5,6 +5,7 @@
 #include "ge/Icosahedron.hpp"
 #include "ge/Cube.hpp"
 #include "core/ModelLoader.hpp"
+#include "core/SceneGraphManager.hpp"
 
 #include <imgui.h>
 
@@ -15,7 +16,7 @@ namespace fury
     m_is_visible = true;
   }
 
-  void MenuBar::tick()
+  void MenuBar::tick(float)
   {
     if (!is_visible())
     {
@@ -34,12 +35,17 @@ namespace fury
         {
           auto callback = [&](const std::string& file)
             {
+              auto& p_new_obj = m_scene->get_drawables().emplace_back();
+              const unsigned int assimp_flags = aiProcess_Triangulate | aiProcess_FlipUVs
+                | aiProcess_JoinIdenticalVertices | aiProcess_GenBoundingBoxes /*| aiProcess_GenSmoothNormals*/;
               ModelLoader loader;
-              std::optional<Object3D> m = loader.load(file, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices | aiProcess_GenBoundingBoxes /*| aiProcess_GenSmoothNormals*/);
-              if (m)
+              if (loader.load(file, assimp_flags, *p_new_obj))
               {
-                m_scene->get_drawables().push_back(std::make_unique<Object3D>(std::move(*m)));
-                m_scene->on_new_object_added.notify(m_scene->get_drawables().back().get());
+                m_scene->on_new_object_added.notify(p_new_obj.get());
+              }
+              else
+              {
+                m_scene->get_drawables().pop_back();
               }
             };
           OpenFileExplorerContext ctx;
@@ -100,8 +106,9 @@ namespace fury
             // spawn in front of camera
             auto spawn_pos = ray.get_origin() + spawn_distance * ray.get_direction();
             Object3D* added_obj = m_scene->get_drawables().back().get();
-            added_obj->translate(spawn_pos);
-            added_obj->scale(glm::vec3(0.5f));
+            auto node = SceneGraphManager::get_entity_node<TransformationSceneNode>(added_obj->get_id());
+            node->set_translation(spawn_pos);
+            node->set_scale(glm::vec3(0.5f));
             m_scene->on_new_object_added.notify(added_obj);
           }
         }

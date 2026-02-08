@@ -2,14 +2,10 @@
 
 #include "ge/Mesh.hpp"
 #include "ge/BoundingBox.hpp"
-#include "ge/IRayHittable.hpp"
 #include "ge/ShadingProcessor.hpp"
-#include "core/ISerializable.hpp"
-#include "core/ObjectsRegistry.hpp"
-#include "core/ObjectController.hpp"
+#include "core/Macros.hpp"
+#include "core/Entity.hpp"
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <optional>
 
 namespace fury
 {
@@ -28,7 +24,7 @@ namespace fury
     std::vector<MeshGeometryMetadata> meshes_data;
   };
 
-  class Object3D : public IRayHittable, public ISerializable
+  class Object3D : public Entity
   {
   public:
     using ShadingMode = ShadingProcessor::ShadingMode;
@@ -38,41 +34,22 @@ namespace fury
       bool use_indices = true;
     };
   public:
+    FURY_REGISTER_DERIVED_CLASS(Object3D, Entity)
     template<typename T>
     static T* cast_to(Object3D* obj) { return static_cast<T*>(obj); }
-    Object3D() = default;
-    Object3D(const std::string& name);
-    Object3D(Object3D&&) = default;
-    Object3D& operator=(Object3D&&) = default;
-    Object3D(const Object3D& other);
-    Object3D& operator=(const Object3D& other);
-    virtual uint32_t get_type() const { return ObjectsRegistry::get_id<Object3D>(); }
-    void read(std::ifstream&) override;
-    void write(std::ofstream&) const override;
+    template<typename T>
+    T* cast_to() { return static_cast<T*>(this); }
     void set_color(const glm::vec4& color);
     ObjectGeometryMetadata get_geometry_metadata() const;
-    std::optional<RayHit> hit(const Ray& ray) const override;
     glm::vec3 center() const;
     void update();
     void apply_shading(ShadingMode mode);
     void set_shading_mode(ShadingMode mode) { m_shading_mode = mode; }
-    void set_delta_time(float delta_time) { m_delta_time = delta_time; }
-    void set_render_config(const RenderConfig& cfg) { m_render_config = cfg; }
     void set_meshes_data(const std::shared_ptr<std::vector<Mesh>>& meshes) { m_meshes = meshes; }
-    void rotate(float angle, const glm::vec3& axis);
-    void set_name(const std::string& name) { m_name = name; }
-    void scale(const glm::vec3& scale);
-    void translate(const glm::vec3& translation);
     void add_mesh(Mesh&& mesh);
     void add_mesh(const Mesh& mesh);
-    const std::vector<std::unique_ptr<ObjectController>>& get_controllers() const { return m_controllers; }
-    ObjectController* attach_controller(ObjectController::Type type);
-    ObjectController* get_controller(ObjectController::Type type);
-    bool remove_controller(ObjectController::Type type);
     Mesh& emplace_mesh() { return m_meshes->emplace_back(); }
     void calculate_bbox(bool force = false);
-    glm::vec3 translation() const { return m_model_mat[3]; }
-    glm::vec3 scale() const { return glm::vec3(glm::length(m_model_mat[0]), glm::length(m_model_mat[1]), glm::length(m_model_mat[2])); }
     void visible_normals(bool val) { set_flag(VISIBLE_NORMALS, val); }
     void visible_bbox(bool val) { set_flag(VISIBLE_BBOX, val); }
     void select(bool val) { set_flag(IS_SELECTED, val); }
@@ -85,18 +62,25 @@ namespace fury
     std::shared_ptr<std::vector<Mesh>> get_meshes_data() { return m_meshes; }
     const std::shared_ptr<std::vector<Mesh>>& get_meshes_data() const { return m_meshes; }
     ShadingMode shading_mode() const { return m_shading_mode; }
-    const glm::mat4& model_matrix() const { return m_model_mat; }
-    glm::mat4& model_matrix() { return m_model_mat; }
     const glm::vec4& color() const { return m_color; }
     size_t mesh_count() const { return m_meshes->size(); }
     Mesh& get_mesh(size_t idx) { return (*m_meshes)[idx]; }
     std::vector<Mesh>& get_meshes() { return *m_meshes; }
     const std::vector<Mesh>& get_meshes() const { return *m_meshes; }
-    const RenderConfig& get_render_config() const { return m_render_config; }
     const Mesh& get_mesh(size_t idx) const { return (*m_meshes)[idx]; }
-    const BoundingBox& bbox() const { return m_bbox; }
-    BoundingBox& bbox() { return m_bbox; }
-    const std::string& get_name() const { return m_name; }
+    const BoundingBox& get_bbox() const { return m_bbox; }
+    BoundingBox& get_bbox() { return m_bbox; }
+    FURY_PROPERTY_REF(name, std::string, m_name)
+    FURY_PROPERTY_REF(render_config, RenderConfig, m_render_config)
+    FURY_DECLARE_SERIALIZABLE_FIELDS(
+      FURY_SERIALIZABLE_FIELD(1, &Object3D::m_flags),
+      FURY_SERIALIZABLE_FIELD(2, &Object3D::m_color),
+      FURY_SERIALIZABLE_FIELD(3, &Object3D::m_meshes),
+      FURY_SERIALIZABLE_FIELD(4, &Object3D::m_shading_mode),
+      FURY_SERIALIZABLE_FIELD(5, &Object3D::m_bbox),
+      FURY_SERIALIZABLE_FIELD(6, &Object3D::m_render_config),
+      FURY_SERIALIZABLE_FIELD(7, &Object3D::m_center)
+    )
   protected:
     enum Flag
     {
@@ -114,16 +98,12 @@ namespace fury
   protected:
     std::shared_ptr<std::vector<Mesh>> m_meshes = std::make_shared<std::vector<Mesh>>();
     mutable glm::vec3 m_center = glm::vec3(0.f);
-    glm::mat4 m_model_mat = glm::mat4(1.f);
     glm::vec4 m_color = glm::vec4(1.f);
-    float m_delta_time = 0.f;
     bool m_need_update = false;
     uint32_t m_flags = HAS_SURFACE;
     ShadingMode m_shading_mode = ShadingMode::NO_SHADING;
     BoundingBox m_bbox;             // bounding box which covers all meshes
     RenderConfig m_render_config;
-    std::vector<std::unique_ptr<ObjectController>> m_controllers;
     std::array<std::shared_ptr<std::vector<Mesh>>, ShadingMode::LAST_ITEM + 1> m_cached_meshes;
-    std::string m_name = "Object";
   };
 }

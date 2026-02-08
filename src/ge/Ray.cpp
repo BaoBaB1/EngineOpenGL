@@ -1,5 +1,5 @@
 #include "Ray.hpp"
-#include "ge/BoundingBox.hpp"
+#include "ge/Object3D.hpp"
 #include <glm/gtx/intersect.hpp>
 
 namespace fury
@@ -71,5 +71,62 @@ namespace fury
     }
     hit.distance = glm::distance(m_origin, hit.position);
     return hit;
+  }
+
+  std::optional<RayHit> Ray::intersect_object3d(const Object3D* obj) const
+  {
+    const BoundingBox& aabb = obj->get_bbox();
+    if (aabb.is_empty())
+    {
+      const_cast<Object3D*>(obj)->calculate_bbox();
+    }
+    std::optional<RayHit> rhit;
+    if (intersect_aabb(aabb))
+    {
+      const auto& cfg = obj->get_render_config();
+      if (cfg.mode == GL_TRIANGLES)
+      {
+        if (cfg.use_indices)
+        {
+          for (const auto& mesh : obj->get_meshes())
+          {
+            for (const auto& face : mesh.faces())
+            {
+              if (auto hit = intersect_triangle(
+                mesh.get_vertex(face[0]).position, mesh.get_vertex(face[1]).position, mesh.get_vertex(face[2]).position)
+                )
+              {
+                // find closest hit
+                if (!rhit || rhit->distance > hit->distance)
+                  rhit = hit;
+              }
+            }
+          }
+        }
+        else
+        {
+          for (const auto& mesh : obj->get_meshes())
+          {
+            const auto& vertices = mesh.vertices();
+            for (size_t i = 0; i < vertices.size(); i += 3)
+            {
+              if (auto hit = intersect_triangle(
+                mesh.get_vertex(i).position, mesh.get_vertex(i + 1).position, mesh.get_vertex(i + 2).position)
+                )
+              {
+                // find closest hit
+                if (!rhit || rhit->distance > hit->distance)
+                  rhit = hit;
+              }
+            }
+          }
+        }
+      }
+      else
+      {
+        Logger::info("Bounding box of object {} is intersected, but could not test if object is actually hit. Primitives are not triangles", obj->get_name());
+      }
+    }
+    return rhit;
   }
 }

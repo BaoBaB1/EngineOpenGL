@@ -1,6 +1,6 @@
 #pragma once
 
-#include "utils/Macro.hpp"
+#include "Macros.hpp"
 #include "input/UserInputHandler.hpp"
 #include "Event.hpp"
 #include <map>
@@ -13,11 +13,11 @@ namespace fury
   class WindowGLFW
   {
   public:
+    FURY_OnlyMovable(WindowGLFW)
     static void get_monitor_resolution(int& horizontal, int& vertical);
     WindowGLFW() = default;
     WindowGLFW(int width, int height, const char* title);
-    OnlyMovable(WindowGLFW)
-      ~WindowGLFW();
+    ~WindowGLFW();
     void init(int width, int height, const char* title);
     GLFWwindow* gl_window() const { return m_window; }
     template<typename T>

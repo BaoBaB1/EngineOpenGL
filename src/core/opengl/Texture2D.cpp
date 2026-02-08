@@ -5,7 +5,7 @@ namespace fury
 {
   const Texture2D& Texture2D::get_placeholder()
   {
-    static Texture2D placeholder = Texture2D(AssetManager::get_from_relative("textures/placeholder.png").value());
+    static Texture2D placeholder = Texture2D(AssetManager::get_absolute_from_relative("textures/placeholder.png").value());
     return placeholder;
   }
 
@@ -66,4 +66,41 @@ namespace fury
   {
     glBindTexture(GL_TEXTURE_2D, 0);
   }
+
+  uint64_t Texture2D::write(std::ofstream& ofs) const
+  {
+    TextureType type = get_type();
+    // path relative to assets folder
+    const std::string path = AssetManager::get_relative_from_absolute(get_file()).value().string();
+    const uint16_t path_len = path.size();
+    ofs.write(reinterpret_cast<const char*>(&type), sizeof(TextureType));
+    ofs.write(reinterpret_cast<const char*>(&path_len), sizeof(path_len));
+    ofs.write(path.data(), path_len);
+    return sizeof(TextureType) + sizeof(path_len) + path_len;
+  }
+
+  uint64_t Texture2D::read(std::ifstream& ifs)
+  {
+    TextureType type;
+    uint16_t path_len;
+    std::string path;
+    ifs.read(reinterpret_cast<char*>(&type), sizeof(TextureType));
+    ifs.read(reinterpret_cast<char*>(&path_len), sizeof(path_len));
+    path.resize(path_len);
+    ifs.read(path.data(), path_len);
+    auto full_path = AssetManager::get_absolute_from_relative(path).value_or("");
+    if (full_path.empty())
+    {
+      Logger::error("Failed to get absolute path from relative {} during Texture2D reading", path);
+    }
+    else
+    {
+      set_type(type);
+      init(full_path.string());
+    }
+    // TODO: fixme. creates multiple texture instance for same file ...
+    // texture and asset managers don't know about it???
+    return sizeof(TextureType) + sizeof(path_len) + path_len;
+  }
+
 }

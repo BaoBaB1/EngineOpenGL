@@ -21,6 +21,7 @@ struct LightInfo
 	vec4 ambient;
 	vec4 diffuse;
 	vec4 specular;
+	mat4 shadowMatrix;
 
 	// attenuation info for point light
 	float constant;
@@ -34,7 +35,6 @@ struct LightInfo
 
 	// 0 - directional, 1 - point, 2 - spot
 	int type;
-	int shadowMatrixBufferIndex;
 };
 
 layout (std430, binding = 2) buffer Lights

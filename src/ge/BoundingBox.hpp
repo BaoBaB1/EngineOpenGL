@@ -1,12 +1,11 @@
 #pragma once
 
-#include "IRayHittable.hpp"
 #include <glm/glm.hpp>
 #include <array>
 
 namespace fury
 {
-  class BoundingBox : public IRayHittable
+  class BoundingBox
   {
   public:
     BoundingBox();
@@ -14,7 +13,6 @@ namespace fury
     void init(const glm::vec3& min, const glm::vec3& max);
     void grow(const glm::vec3& min, const glm::vec3& max);
     void reset();
-    std::optional<RayHit> hit(const Ray& ray) const override;
     std::array<glm::vec3, 8> get_points() const;
     bool is_empty() const;
     bool contains(const glm::vec3& point) const;

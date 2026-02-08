@@ -8,6 +8,6 @@ namespace fury
 	{
 	public:
 		Cube();
-		uint32_t get_type() const override { return ObjectsRegistry::get_id<Cube>(); }
+		FURY_REGISTER_DERIVED_CLASS(Cube, Object3D)
 	};
 }

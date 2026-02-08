@@ -1,15 +1,15 @@
 #pragma once
 
-#include <glad/glad.h>
 #include "OpenGLObject.hpp"
+#include <glad/glad.h>
 
 namespace fury
 {
   class OpenGLBuffer : public OpenGLObject
   {
   public:
-    OnlyMovable(OpenGLBuffer)
-      OpenGLBuffer(int type);
+    FURY_OnlyMovable(OpenGLBuffer)
+    OpenGLBuffer(int type);
     OpenGLBuffer(int type, size_t size);
     ~OpenGLBuffer();
     void resize(size_t new_size);

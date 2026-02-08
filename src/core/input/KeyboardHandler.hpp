@@ -32,7 +32,6 @@ namespace fury
       RELEASED,
     };
 
-    OnlyMovable(KeyboardHandler)
     KeyboardHandler(WindowGLFW* window);
     void reset();
     KeyboardHandler::KeyState get_keystate(KeyboardHandler::InputKey key) const;

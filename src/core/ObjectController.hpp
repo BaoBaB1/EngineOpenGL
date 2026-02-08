@@ -1,36 +1,32 @@
 #pragma once
 
 #include "ITickable.hpp"
-#include "ISerializable.hpp"
-#include "utils/Macro.hpp"
-#include <memory>
+#include "Macros.hpp"
 
 namespace fury
 {
-  class Object3D;
-
-  class ObjectController : public ITickable, public ISerializable
+  class Entity;
+ 
+  class ObjectController : public ITickable
   {
   public:
-    enum class Type
-    {
-      ROTATION
-    };
-    OnlyMovable(ObjectController)
-    [[nodiscard]] virtual ObjectController* clone() const = 0;
-    Type get_type() const { return m_type; }
-    void set_object(Object3D* obj) { m_obj = obj; }
-    const Object3D* get_object() const { return m_obj; }
-    void set_delta_time(float dt) { m_dt = dt; }
+    FURY_REGISTER_CLASS(ObjectController)
+    FURY_OnlyMovable(ObjectController)
+    ObjectController() = default;
+    void set_entity(Entity* entity) { m_entity = entity; }
+    const Entity* get_entity() const { return m_entity; }
     bool is_enabled() const { return m_enabled; }
     void disable() { m_enabled = false; }
     void enable() { m_enabled = true; }
+    FURY_DECLARE_SERIALIZABLE_FIELDS(
+      FURY_SERIALIZABLE_FIELD(1, &ObjectController::m_enabled),
+      FURY_SERIALIZABLE_FIELD2(2, &ObjectController::m_entity, &ObjectController::read_entity, &ObjectController::write_entity)
+    )
   protected:
-    ObjectController(Type type) : m_type(type) {}
-  protected:
-    Object3D* m_obj = nullptr;
-    Type m_type;
+    Entity* m_entity = nullptr;
     bool m_enabled = true;
-    float m_dt = 0.f;
+  private:
+    uint32_t write_entity(std::ofstream& ofs) const;
+    uint32_t read_entity(std::ifstream& ifs);
   };
 }

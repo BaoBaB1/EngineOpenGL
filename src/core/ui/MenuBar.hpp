@@ -18,7 +18,7 @@ namespace fury
 	{
 	public:
 		MenuBar(SceneRenderer* scene);
-		void tick() override;
+		void tick(float) override;
 		const float get_height() const { return m_height; }
 	private:
 		float m_height = 0;

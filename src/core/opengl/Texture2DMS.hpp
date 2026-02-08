@@ -1,14 +1,13 @@
 #pragma once
 
 #include "OpenGLObject.hpp"
-#include "utils/Macro.hpp"
 
 namespace fury
 {
   class Texture2DMS : public OpenGLObject
   {
   public:
-    OnlyMovable(Texture2DMS)
+    FURY_OnlyMovable(Texture2DMS)
     Texture2DMS() = default;
     Texture2DMS(int w, int h, GLint format, int samples = 4);
     ~Texture2DMS();

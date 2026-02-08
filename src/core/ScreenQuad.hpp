@@ -13,7 +13,7 @@ namespace fury
     ScreenQuad();
     void init(GLuint texture_id, bool is_single_channel = false);
     void init(const std::array<float, 24>& data, GLuint texture_id, bool is_single_channel = false);
-    void tick() override;
+    void tick(float dt) override;
     GLuint get_texture_id() const { return m_tex_id; }
   private:
     VertexArrayObject vao;
