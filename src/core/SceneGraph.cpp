@@ -21,10 +21,13 @@ namespace fury
 
   void SceneNode::remove_child(SceneNode* child)
   {
-    auto it = std::find_if(m_children.begin(), m_children.end(), [=](SceneNode* node) { return node == child; });
-    if (it != m_children.end())
+    for (size_t i = 0; i < m_children.size(); i++)
     {
-      m_children.erase(it);
+      if (m_children[i] == child)
+      {
+        m_children.erase(m_children.begin() + i);
+        return;
+      }
     }
   }
 
@@ -42,7 +45,7 @@ namespace fury
 
   SceneNode* SceneNode::find_child(SceneNode* child)
   {
-    auto it = std::find_if(m_children.begin(), m_children.end(), [=](SceneNode* node) { return node == child; });
+    auto it = std::find(m_children.begin(), m_children.end(), child);
     return (it != m_children.end() ? *it : nullptr);
   }
 
@@ -68,6 +71,9 @@ namespace fury
       m_parent->remove_child(this);
       m_parent = nullptr;
     }
+    // TODO: now only entity adds and releases nodes from SceneGraphManager
+    // maybe SceneNode's dctor should also do that ?
+    // SceneGraphManager::remove_node(this);
   }
 
   void SceneNode::update()

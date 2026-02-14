@@ -49,9 +49,6 @@ namespace fury
   void Entity::release()
   {
     EntityManager::remove_entity(m_id);
-    for (SceneNode* node : SceneGraphManager::get_entity_nodes(m_id)) {
-      SceneGraphManager::remove_dirty_node(node);
-    }
     SceneGraphManager::remove_entity_nodes(m_id);
     m_id = 0;
   }

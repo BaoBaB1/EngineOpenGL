@@ -36,7 +36,6 @@ namespace fury
     size_t num_pos = ofs.tellp();
     uint32_t num_nodes = 0;
     uint32_t id = 1;
-    Logger::info("Writing num nodes at pos {}", (size_t)ofs.tellp());
     ofs.write(reinterpret_cast<const char*>(&num_nodes), sizeof(num_nodes));
     for (const auto& [entity_id, nodes] : m_entity_nodes_map)
     {
@@ -79,7 +78,6 @@ namespace fury
     SceneGraphManager::clear();
     std::map<SceneNode*, NodeSerializationInfo> nodes_serialization_map;
     std::map<uint32_t, SceneNode*> id_to_node_map;
-    Logger::info("Reading num nodes at pos {}", (size_t)ifs.tellg());
     uint32_t num_nodes;
     ifs.read(reinterpret_cast<char*>(&num_nodes), sizeof(num_nodes));
 

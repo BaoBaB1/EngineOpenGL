@@ -36,8 +36,7 @@ namespace fury
     static void clear_dirty_nodes()
     {
       m_dirty_nodes.clear();
-      m_dirty_nodes = m_dirty_nodes2;
-      m_dirty_nodes2.clear();
+      m_dirty_nodes = std::move(m_dirty_nodes2);
     }
 
     static std::set<SceneNode*>& get_dirty_nodes()
@@ -54,6 +53,11 @@ namespace fury
           Logger::warn("SceneGraphManager::remove_entity_nodes: entity with id {} has no nodes.", id);
         }
         return false;
+      }
+      for (auto& node_ptr : m_entity_nodes_map.at(id))
+      {
+        m_dirty_nodes.erase(node_ptr.get());
+        m_dirty_nodes2.erase(node_ptr.get());
       }
       m_entity_nodes_map.erase(id);
       return true;
