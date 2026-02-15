@@ -4,22 +4,22 @@ namespace fury
 {
   template<int N>
   FaceN<N>::FaceN(const FaceN& other) {
-    std::memcpy(data, other.data, sizeof(GLuint) * N);
+    std::memcpy(data, other.data, sizeof(IdxType) * N);
   }
 
   template<int N>
   FaceN<N>& FaceN<N>::operator=(const FaceN& other) {
     if (this != &other)
     {
-      std::memcpy(data, other.data, sizeof(GLuint) * N);
+      std::memcpy(data, other.data, sizeof(IdxType) * N);
     }
     return *this;
   }
 
   template<int N>
-  FaceN<N>::FaceN(const std::array<GLuint, N>& indices)
+  FaceN<N>::FaceN(const std::array<IdxType, N>& indices)
   {
-    std::memcpy(data, indices.data(), sizeof(GLuint) * N);
+    std::memcpy(data, indices.data(), sizeof(IdxType) * N);
   }
 
   template<int N>
