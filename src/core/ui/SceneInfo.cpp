@@ -7,6 +7,7 @@
 #include "core/ObjectChangeInfo.hpp"
 #include "core/TextureManager.hpp"
 #include "core/RotationController.hpp"
+#include "core/SceneGraphManager.hpp"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -30,7 +31,7 @@ namespace fury
   {
   }
 
-  void SceneInfo::tick()
+  void SceneInfo::tick(float)
   {
     if (!is_visible())
       return;
@@ -50,15 +51,13 @@ namespace fury
 
     if (ImGui::BeginListBox("##ListBox"))
     {
-      int idx = 0;
       for (auto& obj : m_scene->get_drawables())
       {
         bool selected = obj->is_selected();
-        if (ImGui::Selectable((obj->get_name() + std::to_string(idx + 1)).c_str(), &selected))
+        if (ImGui::Selectable(obj->get_name().c_str(), &selected))
         {
           m_scene->select_object(obj.get(), true);
         }
-        ++idx;
       }
       ImGui::EndListBox();
     }
@@ -101,7 +100,7 @@ namespace fury
     }
 
     // lights section
-    const auto lights = m_scene->get_valid_lights();
+    const auto& lights = m_scene->get_lights();
     static std::vector<const char*> light_names;
     static int selected_light_idx = -1;
     ImGui::Separator();
@@ -110,31 +109,34 @@ namespace fury
     // clear vector in case some lights were added/removed from scene 
     // (lights.size() check is not reliable, because we could remove and add new light at the same time)
     light_names.clear();
-    for (const Light* light : lights)
+    for (const Light& light : lights)
     {
-      light_names.push_back(::light_type_to_str(light->get_type()));
+      light_names.push_back(::light_type_to_str(light.get_type()));
     }
     const int light_list_visible_items = std::min(light_names.size(), 6ULL);
     ImGui::ListBox("##", &selected_light_idx, light_names.data(), light_names.size(), light_list_visible_items);
     if (selected_light_idx != -1)
     {
-      const Light* selected_light = lights[selected_light_idx];
-      bool active = selected_light->is_enabled();
+      const Light& selected_light = lights[selected_light_idx];
+      auto transform = SceneGraphManager::get_entity_node<TransformationSceneNode>(selected_light.get_id());
+      bool active = selected_light.is_enabled();
       if (ImGui::Checkbox("Active", &active))
       {
         if (active)
         {
-          const_cast<Light*>(selected_light)->enable();
+          const_cast<Light&>(selected_light).enable();
+          // so renderer will update lights data if it has changed
+          SceneGraphManager::add_dirty_node(transform);
         }
         else
         {
-          const_cast<Light*>(selected_light)->disable();
+          const_cast<Light&>(selected_light).disable();
         }
-        light_visibility_toggle.notify(selected_light, active);
+        light_visibility_toggle.notify(&selected_light, active);
       }
-      if (selected_light->get_parent())
+      if (transform->has_parent())
       {
-        ImGui::Text("Attached to %s", selected_light->get_parent()->get_name().c_str());
+        ImGui::Text("Attached to %s", transform->get_parent()->get_owner()->get_name().c_str());
       }
     }
     
@@ -174,8 +176,9 @@ namespace fury
       ImGui::PopItemWidth();
 
       render_xyz_markers(item_spacing.x, slider_width, item_spacing.x);
-      m_obj_translation = drawable.translation();
-      glm::vec3 old_translation = drawable.translation();
+      TransformationSceneNode* transform = SceneGraphManager::get_entity_node<TransformationSceneNode>(drawable.get_id());
+      m_obj_translation = transform->get_translation();
+      glm::vec3 old_translation = m_obj_translation;
       ObjectChangeInfo transformation_change;
       transformation_change.is_transformation_change = true;
 
@@ -185,7 +188,7 @@ namespace fury
         ImGui::PushID(&m_obj_translation.x + i);
         if (ImGui::InputFloat("##translation", &m_obj_translation.x + i))
         {
-          reinterpret_cast<glm::vec3&>(drawable.model_matrix()[3]) = m_obj_translation;
+          transform->set_translation(m_obj_translation);
           // in world space
           transformation_change.position_change = m_obj_translation - old_translation;
           on_object_change.notify(&drawable, transformation_change);
@@ -199,7 +202,7 @@ namespace fury
         ImGui::PushID(&m_obj_translation.x + i);
         if (ImGui::SliderFloat("##translation2", &m_obj_translation.x + i, -10.0f, 10.0f))
         {
-          reinterpret_cast<glm::vec3&>(drawable.model_matrix()[3]) = m_obj_translation;
+          transform->set_translation(m_obj_translation);
           // in world space
           transformation_change.position_change = m_obj_translation - old_translation;
           on_object_change.notify(&drawable, transformation_change);
@@ -214,7 +217,7 @@ namespace fury
       ImGui::SetCursorPosX((wsize.x / 2.f) - (text_size.x / 2.f));
       ImGui::Text("Scale");
       render_xyz_markers(item_spacing.x, slider_width, item_spacing.x);
-      m_obj_scale = drawable.scale();
+      m_obj_scale = transform->get_scale();
       for (int i = 0; i < 3; i++)
       {
         ImGui::PushID(&m_obj_scale.x + i);
@@ -222,7 +225,7 @@ namespace fury
         {
           if (m_obj_scale.x != 0 && m_obj_scale.y != 0 && m_obj_scale.z != 0)
           {
-            drawable.scale(m_obj_scale);
+            transform->set_scale(m_obj_scale);
             on_object_change.notify(&drawable, transformation_change);
           }
         }
@@ -235,7 +238,7 @@ namespace fury
         ImGui::PushID(&m_obj_scale.x + i);
         if (ImGui::SliderFloat("##scale2", &m_obj_scale.x + i, 0.1f, 5.0f))
         {
-          drawable.scale(m_obj_scale);
+          transform->set_scale(m_obj_scale);
           on_object_change.notify(&drawable, transformation_change);
         }
         ImGui::PopID();
@@ -244,26 +247,33 @@ namespace fury
       ImGui::NewLine();
       ImGui::PopItemWidth();
 
-      if (ObjectController* controller = drawable.get_controller(ObjectController::Type::ROTATION))
+      for (const auto& controller : m_scene->m_controllers)
       {
-        ImGui::Separator();
-        text_size = ImGui::CalcTextSize("Rotation");
-        ImGui::SetCursorPosX((wsize.x / 2.f) - (text_size.x / 2.f));
-        ImGui::Text("Rotation");
-        bool rotating = controller->is_enabled();
-        if (ImGui::Checkbox("Rotate", &rotating))
+        if (controller->get_entity() == &drawable)
         {
-          if (rotating)
-            controller->enable();
-          else
-            controller->disable();
+          if (controller->get_dynamic_type_id() == RotationController::cls_id)
+          {
+            ImGui::Separator();
+            text_size = ImGui::CalcTextSize("Rotation");
+            ImGui::SetCursorPosX((wsize.x / 2.f) - (text_size.x / 2.f));
+            ImGui::Text("Rotation");
+            bool rotating = controller->is_enabled();
+            if (ImGui::Checkbox("Rotate", &rotating))
+            {
+              if (rotating)
+                controller->enable();
+              else
+                controller->disable();
+            }
+            const glm::vec3 axis = static_cast<RotationController*>(controller.get())->get_rotation_axis();
+            const float angle = static_cast<RotationController*>(controller.get())->get_rotation_angle();
+            ImGui::TextWrapped("Rotation axis [%.3f, %.3f, %.3f]", axis.x, axis.y, axis.z);
+            ImGui::Text("Rotation angle %.3f degrees", angle);
+          }
+          break;
         }
-        const glm::vec3 axis = static_cast<RotationController*>(controller)->get_rotation_axis();
-        const float angle = static_cast<RotationController*>(controller)->get_rotation_angle();
-        ImGui::TextWrapped("Rotation axis [%.3f, %.3f, %.3f]", axis.x, axis.y, axis.z);
-        ImGui::Text("Rotation angle %.3f degrees", angle);
       }
-
+    
       // other properties
       ImGui::Separator();
       ImGui::PushItemWidth(-1);

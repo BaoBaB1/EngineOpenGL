@@ -42,7 +42,7 @@ namespace fury
   public:
     GeometryPass(SceneRenderer* scene, int shadow_map_texture);
     void update() override;
-    void tick() override;
+    void tick(float) override;
   private:
     void allocate_memory_for_buffers();
     void split_objects();
@@ -60,7 +60,6 @@ namespace fury
     VertexBufferObject m_vbo_arrays;
     ElementBufferObject m_ebo;
     SSBO m_lights_data_ssbo;
-    SSBO m_lights_shadow_matrices_ssbo;
     std::map<const Object3D*, std::vector<MeshRenderOffsets>> m_render_offsets;
     std::vector<const Object3D*> m_objects_indices_rendering_mode;
     std::vector<const Object3D*> m_objects_arrays_rendering_mode;
@@ -72,7 +71,7 @@ namespace fury
   public:
     ShadowsPass(SceneRenderer* scene, GeometryPass* gp);
     void update() override;
-    void tick() override;
+    void tick(float) override;
   private:
     GeometryPass* m_gp;
   };
@@ -92,7 +91,7 @@ namespace fury
   public:
     NormalsPass(SceneRenderer* scene);
     void update() override;
-    void tick() override;
+    void tick(float) override;
   private:
     void handle_visible_normals_toggle(Object3D* obj, bool is_visible);
     void handle_object_change(Object3D* obj, const ObjectChangeInfo& info);
@@ -112,7 +111,7 @@ namespace fury
   public:
     BoundingBoxPass(SceneRenderer* scene);
     void update() override;
-    void tick() override;
+    void tick(float) override;
   private:
     void handle_visible_bbox_toggle(Object3D* obj, bool is_visible);
     void handle_scene_visible_bbox_toggle(bool is_visible);
@@ -131,7 +130,7 @@ namespace fury
   public:
     SelectionWheelPass(SceneRenderer* scene, ItemSelectionWheel* wheel);
     void update() override;
-    void tick() override;
+    void tick(float) override;
   private:
     ItemSelectionWheel* m_wheel = nullptr;
     // fop all wheel geometry
@@ -149,7 +148,7 @@ namespace fury
   public:
     InfiniteGridPass(SceneRenderer* scene);
     void update() override {}
-    void tick() override;
+    void tick(float) override;
   private:
     VertexArrayObject m_vao;
   };
@@ -159,7 +158,7 @@ namespace fury
   public:
     DebugPass(SceneRenderer* scene);
     void update() override;
-    void tick() override;
+    void tick(float) override;
     void add_poly(const Polyline& poly);
     void clear();
   private:

@@ -13,9 +13,9 @@ namespace fury
 	{
 	public:
 		Gizmo(SceneRenderer* scene);
-		void tick() override;
+		void tick(float) override;
 		Event<Object3D*, const ObjectChangeInfo&> on_object_change;
 	private:
-		uint16_t m_guizmo_operation;
+		uint16_t m_gizmo_operation;
 	};
 }

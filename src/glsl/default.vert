@@ -15,6 +15,7 @@ struct LightInfo
 	vec4 ambient;
 	vec4 diffuse;
 	vec4 specular;
+	mat4 shadowMatrix;
 
 	// attenuation info for point light
 	float constant;
@@ -28,7 +29,6 @@ struct LightInfo
 
 	// 0 - directional, 1 - point, 2 - spot
 	int type;
-	int shadowMatrixBufferIndex;
 };
 
 layout (std140, binding = 0) uniform CameraData
@@ -40,12 +40,6 @@ layout (std140, binding = 0) uniform CameraData
 layout (std430, binding = 2) buffer Lights
 {
 	LightInfo lightInfos[];
-};
-
-layout (std430, binding = 3) buffer ShadowMatrices
-{
-	// matrices for transformation to light space. now only for directional light
-	mat4 shadowMatrices[];
 };
 
 uniform mat4 modelMatrix;
@@ -68,7 +62,7 @@ void main()
 	{
 		if (lightInfos[i].type == g_directionalLightType)
 		{
-			fragPosDirectionalLightSpace = shadowMatrices[lightInfos[i].shadowMatrixBufferIndex] * vec4(fragment, 1);
+			fragPosDirectionalLightSpace = lightInfos[i].shadowMatrix * vec4(fragment, 1);
 		}
 	}
 }

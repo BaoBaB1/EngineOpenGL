@@ -16,7 +16,7 @@ namespace fury
 	public:
 		SceneInfo(SceneRenderer* scene, MenuBar* menubar);
 		bool is_grid_visible() const { return m_show_grid; }
-		void tick() override;
+		void tick(float) override;
 		Event<Object3D*, bool> on_visible_normals_button_pressed;
 		Event<Object3D*, bool> on_visible_bbox_button_pressed;
 		Event<Object3D*, const ObjectChangeInfo&> on_object_change;

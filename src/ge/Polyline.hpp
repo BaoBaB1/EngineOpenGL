@@ -5,14 +5,12 @@
 
 namespace fury
 {
-  struct Vertex;
-
   class Polyline : public Object3D {
   public:
+    FURY_REGISTER_DERIVED_CLASS(Polyline, Object3D)
     Polyline();
     Polyline(std::initializer_list<Vertex> points);
-    uint32_t get_type() const override { return ObjectsRegistry::get_id<Polyline>(); }
-    std::optional<RayHit> hit(const Ray& ray) const override { return {}; }
+    Polyline(const std::vector<Vertex>& points);
     void add(const Vertex& point);
     const std::vector<Vertex>& get_points() const { return get_mesh(0).vertices(); }
   };

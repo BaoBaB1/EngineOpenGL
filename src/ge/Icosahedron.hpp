@@ -7,8 +7,8 @@ namespace fury
   class Icosahedron : public Object3D
   {
   public:
+    FURY_REGISTER_DERIVED_CLASS(Icosahedron, Object3D)
     Icosahedron();
-    uint32_t get_type() const override { return ObjectsRegistry::get_id<Icosahedron>(); }
     void subdivide_triangles(int subdivision_depth);
     void project_points_on_sphere();
   private:

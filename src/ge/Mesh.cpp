@@ -42,18 +42,4 @@ namespace fury
     }
     return m_faces_indices;
   }
-
-  std::vector<std::pair<TextureType, Texture2D*>> Mesh::get_present_textures() const
-  {
-    std::vector<std::pair<TextureType, Texture2D*>> textures;
-    textures.reserve(m_textures.size());
-    for (int i = 0; i < static_cast<int>(TextureType::LAST); i++)
-    {
-      if (auto tex = get_texture(static_cast<TextureType>(i)))
-      {
-        textures.push_back(std::make_pair(static_cast<TextureType>(i), tex.get()));
-      }
-    }
-    return textures;
-  }
 }

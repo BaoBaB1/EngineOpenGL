@@ -1,50 +1,46 @@
 #pragma once
 
 #include "Logger.hpp"
-#include <string>
 #include <functional>
+#include <unordered_map>
+#include <type_traits>
 
 namespace fury
 {
-  class Object3D;
-
   class ObjectsRegistry
   {
   public:
+    // return some dummy value to be able to call it during class declaration
     template<typename T>
-    static uint32_t register_type()
+    static int register_type(uint32_t cls_id)
     {
-      auto& entry = type_map[typeid(T).name()];
-      entry.first = id;
-      entry.second = []() -> std::unique_ptr<Object3D> { return std::make_unique<T>(); };
-      return id++;
-    }
-
-    template<typename T>
-    static bool contains() { return type_map.count(typeid(T).name()) != 0; }
-
-    template<typename T>
-    static uint32_t get_id()
-    {
-      return type_map.at(typeid(T).name()).first;
-    }
-
-    static std::unique_ptr<Object3D> create(uint32_t id)
-    {
-      for (const auto& [key, val]: type_map)
+      if constexpr (std::is_default_constructible_v<T>)
       {
-        if (val.first == id)
-        {
-          return val.second();
+        if (type_map.count(cls_id) != 0) {
+          Logger::warn("Type {} has already been registered! Trying to register classes with same names?", T::cls_name);
+          return -1;
         }
+        type_map.insert({ T::cls_id, []() { return new T; } });
+        return 0;
       }
-      Logger::warn("Could not find object with id {} in objects registry. Creating Object3D.", id);
-      return std::unique_ptr<Object3D>();
+      else {
+        return -1;
+      }
+    }
+
+    static bool contains(uint32_t cls_id) { return type_map.count(cls_id) != 0; }
+
+    [[nodiscard]] static void* create(uint32_t cls_id)
+    {
+      if (!contains(cls_id))
+      {
+        Logger::error("ObjectsRegistry::create: failed to create instance with class id {}.", cls_id);
+        return nullptr;
+      }
+      return type_map.at(cls_id)();
     }
 
   private:
-    using FactoryMethod = std::function<std::unique_ptr<Object3D>()>;
-    inline static std::unordered_map<std::string, std::pair<uint32_t, FactoryMethod>> type_map;
-    inline static uint32_t id = 0;
+    inline static std::unordered_map<uint32_t, std::function<void* ()>> type_map;
   };
 }

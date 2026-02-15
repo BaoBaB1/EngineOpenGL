@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.13.0)
 set(CMAKE_CXX_STANDARD 17)
-set(PROJECT_NAME "OpenGLEngineTests")
+set(PROJECT_NAME "FuryEngineTests")
 project(${PROJECT_NAME})
 
 file(GLOB_RECURSE TESTS_SOURCES
@@ -10,11 +10,11 @@ file(GLOB_RECURSE TESTS_SOURCES
 	)
 
 # TODO: make library from these sources and link them as lib
-get_target_property(ENGINE_SOURCES OpenGLEngine SOURCES)
+get_target_property(ENGINE_SOURCES FuryEngine SOURCES)
 # exclude file with main.cpp
 list(FILTER ENGINE_SOURCES EXCLUDE REGEX ".*AppMain.*")
-get_target_property(ENGINE_INCLUDES OpenGLEngine INCLUDE_DIRECTORIES)
-get_target_property(ENGINE_LINKED_LIBS OpenGLEngine LINK_LIBRARIES)
+get_target_property(ENGINE_INCLUDES FuryEngine INCLUDE_DIRECTORIES)
+get_target_property(ENGINE_LINKED_LIBS FuryEngine LINK_LIBRARIES)
 
 enable_testing()
 

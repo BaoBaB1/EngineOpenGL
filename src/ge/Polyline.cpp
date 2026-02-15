@@ -3,7 +3,7 @@
 
 namespace fury
 {
-  Polyline::Polyline() : Object3D("Polyline")
+  Polyline::Polyline()
   {
     emplace_mesh();
     m_render_config.use_indices = false;
@@ -14,6 +14,11 @@ namespace fury
   Polyline::Polyline(std::initializer_list<Vertex> points) : Polyline()
   {
     std::for_each(points.begin(), points.end(), [this](const Vertex& v) { add(v); });
+  }
+
+  Polyline::Polyline(const std::vector<Vertex>& points) : Polyline()
+  {
+    get_mesh(0).vertices() = points;
   }
 
   void Polyline::add(const Vertex& point)

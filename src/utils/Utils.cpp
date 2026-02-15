@@ -1,6 +1,15 @@
 #include "Utils.hpp"
 #include "core/Logger.hpp"
 
+#ifdef _WIN32
+  #include <Windows.h>
+#elif __APPLE__
+  #include <mach-o/dyld.h>
+  #include <climits>
+#else
+  #include <unistd.h>
+#endif
+
 namespace
 {
   std::filesystem::path find_root_dir()
@@ -34,6 +43,32 @@ namespace fury
     {
       static std::filesystem::path root_path = find_root_dir();
       return root_path;
+    }
+
+    std::filesystem::path get_exe_path()
+    {
+      // https://stackoverflow.com/questions/50889647/best-way-to-get-exe-folder-path/51023983#51023983
+      // not tested for anything but windows
+#ifdef _WIN32
+      wchar_t szPath[MAX_PATH];
+      GetModuleFileNameW(NULL, szPath, MAX_PATH);
+      return std::filesystem::path(szPath);
+#elif __APPLE__
+      char szPath[PATH_MAX];
+      uint32_t bufsize = PATH_MAX;
+      if (!_NSGetExecutablePath(szPath, &bufsize))
+        return std::filesystem::path{ szPath }.parent_path() / ""; // to finish the folder path with (back)slash
+      return {};  // some error
+#else
+      // Linux specific
+      char szPath[PATH_MAX];
+      ssize_t count = readlink("/proc/self/exe", szPath, PATH_MAX);
+      if (count < 0 || count >= PATH_MAX)
+        return {}; // some error
+      szPath[count] = '\0';
+      return std::filesystem::path(szPath);
+    }
+#endif
     }
 
     void trim(std::string& str, const char* pattern)

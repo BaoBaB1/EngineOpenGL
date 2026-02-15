@@ -15,7 +15,7 @@ namespace fury
 	public:
 		FileExplorer(SceneRenderer* scene);
 		void open(const OpenFileExplorerContext& ctx, std::function<void(const std::string&)> callback);
-		void tick() override;
+		void tick(float) override;
 	private:
 		std::string m_title;
 		std::string m_file_extensions;

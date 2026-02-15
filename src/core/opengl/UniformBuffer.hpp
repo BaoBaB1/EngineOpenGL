@@ -7,8 +7,7 @@ namespace fury
 	class UniformBuffer : public OpenGLBuffer
 	{
 	public:
-		OnlyMovable(UniformBuffer)
-			UniformBuffer();
+		UniformBuffer();
 		UniformBuffer(size_t size);
 	};
 }

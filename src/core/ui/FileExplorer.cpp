@@ -13,7 +13,7 @@ namespace fury
   {
   }
 
-  void FileExplorer::tick()
+  void FileExplorer::tick(float)
   {
     if (!m_is_visible)
     {

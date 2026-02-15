@@ -1,6 +1,6 @@
 #pragma once
 
-#include "utils/Macro.hpp"
+#include "core/Macros.hpp"
 #include "UiComponent.hpp"
 #include "SceneInfo.hpp"
 #include "MenuBar.hpp"
@@ -20,10 +20,10 @@ namespace fury
   public:
     Ui() = default;
     Ui(SceneRenderer* scene);
-    OnlyMovable(Ui)
+    FURY_OnlyMovable(Ui)
     ~Ui();
     void init(SceneRenderer* scene);
-    void tick() override;
+    void tick(float dt) override;
     UiComponent* get_component(const std::string& name) { return m_components.at(name).get(); }
     template<typename T> 
     T* get_component(const std::string& name)

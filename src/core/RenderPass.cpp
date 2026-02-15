@@ -7,8 +7,10 @@
 #include "Shader.hpp"
 #include "ShaderStorage.hpp"
 #include "SceneRenderer.hpp"
+#include "SceneGraphManager.hpp"
 #include "Event.hpp"
 #include "ge/Polyline.hpp"
+#include <glm/gtx/quaternion.hpp>
 
 namespace
 {
@@ -78,16 +80,6 @@ namespace fury
     }
     else if (info.is_transformation_change)
     {
-      for (const Light* l : m_scene->get_active_lights())
-      {
-        if (l->get_parent() == obj)
-        {
-          // TODO: handle scale and rotations as well
-          const_cast<Light*>(l)->update_position(glm::vec3(l->get_description().position) + info.position_change);
-          update_lights_data();
-          return;
-        }
-      }
     }
   }
 
@@ -102,11 +94,6 @@ namespace fury
       m_lights_data_ssbo.set_data(&lights[i]->get_description(), sizeof(LightDescription), i * sizeof(LightDescription));
     }
     m_lights_data_ssbo.unbind();
-    m_lights_shadow_matrices_ssbo.bind();
-    m_lights_shadow_matrices_ssbo.resize_if_smaller(Light::shadow_matrices.size() * sizeof(glm::mat4));
-    m_lights_shadow_matrices_ssbo.set_binding_point(3);
-    m_lights_shadow_matrices_ssbo.set_data(Light::shadow_matrices.data(), Light::shadow_matrices.size() * sizeof(glm::mat4), 0);
-    m_lights_shadow_matrices_ssbo.unbind();
   }
 
   void GeometryPass::allocate_memory_for_buffers()
@@ -166,28 +153,13 @@ namespace fury
     Camera& camera = m_scene->get_camera();
     Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::DEFAULT);
     shader->bind();
-    shader->set_vec3("viewPos", camera.position());
+    shader->set_vec3("viewPos", camera.get_position());
     shader->set_int("defaultTexture", 0);
     shader->set_int("ambientTex", 1);
     shader->set_int("diffuseTex", 2);
     shader->set_int("specularTex", 3);
     shader->set_int("shadowMap", 4);
     shader->set_int("numLights", m_scene->get_active_lights().size());
-    const std::vector<Light*> spot_lights = m_scene->get_lights(LightType::SPOT);
-    assert(spot_lights.empty() || spot_lights.size() == 1);
-    if (!spot_lights.empty())
-    {
-      // TODO: fix this
-      // now if it's a spot light, then it's attached to the camera position
-      Light* camera_pos_light = spot_lights.front();
-      if (glm::vec3(camera_pos_light->get_description().position) != m_scene->get_camera().position() ||
-        glm::vec3(camera_pos_light->get_description().dir) != m_scene->get_camera().target())
-      {
-        camera_pos_light->update_position(m_scene->get_camera().position());
-        camera_pos_light->update_direction(m_scene->get_camera().target());
-        update_lights_data();
-      }
-    }
 
     // set shadow map
     glActiveTexture(GL_TEXTURE0 + 4);
@@ -217,7 +189,8 @@ namespace fury
       for (size_t obj_i = 0; obj_i < size; obj_i++)
       {
         const Object3D* obj = ppobj[obj_i];
-        shader->set_matrix4f("modelMatrix", obj->model_matrix());
+        auto node = SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id());
+        shader->set_matrix4f("modelMatrix", node->get_world_mat());
         shader->set_bool("applyShading", obj->shading_mode() != Object3D::ShadingMode::NO_SHADING);
 
         if (obj->is_selected() && obj->has_surface())
@@ -327,9 +300,12 @@ namespace fury
     {
       if (obj->has_surface())
       {
-        const glm::vec3 old_scale = obj->scale();
-        obj->scale(glm::vec3(old_scale + 0.05f));
-        shader->set_matrix4f("modelMatrix", obj->model_matrix());
+        auto node = SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id());
+        glm::mat4 selected_world_mat(1.f);
+        selected_world_mat = glm::translate(selected_world_mat, node->get_translation());
+        selected_world_mat = glm::scale(selected_world_mat, node->get_scale() + 0.05f);
+        selected_world_mat = selected_world_mat * glm::toMat4(node->get_rotation());
+        shader->set_matrix4f("modelMatrix", selected_world_mat);
         const auto& render_config = obj->get_render_config();
         const size_t mesh_count = obj->mesh_count();
         const std::vector<MeshRenderOffsets>& meshes_offsets = m_render_offsets.at(obj);
@@ -348,7 +324,6 @@ namespace fury
             glDrawArrays(render_config.mode, static_cast<GLint>(mesh_offsets.vbo_arrays_offset), static_cast<GLsizei>(mesh.vertices().size()));
           }
         }
-        obj->scale(glm::vec3(old_scale));
       }
     }
     glStencilMask(0xFF);
@@ -415,11 +390,29 @@ namespace fury
     }
   }
 
-  void GeometryPass::tick()
+  void GeometryPass::tick(float)
   {
     if (m_scene->get_drawables().empty())
     {
       return;
+    }
+    for (SceneNode* node : SceneGraphManager::get_dirty_nodes())
+    {
+      // if im light
+      if (node->get_owner()->get_dynamic_type_id() == Light::get_static_type_id())
+      {
+        Light* light = static_cast<Light*>(node->get_owner());
+        if (light->is_enabled())
+        {
+          //Logger::info("Dirty light type {}", light->get_description().type);
+          TransformationSceneNode* transform_node = static_cast<TransformationSceneNode*>(node);
+          light->get_description().position = glm::vec4(transform_node->get_world_mat()[3]);
+          glm::vec3 dir = -glm::normalize(glm::vec3(transform_node->get_world_mat()[2]));
+          light->get_description().dir = glm::vec4(dir, 0);
+          //Logger::info("Updating lights data. New pos {}, new dir {}", light->get_description().position, light->get_description().dir);
+          update_lights_data();
+        }
+      }
     }
     render_scene();
     render_selected_objects();
@@ -468,7 +461,7 @@ namespace fury
       if (!obj->is_normals_visible())
         continue;
       m_objects_with_visible_normals.insert(obj.get());
-      m_model_matrices.emplace_back(obj->model_matrix());
+      m_model_matrices.emplace_back(SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id())->get_world_mat());
       ObjectGeometryMetadata meta = obj->get_geometry_metadata();
       ObjectRenderOffsets& obj_offsets = m_object_offsets[obj.get()];
       m_voffsets.push_back(vbo_offset / sizeof(Vertex));
@@ -488,7 +481,7 @@ namespace fury
     m_model_matrices_ssbo.unbind();
   }
 
-  void NormalsPass::tick()
+  void NormalsPass::tick(float)
   {
     if (m_objects_with_visible_normals.empty())
       return;
@@ -529,7 +522,7 @@ namespace fury
         ObjectRenderOffsets& obj_info = m_object_offsets[obj];
         m_voffsets.push_back(obj_info.vbo_offset_vtx_count);
         m_vcounts.push_back(obj_info.vcount);
-        m_model_matrices.push_back(obj->model_matrix());
+        m_model_matrices.push_back(SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id())->get_world_mat());
         obj_info.internal_idx = idx++;
       }
       m_model_matrices_ssbo.bind();
@@ -548,8 +541,9 @@ namespace fury
       {
         // update model matrix
         ObjectRenderOffsets& info = m_object_offsets.at(obj);
+        const glm::mat4& mat = SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id())->get_world_mat();
         m_model_matrices_ssbo.bind();
-        m_model_matrices_ssbo.set_data(glm::value_ptr(obj->model_matrix()), sizeof(glm::mat4), info.internal_idx * sizeof(glm::mat4));
+        m_model_matrices_ssbo.set_data(glm::value_ptr(mat), sizeof(glm::mat4), info.internal_idx * sizeof(glm::mat4));
         m_model_matrices_ssbo.unbind();
       }
       // shading mode has changed
@@ -608,10 +602,11 @@ namespace fury
     {
       if (drawable->is_bbox_visible())
       {
-        const glm::mat4& model_mat = drawable->model_matrix();
-        const glm::vec3 center_world = model_mat * glm::vec4(drawable->bbox().center(), 1);
-        const glm::vec3 min_world = model_mat * glm::vec4(drawable->bbox().min(), 1);
-        const glm::vec3 max_world = model_mat * glm::vec4(drawable->bbox().max(), 1);
+        drawable->calculate_bbox(true);
+        const glm::mat4& model_mat = SceneGraphManager::get_entity_node<TransformationSceneNode>(drawable->get_id())->get_world_mat();
+        const glm::vec3 center_world = model_mat * glm::vec4(drawable->get_bbox().center(), 1);
+        const glm::vec3 min_world = model_mat * glm::vec4(drawable->get_bbox().min(), 1);
+        const glm::vec3 max_world = model_mat * glm::vec4(drawable->get_bbox().max(), 1);
         glm::mat4& out_mat = instance_data.emplace_back(1.f);
         out_mat = glm::translate(out_mat, center_world);
         out_mat = glm::scale(out_mat, max_world - min_world);
@@ -631,7 +626,7 @@ namespace fury
     m_vbo_instance.unbind();
   }
 
-  void BoundingBoxPass::tick()
+  void BoundingBoxPass::tick(float)
   {
     if (m_instances == 0)
       return;
@@ -678,7 +673,7 @@ namespace fury
     assert(dir_lights.size() == 1);
     Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::SHADOW_MAP);
     shader->bind();
-    shader->set_matrix4f("lightViewProjMatrix", dir_lights.front()->get_shadow_matrix());
+    shader->set_matrix4f("lightViewProjMatrix", dir_lights.front()->get_description().shadow_matrix);
     for (int i = 0; i < 2; i++)
     {
       const Object3D** ppobj = nullptr;
@@ -703,7 +698,7 @@ namespace fury
       for (size_t obj_i = 0; obj_i < size; obj_i++)
       {
         const Object3D* obj = ppobj[obj_i];
-        shader->set_matrix4f("modelMatrix", obj->model_matrix());
+        shader->set_matrix4f("modelMatrix", SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id())->get_world_mat());
 
         const auto& render_config = obj->get_render_config();
         const size_t mesh_count = obj->mesh_count();
@@ -729,7 +724,7 @@ namespace fury
     shader->unbind();
   }
 
-  void ShadowsPass::tick()
+  void ShadowsPass::tick(float)
   {
   }
 
@@ -754,7 +749,7 @@ namespace fury
     }
   }
 
-  void DebugPass::tick()
+  void DebugPass::tick(float)
   {
     if (m_polys.empty())
       return;
@@ -775,7 +770,7 @@ namespace fury
 
   void DebugPass::add_poly(const Polyline& poly)
   {
-    m_polys.push_back(poly);
+    m_polys.emplace_back(poly.get_points());
   }
 
   void DebugPass::clear()
@@ -865,7 +860,7 @@ namespace fury
   {
   }
 
-  void SelectionWheelPass::tick()
+  void SelectionWheelPass::tick(float dt)
   {
     if (!m_wheel->is_visible())
       return;
@@ -914,7 +909,7 @@ namespace fury
   {
   }
 
-  void InfiniteGridPass::tick()
+  void InfiniteGridPass::tick(float)
   {
     if (!m_scene->get_ui().get_component<SceneInfo>("SceneInfo")->is_grid_visible())
     {

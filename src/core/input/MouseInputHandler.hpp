@@ -10,7 +10,6 @@ namespace fury
   class MouseInputHandler : public UserInputHandler
   {
   public:
-    OnlyMovable(MouseInputHandler)
     MouseInputHandler(WindowGLFW* window);
     Event<int, int, int> on_button_click;
   private:

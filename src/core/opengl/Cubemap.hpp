@@ -10,7 +10,6 @@ namespace fury
   {
   public:
     Cubemap() = default;
-    OnlyMovable(Cubemap)
     Cubemap(const std::array<std::string, 6>& textures);
     Cubemap(const std::array<std::string_view, 6>& textures);
     Cubemap(const std::array<std::filesystem::path, 6>& textures);

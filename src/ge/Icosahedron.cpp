@@ -5,7 +5,7 @@
 
 namespace fury
 {
-  Icosahedron::Icosahedron() : Object3D("Icosahedron")
+  Icosahedron::Icosahedron()
   {
     auto& mesh = emplace_mesh();
     mesh.vertices().reserve(12);

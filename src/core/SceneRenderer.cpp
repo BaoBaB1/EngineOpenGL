@@ -18,10 +18,15 @@
 #include "ge/Pyramid.hpp"
 #include "ge/BezierCurve.hpp"
 #include "ge/Skybox.hpp"
+#include "ge/Object3D.hpp"
 #include "ObjectsRegistry.hpp"
 #include "TextureManager.hpp"
 #include "utils/Utils.hpp"
 #include "AssetManager.hpp"
+#include "RotationController.hpp"
+#include "EntityManager.hpp"
+#include "SceneGraphManager.hpp"
+#include "ObjectChangeInfo.hpp"
 
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -169,7 +174,7 @@ namespace fury
     for (int i = 0; i < cfg.items_count; i++)
     {
       if (i % 2 == 0)
-        m_selection_wheel.get_slot(i)->icon = TextureManager::get(AssetManager::get_from_relative("textures/brick.jpg").value()).get();
+        m_selection_wheel.get_slot(i)->icon = TextureManager::get(AssetManager::get_absolute_from_relative("textures/brick.jpg").value()).get();
     }
 
     m_render_passes.emplace_back(std::make_unique<GeometryPass>(this, shadows_fbo.texture()->id()));
@@ -180,7 +185,8 @@ namespace fury
     m_shadows_pass = std::make_unique<ShadowsPass>(this, static_cast<GeometryPass*>(m_render_passes[0].get()));
     m_debug_pass = std::make_unique<DebugPass>(this);
     
-    load(AssetManager::get_from_relative("scenes/demo.bin").value().string());
+    //load(AssetManager::get_from_relative("scenes/demo.bin").value().string());
+    create_default_scene();
   }
 
   SceneRenderer::~SceneRenderer()
@@ -192,10 +198,12 @@ namespace fury
     const auto& main_fbo = m_fbos.at("main");
     const auto& main_fbo_ms = m_fbos.at("mainMS");
     GLFWwindow* gl_window = m_window->gl_window();
+    ImGuiIO& io = ImGui::GetIO();
     while (!glfwWindowShouldClose(gl_window))
     {
       glfwPollEvents();
-      tick();
+      const float dt = io.DeltaTime;
+      tick(dt);
       glPolygonMode(GL_FRONT_AND_BACK, m_polygon_mode);
 
       const int w = m_window->width();
@@ -217,10 +225,9 @@ namespace fury
         render_skybox();
       for (auto& rp : m_render_passes)
       {
-        rp->tick();
+        rp->tick(dt);
       }
-      //m_debug_pass->tick();
-      m_ui.tick();
+      m_ui.tick(dt);
 
       if (m_MSAA_enabled)
       {
@@ -231,12 +238,13 @@ namespace fury
       }
       glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-      m_screen_quad.tick();
+      m_screen_quad.tick(dt);
       if (m_show_shadow_map)
-        m_shadow_map_quad.tick();
+        m_shadow_map_quad.tick(dt);
 
       m_fps_limiter.wait();
       glfwSwapBuffers(gl_window);
+      SceneGraphManager::clear_dirty_nodes();
     }
   }
 
@@ -245,31 +253,13 @@ namespace fury
     std::ofstream ofs(file, std::ios_base::binary);
     if (!ofs.is_open())
     {
-      Logger::error("Save failed to open file {}.", file);
+      Logger::error("SceneRenderer::save failed to open file {}.", file);
       return;
     }
-    // Save fps cap ???
-    ofs.write(reinterpret_cast<const char*>(&m_polygon_mode), sizeof(GLint));
-    ofs.write(reinterpret_cast<const char*>(&m_camera), sizeof(Camera));
-    const size_t drawables_count = m_drawables.size();
-    ofs.write(reinterpret_cast<const char*>(&drawables_count), sizeof(size_t));
-    for (const auto& drawable : m_drawables)
-    {
-      drawable->write(ofs);
-    }
-    const std::vector<const Light*> lights = get_valid_lights();
-    const uint32_t lights_num = static_cast<uint32_t>(lights.size());
-    ofs.write(reinterpret_cast<const char*>(&lights_num), sizeof(uint32_t));
-    for (const Light* light : lights)
-    {
-      ofs.write(reinterpret_cast<const char*>(&light->get_description()), sizeof(LightDescription));
-      // TODO: better impl for attached lights
-      // index of object in drawables list if object has attached light
-      const int64_t parent = find_object_with_attached_light(light);
-      ofs.write(reinterpret_cast<const char*>(&parent), sizeof(int64_t));
-      const bool is_enabled = light->is_enabled();
-      ofs.write(reinterpret_cast<const char*>(&is_enabled), sizeof(bool));
-    }
+    serializer::prepare_for_serialization();
+    Serializer<SceneRenderer>::write(ofs, this);
+    // TODO: rewrite
+    SceneGraphManager::write(ofs);
     ofs.close();
     // fix to avoid camera jumps ???
     // again, cursor pos in handler can have huge offset difference at this point
@@ -284,49 +274,12 @@ namespace fury
       Logger::error("Load failed to open file {}.", file);
       return;
     }
-
     cleanup();
-
-    ifs.read(reinterpret_cast<char*>(&m_polygon_mode), sizeof(GLint));
-    ifs.read(reinterpret_cast<char*>(&m_camera), sizeof(Camera));
-    // camera is always unfreezed
-    m_camera.unfreeze();
-    size_t drawables_count = 0;
-    ifs.read(reinterpret_cast<char*>(&drawables_count), sizeof(size_t));
-    m_drawables.reserve(drawables_count);
-    for (size_t i = 0; i < drawables_count; i++)
-    {
-      int32_t obj_type;
-      ifs.read(reinterpret_cast<char*>(&obj_type), sizeof(int32_t));
-      std::unique_ptr<Object3D> obj = ObjectsRegistry::create(obj_type);
-      obj->read(ifs);
-      m_drawables.push_back(std::move(obj));
-    }
-    // read lights
-    uint32_t num_lights;
-    ifs.read(reinterpret_cast<char*>(&num_lights), sizeof(uint32_t));
-    for (uint32_t i = 0; i < num_lights; i++)
-    {
-      LightDescription desc;
-      int64_t parent_idx;
-      bool is_enabled;
-      ifs.read(reinterpret_cast<char*>(&desc), sizeof(LightDescription));
-      ifs.read(reinterpret_cast<char*>(&parent_idx), sizeof(int64_t));
-      ifs.read(reinterpret_cast<char*>(&is_enabled), sizeof(bool));
-      m_lights[i].set_description(desc);
-      if (parent_idx != -1)
-      {
-        m_lights[i].set_parent(m_drawables[parent_idx].get());
-      }
-      if (is_enabled)
-      {
-        m_lights[i].enable();
-      }
-      else
-      {
-        m_lights[i].disable();
-      }
-    }
+    SceneGraphManager::clear();
+    EntityManager::clear();
+    serializer::prepare_for_serialization();
+    Serializer<SceneRenderer>::read(ifs, this);
+    SceneGraphManager::read(ifs);
     ifs.close();
     prepare_scene_for_rendering();
   }
@@ -366,11 +319,12 @@ namespace fury
 #endif
       for (const auto& d : m_drawables)
       {
-        const glm::mat4 inv_model_mat = glm::inverse(d->model_matrix());
+        TransformationSceneNode* node = SceneGraphManager::get_entity_node<TransformationSceneNode>(d->get_id());
+        const glm::mat4 inv_model_mat = glm::inverse(node->get_world_mat());
         Ray ray_local = Ray(inv_model_mat * glm::vec4(ray.get_origin(), 1), inv_model_mat * glm::vec4(ray.get_direction(), 0));
-        if (auto hit = d->hit(ray_local))
+        if (auto hit = ray_local.intersect_object3d(d.get()))
         {
-          const glm::vec3 ray_hit_pos_world = d->model_matrix() * glm::vec4(hit->position, 1);
+          const glm::vec3 ray_hit_pos_world = node->get_world_mat() * glm::vec4(hit->position, 1);
 #if DEBUG_RAY
           Polyline poly;
           poly.add(ray.get_origin());
@@ -459,7 +413,7 @@ namespace fury
       }
       else if (key == Key::LEFT_SHIFT && m_opened_ui_components == 0)
       {
-        if (m_camera.freezed())
+        if (m_camera.is_freezed())
         {
           glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
           m_camera.unfreeze();
@@ -486,19 +440,23 @@ namespace fury
         Object3D* selected_obj = m_selected_objects.front();
         //static constexpr int lower_bbox_points_indices[] = {0, 1, 4, 5};
         // TODO: iterate only over bottom bbox points
-        const auto& points = selected_obj->bbox().get_points();
+        const auto points = selected_obj->get_bbox().get_points();
+        TransformationSceneNode* selected_transform
+          = SceneGraphManager::get_entity_node<TransformationSceneNode>(selected_obj->get_id());
         float distance = INFINITY;
         m_debug_pass->clear();
         for (const glm::vec3& p : points)
         {
-          Ray ray(selected_obj->model_matrix() * glm::vec4(p, 1), glm::vec3(0, -1, 0));
+          Ray ray(selected_transform->get_world_mat() * glm::vec4(p, 1), glm::vec3(0, -1, 0));
           for (const auto& drawable : m_drawables)
           {
             if (drawable.get() == selected_obj)
               continue;
             BoundingBox bbox_world;
-            bbox_world.init(drawable->model_matrix() * glm::vec4(drawable->bbox().min(), 1)
-              , drawable->model_matrix() * glm::vec4(drawable->bbox().max(), 1));
+            TransformationSceneNode* drawable_transform =
+              SceneGraphManager::get_entity_node<TransformationSceneNode>(drawable->get_id());
+            bbox_world.init(drawable_transform->get_world_mat() * glm::vec4(drawable->get_bbox().min(), 1)
+              , drawable_transform->get_world_mat() * glm::vec4(drawable->get_bbox().max(), 1));
             if (auto hit = ray.intersect_aabb(bbox_world))
             {
               m_debug_pass->add_poly(Polyline({ ray.get_origin(), hit->position }));
@@ -510,10 +468,9 @@ namespace fury
         if (distance != INFINITY)
         {
           m_debug_pass->update();
-          distance = distance - selected_obj->translation().y;
-          auto& mm = selected_obj->model_matrix();
-          // change Y translation
-          mm[3][1] = -distance;
+          glm::vec3 old = selected_transform->get_translation();
+          distance = distance - old.y;
+          selected_transform->set_translation(glm::vec3(old.x, -distance, old.z));
           update_shadow_map();
         }
       }
@@ -585,11 +542,12 @@ namespace fury
     m_bbox.reset();
     for (auto& drawable : m_drawables)
     {
-      if (drawable->bbox().is_empty())
+      if (drawable->get_bbox().is_empty())
         drawable->calculate_bbox();
       // in world space
-      glm::vec3 min_world = drawable->model_matrix() * glm::vec4(drawable->bbox().min(), 1);
-      glm::vec3 max_world = drawable->model_matrix() * glm::vec4(drawable->bbox().max(), 1);
+      auto node = SceneGraphManager::get_entity_node<TransformationSceneNode>(drawable->get_id());
+      glm::vec3 min_world = node->get_world_mat() * glm::vec4(drawable->get_bbox().min(), 1);
+      glm::vec3 max_world = node->get_world_mat() * glm::vec4(drawable->get_bbox().max(), 1);
       m_bbox.grow(min_world, max_world);
     }
   }
@@ -635,29 +593,6 @@ namespace fury
   void SceneRenderer::remove_object(Object3D* obj)
   {
     on_object_delete.notify(obj);
-    // TODO: use event for that
-    for (Light& light : m_lights)
-    {
-      if (light.get_parent() == obj)
-      {
-        if (int32_t idx = light.get_description().shadow_matrix_buffer_index; idx != -1)
-        {
-          // left shift
-          std::rotate(Light::shadow_matrices.begin() + idx, Light::shadow_matrices.begin() + idx + 1, Light::shadow_matrices.end());
-          Light::shadow_matrices.pop_back();
-          for (Light& light2 : m_lights)
-          {
-            if (&light2 != &light && light2.get_description().shadow_matrix_buffer_index != -1)
-            {
-              light2.get_description().shadow_matrix_buffer_index--;
-            }
-          }
-        }
-        // invalidate light
-        light = Light();
-        break;
-      }
-    }
     auto it = std::find_if(m_drawables.begin(), m_drawables.end(), [=](const auto& drawable) { return drawable.get() == obj; });
     m_drawables.erase(it);
     for (auto& rp : m_render_passes)
@@ -682,26 +617,26 @@ namespace fury
     // cleanup current scene
     m_drawables.clear();
     m_selected_objects.clear();
-    m_lights.fill(Light());
-    Light::shadow_matrices.clear();
+    m_lights.clear();
+    m_controllers.clear();
     m_opened_ui_components = 0;
     m_ui.get_component<SceneInfo>("SceneInfo")->hide();
   }
 
-  int64_t SceneRenderer::find_object_with_attached_light(const Light* light) const
+  void SceneRenderer::create_default_lights()
   {
-    if (!light)
-    {
-      return -1;
-    }
-    for (size_t i = 0; i < m_drawables.size(); i++)
-    {
-      if (light->get_parent() == m_drawables[i].get())
-      {
-        return i;
-      }
-    }
-    return -1;
+    Light& dir_light = m_lights.emplace_back();
+    dir_light.enable();
+    setup_directional_light(&dir_light);
+
+    // spot light from camera position
+    LightDescription desc;
+    desc.type = LightType::SPOT;
+    desc.position = glm::vec4(m_camera.get_position(), 1);
+    desc.dir = glm::vec4(m_camera.get_target(), 1);
+    Light& spot_light = m_lights.emplace_back(desc);
+    TransformationSceneNode* transform = spot_light.attach_node<TransformationSceneNode>();
+    transform->set_parent(SceneGraphManager::get_entity_node<TransformationSceneNode>(m_camera.get_id()));
   }
 
   void SceneRenderer::setup_directional_light(Light* light)
@@ -717,53 +652,21 @@ namespace fury
     desc.position = glm::vec4(dir_light_position + cube_bound * -glm::vec3(desc.dir), 1);
     const glm::mat4 proj_mat = glm::ortho<float>(-cube_bound, cube_bound, -cube_bound, cube_bound, -10.f, 10.f);
     const glm::mat4 view_mat = glm::lookAt(dir_light_position, dir_light_target, glm::vec3(0, 1, 0));
+    desc.shadow_matrix = proj_mat * view_mat;
+    TransformationSceneNode* transform = light->attach_node<TransformationSceneNode>();
+    transform->set_translation(desc.position);
     light->set_description(desc);
-    light->set_shadow_matrix(proj_mat * view_mat);
   }
 
-  Light* SceneRenderer::get_empty_light()
-  {
-    int pos = 0;
-    for (const Light& light : m_lights)
-    {
-      if (!light.is_valid())
-      {
-        break;
-      }
-      pos++;
-    }
-    if (pos == m_lights.size())
-    {
-      Logger::error("No empty lights.");
-      return nullptr;
-    }
-    return &m_lights[pos];
-  }
-
-  std::vector<const Light*> SceneRenderer::get_valid_lights() const
+  std::vector<const Light*> SceneRenderer::get_active_lights() const
   {
     std::vector<const Light*> active_lights;
     active_lights.reserve(m_lights.size());
     for (const Light& l : m_lights)
     {
-      if (l.is_valid())
+      if (l.is_enabled())
       {
         active_lights.push_back(&l);
-      }
-    }
-    return active_lights;
-  }
-
-  std::vector<const Light*> SceneRenderer::get_active_lights() const
-  {
-    std::vector<const Light*> valid_lights = get_valid_lights();
-    std::vector<const Light*> active_lights;
-    active_lights.reserve(valid_lights.size());
-    for (const Light* l : valid_lights)
-    {
-      if (l->is_enabled())
-      {
-        active_lights.push_back(l);
       }
     }
     return active_lights;
@@ -786,8 +689,10 @@ namespace fury
   void SceneRenderer::create_default_scene()
   {
     cleanup();
+    m_camera.attach_node<TransformationSceneNode>();
     m_camera.set_position(glm::vec3(-4.f, 2.f, 3.f));
     m_camera.look_at(glm::vec3(2.f, 0.5f, 0.5f));
+    EntityManager::add_entity(&m_camera);
 
     Vertex arr[6];
     arr[0].position = glm::vec3(0.f, 1.f, 0.f), arr[0].color = glm::vec4(0.f, 1.f, 0.f, 1.f);
@@ -801,87 +706,79 @@ namespace fury
       origin->add(arr[i]);
     }
     m_drawables.push_back(std::move(origin));
-
-    auto& sun = std::make_unique<Icosahedron>();
-    sun->translate(glm::vec3(0.f, 0.6f, 2.f));
+    
+    auto sun = m_drawables.emplace_back(std::make_unique<Icosahedron>())->cast_to<Icosahedron>();
+    TransformationSceneNode* transform = sun->attach_node<TransformationSceneNode>();
+    transform->set_translation(glm::vec3(0.f, 0.6f, 2.f));
+    transform->set_scale(glm::vec3(0.3f));
     sun->set_color(glm::vec4(1.f, 1.f, 0.f, 1.f));
     sun->set_is_fixed_shading(true);
-    sun->scale(glm::vec3(0.3f));
     sun->subdivide_triangles(4);
     sun->project_points_on_sphere();
-    m_drawables.push_back(std::move(sun));
 
-    auto& sphere = std::make_unique<Icosahedron>();
-    sphere->translate(glm::vec3(2.5f, 0.5f, 2.f));
+    auto sphere = m_drawables.emplace_back(std::make_unique<Icosahedron>())->cast_to<Icosahedron>();
+    transform = sphere->attach_node<TransformationSceneNode>();
+    transform->set_translation(glm::vec3(2.5f, 0.5f, 2.f));
+    transform->set_scale(glm::vec3(0.3f));
     sphere->set_color(glm::vec4(1.f, 0.f, 0.f, 1.f));
     sphere->subdivide_triangles(4);
     sphere->project_points_on_sphere();
-    sphere->scale(glm::vec3(0.3f));
     sphere->apply_shading(Object3D::ShadingMode::SMOOTH_SHADING);
-    m_drawables.push_back(std::move(sphere));
 
-    auto& c = std::make_unique<Cube>();
-    c->translate(glm::vec3(0.25f));
-    c->scale(glm::vec3(0.5f));
+    auto c = m_drawables.emplace_back(std::make_unique<Cube>())->cast_to<Cube>();
+    transform = c->attach_node<TransformationSceneNode>();
+    transform->set_translation(glm::vec3(0.25f));
+    transform->set_scale(glm::vec3(0.5f));
     c->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
-    c->get_mesh(0).set_texture(TextureManager::get(AssetManager::get_from_relative("textures/brick.jpg").value()), TextureType::GENERIC);
-    m_drawables.push_back(std::move(c));
+    c->get_mesh(0).set_texture(TextureManager::get(AssetManager::get_absolute_from_relative("textures/brick.jpg").value()), TextureType::GENERIC);
 
-    auto& c2 = std::make_unique<Cube>();
-    c2->translate(glm::vec3(1.25f, 1.f, 1.f));
-    c2->set_color(glm::vec4(0.4f, 1.f, 0.4f, 1.f));
-    c2->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
-    c2->visible_normals(true);
-    m_drawables.push_back(std::move(c2));
+    c = m_drawables.emplace_back(std::make_unique<Cube>())->cast_to<Cube>();
+    transform = c->attach_node<TransformationSceneNode>();
+    transform->set_translation(glm::vec3(1.25f, 1.f, 1.f));
+    c->set_color(glm::vec4(0.4f, 1.f, 0.4f, 1.f));
+    c->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
+    c->visible_normals(true);
 
-    auto& pyr = std::make_unique<Pyramid>();
-    pyr->translate(glm::vec3(0.75f, 0.65f, 2.25f));
-    pyr->scale(glm::vec3(0.5f));
+    auto pyr = m_drawables.emplace_back(std::make_unique<Pyramid>())->cast_to<Pyramid>();
+    transform = pyr->attach_node<TransformationSceneNode>();
+    transform->set_translation(glm::vec3(0.75f, 0.65f, 2.25f));
+    transform->set_scale(glm::vec3(0.5f));
     pyr->set_color(glm::vec4(0.976f, 0.212f, 0.98f, 1.f));
     pyr->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
-    m_drawables.push_back(std::move(pyr));
 
-    auto& bc = std::make_unique<BezierCurve>(BezierCurveType::Quadratic);
+    auto bc = m_drawables.emplace_back(std::make_unique<BezierCurve>(BezierCurveType::Quadratic))->cast_to<BezierCurve>();
     bc->set_start_point(Vertex());
     bc->set_end_point(Vertex(2.5f, 0.f, 0.f));
     bc->set_control_points({ Vertex(1.25f, 2.f, 0.f) });
     bc->set_color(glm::vec4(1.f, 0.f, 0.f, 1.f));
-    m_drawables.push_back(std::move(bc));
 
-    auto& bc2 = std::make_unique<BezierCurve>(BezierCurveType::Cubic);
-    bc2->set_start_point(Vertex());
-    bc2->set_end_point(Vertex(0.f, 0.f, -2.5f));
-    bc2->set_control_points({ Vertex(0.f, 2.f, -1.25f), Vertex {0.f, -2.f, -1.75} });
-    m_drawables.push_back(std::move(bc2));
+    bc = m_drawables.emplace_back(std::make_unique<BezierCurve>(BezierCurveType::Cubic))->cast_to<BezierCurve>();
+    bc->set_start_point(Vertex());
+    bc->set_end_point(Vertex(0.f, 0.f, -2.5f));
+    bc->set_control_points({ Vertex(0.f, 2.f, -1.25f), Vertex {0.f, -2.f, -1.75} });
 
-    Light* light = get_empty_light();
-    setup_directional_light(light);
-    light->enable();
-    LightDescription desc;
-    desc.type = LightType::POINT;
-    desc.position = m_drawables[1]->model_matrix() * glm::vec4(m_drawables[1]->center(), 1);
-    light = get_empty_light();
-    light->set_description(desc);
-    light->set_parent(m_drawables[1].get());
-    light->disable();
+    for (auto& drawable : m_drawables)
+    {
+      if (!SceneGraphManager::get_entity_node<TransformationSceneNode>(drawable->get_id()))
+      {
+        drawable->attach_node<TransformationSceneNode>();
+      }
+      EntityManager::add_entity(drawable.get());
+    }
 
-    // spot light from camera position
-    desc.type = LightType::SPOT;
-    desc.position = glm::vec4(m_camera.position(), 1);
-    desc.dir = glm::vec4(m_camera.target(), 1);
-    light = get_empty_light();
-    light->set_description(desc);
-    light->disable();
-
+    auto& rotation_controller = m_controllers.emplace_back(new RotationController(glm::vec3(1, 0, 0), glm::radians(90.f)));
+    rotation_controller->set_entity(pyr);
     prepare_scene_for_rendering();
   }
 
   void SceneRenderer::prepare_scene_for_rendering()
   {
-    // fill scene's structs
-    for (size_t i = 0; i < m_drawables.size(); i++)
+    // force transformation node update to update everything attached to camera's node
+    // (internally set dirty flag to true)
+    m_camera.look_at(m_camera.get_target());
+
+    for (auto& drawable : m_drawables)
     {
-      auto& drawable = m_drawables[i];
       if (drawable->is_selected())
       {
         m_selected_objects.push_back(drawable.get());
@@ -891,49 +788,24 @@ namespace fury
     }
 
     calculate_scene_bbox();
-
-    // if no lights present
-    if (get_valid_lights().empty())
+    if (m_lights.empty())
     {
-      {
-        Light* light = get_empty_light();
-        setup_directional_light(light);
-        light->disable();
-      }
-      {
-        assert(m_drawables.size() > 2);
-        LightDescription desc;
-        desc.type = LightType::POINT;
-        desc.position = m_drawables[1]->model_matrix() * glm::vec4(m_drawables[1]->center(), 1);
-        Light* light = get_empty_light();
-        light->set_description(desc);
-        light->set_parent(m_drawables[1].get());
-        light->enable();
-      }
-      {
-        // spot light from camera position
-        LightDescription desc;
-        desc.type = LightType::SPOT;
-        desc.position = glm::vec4(m_camera.position(), 1);
-        desc.dir = glm::vec4(m_camera.target(), 1);
-        Light* light = get_empty_light();
-        light->set_description(desc);
-        light->disable();
-      }
-    }
-    else
-    {
+      create_default_lights();
       for (Light& light : m_lights)
       {
-        if (light.get_type() == LightType::DIRECTIONAL)
-        {
-          setup_directional_light(&light);
-          break;
-        }
+        EntityManager::add_entity(&light);
       }
     }
 
-    // update render passes in accordance with the new scene
+    const std::vector<uint32_t> ids = SceneGraphManager::get_managed_entities();
+    for (uint32_t id : ids)
+    {
+      for (SceneNode* node : SceneGraphManager::get_entity_nodes(id))
+      {
+        node->update();
+      }
+    }
+
     for (auto& render_pass : m_render_passes)
     {
       render_pass->update();
@@ -956,7 +828,9 @@ namespace fury
     if (click_from_menu_item)
     {
       // look at selected object
-      m_camera.look_at(obj->center() + glm::vec3(obj->model_matrix()[3]));
+
+      TransformationSceneNode* node = SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id());
+      m_camera.look_at(obj->center() + glm::vec3(node->get_world_mat()[3]));
     }
     if (obj->is_selected())
     {
@@ -975,23 +849,22 @@ namespace fury
     obj->select(true);
   }
 
-  void SceneRenderer::tick()
+  void SceneRenderer::tick(float dt)
   {
-    ImGuiIO& io = ImGui::GetIO();
-    m_camera.scale_speed(io.DeltaTime);
     bool need_update_shadow_map = false;
-    for (auto& obj : m_drawables)
+    for (const auto& c : m_controllers)
     {
-      obj->set_delta_time(io.DeltaTime);
-      for (const auto& c : obj->get_controllers())
-      {
-        c->set_delta_time(io.DeltaTime);
-        c->tick();
-        need_update_shadow_map |= c->is_enabled();
-      }
+      c->tick(dt);
+      need_update_shadow_map |= c->is_enabled();
     }
 
-    m_cam_controller.tick();
+    m_cam_controller.tick(dt);
+
+    for (SceneNode* node : SceneGraphManager::get_dirty_nodes())
+    {
+      node->update();
+    }
+
     if (need_update_shadow_map)
       update_shadow_map();
 
@@ -1009,7 +882,7 @@ namespace fury
 
     UniformBuffer& ubo = PipelineUBOManager::get("cameraData");
     ubo.bind();
-    ubo.set_data(&m_camera.view_matrix(), sizeof(glm::mat4), 0);
+    ubo.set_data(&m_camera.get_view_matrix(), sizeof(glm::mat4), 0);
     ubo.set_data(&m_camera.get_projection_matrix(), sizeof(glm::mat4), sizeof(glm::mat4));
     ubo.unbind();
   }

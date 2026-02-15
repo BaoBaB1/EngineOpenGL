@@ -23,6 +23,7 @@ namespace fury
     std::optional<RayHit> intersect_plane(const glm::vec3& plane_origin, const glm::vec3& plane_normal) const;
     std::optional<RayHit> intersect_aabb(const BoundingBox& bbox) const;
     std::optional<RayHit> intersect_sphere(const glm::vec3& center, float radius) const;
+    std::optional<RayHit> intersect_object3d(const Object3D* obj) const;
     glm::vec3& get_origin() { return m_origin; }
     glm::vec3& get_direction() { return m_dir; }
   private:

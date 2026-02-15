@@ -1,7 +1,7 @@
 #pragma once
 
+#include "core/Macros.hpp"
 #include <glad/glad.h>
-#include "./utils/Macro.hpp"
 
 namespace fury
 {
@@ -38,8 +38,8 @@ namespace fury
   class OpenGLObject
   {
   public:
-    OnlyMovable(OpenGLObject)
-      OpenGLObject() = default;
+    FURY_OnlyMovable(OpenGLObject)
+    OpenGLObject() = default;
     virtual ~OpenGLObject() = default;
     virtual void bind() const = 0;
     virtual void unbind() const = 0;

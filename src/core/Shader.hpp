@@ -22,7 +22,7 @@ namespace fury
   class Shader : public OpenGLObject
   {
   public:
-    OnlyMovable(Shader)
+    FURY_OnlyMovable(Shader)
     Shader() = default;
     Shader(const std::vector<std::pair<ShaderStage, std::filesystem::path>>& description);
     ~Shader();

@@ -20,7 +20,6 @@ namespace fury
   class FrameBufferObject : public OpenGLObject
   {
   public:
-    OnlyMovable(FrameBufferObject)
     FrameBufferObject();
     ~FrameBufferObject();
     void attach_renderbuffer(const RenderBufferCreateInfo& info);

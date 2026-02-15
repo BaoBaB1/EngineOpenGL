@@ -18,11 +18,6 @@ namespace fury
     return m_min == glm::vec3(fury::constants::fmax) && m_max == glm::vec3(fury::constants::fmin);
   }
 
-  std::optional<RayHit> BoundingBox::hit(const Ray& ray) const
-  {
-    return ray.intersect_aabb(*this);
-  }
-
   std::array<glm::vec3, 8> BoundingBox::get_points() const
   {
     // llc - left lower corner, rtc - right top corner ...

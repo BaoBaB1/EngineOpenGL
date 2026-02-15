@@ -2,7 +2,7 @@
 
 namespace fury
 {
-  Pyramid::Pyramid() : Object3D("Pyramid")
+  Pyramid::Pyramid()
   {
     auto& mesh = emplace_mesh();
     mesh.vertices().reserve(5);

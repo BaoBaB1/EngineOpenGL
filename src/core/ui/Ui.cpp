@@ -36,14 +36,14 @@ namespace fury
     ImGui::DestroyContext();
   }
 
-  void Ui::tick()
+  void Ui::tick(float dt)
   {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
     for (const auto& component : m_components)
     {
-      component.second->tick();
+      component.second->tick(dt);
     }
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

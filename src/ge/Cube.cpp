@@ -2,7 +2,7 @@
 
 namespace fury
 {
-  Cube::Cube() : Object3D("Cube")
+  Cube::Cube()
   {
     auto& mesh = emplace_mesh();
     mesh.vertices().reserve(24);

@@ -8,16 +8,16 @@ namespace fury
   class RotationController : public ObjectController
   {
   public:
-    RotationController() : ObjectController(Type::ROTATION) {}
-    RotationController(const glm::vec3& axis, float angle);
-    [[nodiscard]] ObjectController* clone() const override;
-    void read(std::ifstream& ifs) override;
-    void write(std::ofstream& ofs) const override;
-    void tick() override;
-    void set_rotation_axis(const glm::vec3& axis) { m_axis = axis; }
-    void set_rotation_angle(float angle) { m_angle = angle; }
-    float get_rotation_angle() const { return m_angle; }
-    glm::vec3 get_rotation_axis() const { return m_axis; }
+    FURY_REGISTER_DERIVED_CLASS(RotationController, ObjectController)
+    RotationController() = default;
+    RotationController(const glm::vec3& axis, float angle_radians);
+    void tick(float dt) override;
+    FURY_PROPERTY_REF(rotation_axis, glm::vec3, m_axis)
+    FURY_PROPERTY(rotation_angle, float, m_angle)
+    FURY_DECLARE_SERIALIZABLE_FIELDS(
+      FURY_SERIALIZABLE_FIELD(1, &RotationController::m_angle),
+      FURY_SERIALIZABLE_FIELD(2, &RotationController::m_axis)
+    )
   private:
     float m_angle = 0.f;
     glm::vec3 m_axis = glm::vec3(0.f);

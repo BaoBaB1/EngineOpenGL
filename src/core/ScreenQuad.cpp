@@ -39,7 +39,7 @@ namespace fury
     m_is_single_channel = is_single_channel;
   }
 
-  void ScreenQuad::tick()
+  void ScreenQuad::tick(float)
   {
     // set GL_FILL mode because next we are rendering texture
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
