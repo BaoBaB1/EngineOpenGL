@@ -4,15 +4,14 @@
 
 namespace fury
 {
+  class TransformationSceneNode;
+  class Object3D;
+
   struct ObjectChangeInfo
   {
+    Object3D* object = nullptr;
+    TransformationSceneNode* new_transform = nullptr;
     bool is_shading_mode_change = false;
-    //bool is_geometry_change = false;
-    bool is_vertex_change = false;
-    bool is_transformation_change = false;
-    glm::vec3 position_change;
-    glm::vec3 scale_change;
-    glm::vec3 rotation_axis_change;
-    float rotation_angle_change = 0;
+    bool is_color_change = false;
   };
 }

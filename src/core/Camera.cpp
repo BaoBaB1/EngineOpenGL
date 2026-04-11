@@ -1,4 +1,5 @@
 #include "Camera.hpp"
+#include "Frustum.hpp"
 #include "core/SceneGraphManager.hpp"
 #include "input/UserInputHandler.hpp"
 #include "input/KeyboardHandler.hpp"
@@ -7,15 +8,19 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "RenderPass.hpp"
+
 namespace fury
 {
+  const glm::vec3 world_up = glm::vec3(0, 1, 0);
+
   Camera::Camera() : Entity("Camera")
   {
     m_actual_speed = m_base_speed = 5.f;
     m_sensivity = 0.2f;
     m_yaw = -90.f;
     m_pitch = 0.f;
-    m_up = glm::vec3(0.f, 1.f, 0.f);
+    m_up = world_up;
     m_target = glm::vec3(0.f);
     m_freezed = false;
   }
@@ -34,10 +39,10 @@ namespace fury
       pos -= m_actual_speed * m_target;
       break;
     case Direction::LEFT:
-      pos -= glm::normalize(glm::cross(m_target, m_up)) * m_actual_speed;
+      pos -= m_right * m_actual_speed;
       break;
     case Direction::RIGHT:
-      pos += glm::normalize(glm::cross(m_target, m_up)) * m_actual_speed;
+      pos += m_right * m_actual_speed;
       break;
     case Direction::UP:
       pos += m_actual_speed * m_up;
@@ -66,9 +71,8 @@ namespace fury
   {
     m_screen_size = screen_size;
     m_projection_mat[ProjectionMode::PERSPECTIVE] = glm::mat4(1.f);
-    m_projection_mat[ProjectionMode::PERSPECTIVE] = glm::perspective(glm::radians(45.f), screen_size.x / screen_size.y, 0.1f, 100.f);
-    const float aspect_ratio = screen_size.x / screen_size.y;
-    const glm::vec2 ortho_wh = { 2.5f * aspect_ratio, 2.5f };
+    m_projection_mat[ProjectionMode::PERSPECTIVE] = glm::perspective(glm::radians(m_fovy), get_aspect(), get_znear(), get_zfar());
+    const glm::vec2 ortho_wh = { 2.5f * get_aspect(), 2.5f};
     m_projection_mat[ProjectionMode::ORTHOGRAPHIC] = glm::ortho(-ortho_wh.x, ortho_wh.x, -ortho_wh.y, ortho_wh.y, 0.1f, 100.f);
   }
 
@@ -83,12 +87,128 @@ namespace fury
     {
       auto node = SceneGraphManager::get_entity_node<TransformationSceneNode>(m_id);
       const glm::vec3& pos = node->get_translation();
-      m_cached_viewmatrix = glm::lookAt(pos, pos + m_target, m_up);
+      m_cached_viewmatrix = glm::lookAt(pos, pos + m_target, world_up);
+      m_right = glm::normalize(glm::cross(m_target, world_up));
+      m_up = glm::cross(m_right, m_target);
       glm::quat q(glm::inverse(m_cached_viewmatrix));
       node->set_rotation(q);
       m_dirty = false;
     }
     return m_cached_viewmatrix;
+  }
+
+  Frustum Camera::get_frustum() const
+  {
+    Frustum fr;
+    const float zfar = get_zfar();
+    const float znear = get_znear();
+    // float zfar = 10;
+    const float fov = glm::radians(m_fovy);
+    // tg = a / b => a = tg * b
+    // aspect = w / h => w = aspect * h
+    const float half_far_height = std::tan(fov / 2) * zfar;
+    const float half_far_width = get_aspect() * half_far_height;
+    const glm::vec3& cam_pos = get_position();
+    const glm::vec3 center_far = cam_pos + m_target * zfar;
+    const glm::vec3 center_near = cam_pos + m_target * znear;
+    const glm::vec3 far_top_left = center_far + m_up * half_far_height - m_right * half_far_width;
+    const glm::vec3 far_top_right = center_far + m_up * half_far_height + m_right * half_far_width;
+    const glm::vec3 far_bottom_left = center_far - m_up * half_far_height - m_right * half_far_width;
+    const glm::vec3 far_bottom_right = center_far - m_up * half_far_height + m_right * half_far_width;
+    fr.near.normal = m_target;
+    fr.near.distance = -glm::dot(fr.near.normal, center_near);
+    fr.far.normal = -m_target;
+    fr.far.distance = -glm::dot(fr.far.normal, center_far);
+    fr.left.normal = glm::normalize(glm::cross(far_bottom_left - cam_pos, far_top_left - cam_pos));
+    // Plane equation: ax + by + cz + d = 0
+    fr.left.distance = -glm::dot(fr.left.normal, far_bottom_left);
+    fr.right.normal = glm::normalize(glm::cross(far_top_right - cam_pos, far_bottom_right - cam_pos));
+    fr.right.distance = -glm::dot(fr.right.normal, far_bottom_right);
+    fr.top.normal = glm::normalize(glm::cross(far_top_left -cam_pos, far_top_right - cam_pos));
+    fr.top.distance = -glm::dot(fr.top.normal, far_top_left);
+    fr.bottom.normal = glm::normalize(glm::cross(far_bottom_right - cam_pos, far_bottom_left - cam_pos));
+    fr.bottom.distance = -glm::dot(fr.bottom.normal, far_bottom_left);
+
+    fr.debug_lines.reserve(18);
+    // far rect
+    auto& l1 = fr.debug_lines.emplace_back();
+    auto& l2 = fr.debug_lines.emplace_back();
+    auto& l3 = fr.debug_lines.emplace_back();
+    auto& l4 = fr.debug_lines.emplace_back();
+    l1.first = far_bottom_left;
+    l1.second = far_bottom_right;
+    l2.first = far_bottom_left;
+    l2.second = far_top_left;
+    l3.first = far_bottom_right;
+    l3.second = far_top_right;
+    l4.first = far_top_left;
+    l4.second = far_top_right;
+    // near rect
+    const float half_near_height = std::tan(fov / 2) * znear;
+    const float half_near_width = get_aspect() * half_near_height;
+    const glm::vec3 near_top_left = center_near + m_up * half_near_height - m_right * half_near_width;
+    const glm::vec3 near_top_right = center_near + m_up * half_near_height + m_right * half_near_width;
+    const glm::vec3 near_bottom_left = center_near - m_up * half_near_height - m_right * half_near_width;
+    const glm::vec3 near_bottom_right = center_near - m_up * half_near_height + m_right * half_near_width;
+    auto& l5 = fr.debug_lines.emplace_back();
+    auto& l6 = fr.debug_lines.emplace_back();
+    auto& l7 = fr.debug_lines.emplace_back();
+    auto& l8 = fr.debug_lines.emplace_back();
+    l5.first = near_bottom_left;
+    l5.second = near_bottom_right;
+    l6.first = near_bottom_left;
+    l6.second = near_top_left;
+    l7.first = near_bottom_right;
+    l7.second = near_top_right;
+    l8.first = near_top_left;
+    l8.second = near_top_right;
+    // sides
+    auto& l9 = fr.debug_lines.emplace_back();
+    auto& l10 = fr.debug_lines.emplace_back();
+    auto& l11 = fr.debug_lines.emplace_back();
+    auto& l12 = fr.debug_lines.emplace_back();
+    l9.first = near_bottom_left;
+    l9.second = far_bottom_left;
+    l10.first = near_top_left;
+    l10.second = far_top_left;
+    l11.first = near_bottom_right;
+    l11.second = far_bottom_right;
+    l12.first = near_top_right;
+    l12.second = far_top_right;
+#if 0
+    // normals
+    const glm::vec3 center_left = ((((near_bottom_left + near_top_left) / 2.f) + ((far_bottom_left + far_top_left) / 2.f)) / 2.f);
+    const glm::vec3 center_right = ((((near_bottom_right + near_top_right) / 2.f) + ((far_bottom_right + far_top_right) / 2.f)) / 2.f);
+    const glm::vec3 center_top = ((((near_top_left + near_top_right) / 2.f) + ((far_top_left + far_top_right) / 2.f)) / 2.f);
+    const glm::vec3 center_bottom = ((((near_bottom_left + near_bottom_right) / 2.f) + ((far_bottom_left + far_bottom_right) / 2.f)) / 2.f); 
+    auto& l13 = fr.debug_lines.emplace_back();
+    auto& l14 = fr.debug_lines.emplace_back();
+    auto& l15 = fr.debug_lines.emplace_back();
+    auto& l16 = fr.debug_lines.emplace_back();
+    auto& l17 = fr.debug_lines.emplace_back();
+    auto& l18 = fr.debug_lines.emplace_back();
+    l13.first = center_near;
+    l13.second = center_near + fr.near.normal * 3.f;
+    l14.first = center_far;
+    l14.second = center_far + fr.far.normal * 3.f;
+    l15.first = center_left;
+    l15.second = center_left + fr.left.normal * 3.f;
+    l16.first = center_right;
+    l16.second = center_right + fr.right.normal * 3.f;
+    l17.first = center_top;
+    l17.second = center_top + fr.top.normal * 3.f;
+    l18.first = center_bottom;
+    l18.second = center_bottom + fr.bottom.normal * 3.f;
+    // camera normals
+    auto& right_norm = fr.debug_lines.emplace_back();
+    right_norm.first = cam_pos;
+    right_norm.second = cam_pos + m_right * 3.f;
+    auto& up_norm = fr.debug_lines.emplace_back();
+    up_norm.first = cam_pos;
+    up_norm.second = cam_pos + m_up * 3.f;
+#endif
+
+    return fr;
   }
 
   Ray Camera::cast_ray(uint32_t x, uint32_t y) const

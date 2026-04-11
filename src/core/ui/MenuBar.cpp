@@ -35,12 +35,13 @@ namespace fury
         {
           auto callback = [&](const std::string& file)
             {
-              auto& p_new_obj = m_scene->get_drawables().emplace_back();
+              auto& p_new_obj = m_scene->get_drawables().emplace_back(std::make_unique<Object3D>());
               const unsigned int assimp_flags = aiProcess_Triangulate | aiProcess_FlipUVs
                 | aiProcess_JoinIdenticalVertices | aiProcess_GenBoundingBoxes /*| aiProcess_GenSmoothNormals*/;
               ModelLoader loader;
               if (loader.load(file, assimp_flags, *p_new_obj))
               {
+                p_new_obj->attach_node<TransformationSceneNode>();
                 m_scene->on_new_object_added.notify(p_new_obj.get());
               }
               else
@@ -101,14 +102,14 @@ namespace fury
 
           if (clicked)
           {
+            Object3D* added_obj = m_scene->get_drawables().back().get();
+            TransformationSceneNode* transform = added_obj->attach_node<TransformationSceneNode>();
             auto ray = m_scene->get_camera().cast_ray(m_scene->get_window()->width() / 2, m_scene->get_window()->height() / 2);
             static constexpr float spawn_distance = 2.5f;
             // spawn in front of camera
             auto spawn_pos = ray.get_origin() + spawn_distance * ray.get_direction();
-            Object3D* added_obj = m_scene->get_drawables().back().get();
-            auto node = SceneGraphManager::get_entity_node<TransformationSceneNode>(added_obj->get_id());
-            node->set_translation(spawn_pos);
-            node->set_scale(glm::vec3(0.5f));
+            transform->set_translation(spawn_pos);
+            transform->set_scale(glm::vec3(0.5f));
             m_scene->on_new_object_added.notify(added_obj);
           }
         }

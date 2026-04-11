@@ -6,7 +6,7 @@ namespace
   using namespace fury;
   struct NodeSerializationInfo
   {
-    FURY_REGISTER_CLASS(NodeSerializationInfo)
+    FURY_REGISTER_BASE_CLASS(NodeSerializationInfo)
     // internal node id
     uint32_t id = 0;
     // rtti type id of node

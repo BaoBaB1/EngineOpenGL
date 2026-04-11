@@ -16,14 +16,16 @@ namespace fury
 	public:
 		SceneInfo(SceneRenderer* scene, MenuBar* menubar);
 		bool is_grid_visible() const { return m_show_grid; }
+		bool is_frustum_culling_enabled() const { return m_frustum_culling_enabled; }
+		void set_num_culled_objects(uint32_t val) { m_num_culled_objects = val; }
 		void tick(float) override;
 		Event<Object3D*, bool> on_visible_normals_button_pressed;
 		Event<Object3D*, bool> on_visible_bbox_button_pressed;
-		Event<Object3D*, const ObjectChangeInfo&> on_object_change;
 		Event<const Light*, bool> light_visibility_toggle;
 		Event<int> on_polygon_mode_change;
 		Event<bool> on_show_scene_bbox;
 		Event<bool> msaa_button_click;
+		Event<bool> on_frustum_culling_toggled;
 	private:
 		void render_object_properties(Object3D& drawable);
 		void render_xyz_markers(float offset_from_left, float width, float spacing);
@@ -34,11 +36,13 @@ namespace fury
 		glm::vec3 m_obj_scale;
 		MenuBar* m_menubar = nullptr;
 		int m_fps_cap = 0;
+		uint32_t m_num_culled_objects = 0;
 		uint16_t m_guizmo_operation;
 		bool m_fill_polygons = true;
 		bool m_show_scene_bbox = false;
 		bool m_use_msaa = true;
 		bool m_use_vsync = true;
 		bool m_show_grid = false;
+		bool m_frustum_culling_enabled = true;
 	};
 }

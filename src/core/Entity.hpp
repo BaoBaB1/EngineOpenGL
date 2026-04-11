@@ -10,7 +10,7 @@ namespace fury
   class Entity
   {
   public:
-    FURY_REGISTER_CLASS(Entity)
+    FURY_REGISTER_BASE_CLASS(Entity)
     FURY_PROPERTY_REF(name, std::string, m_name)
     Entity(const Entity&) = delete;
     Entity& operator=(const Entity& other) = delete;
@@ -30,7 +30,7 @@ namespace fury
     Entity(const char* name = nullptr);
     void release();
   protected:
-    uint32_t m_id;
+    uint32_t m_id = 0;
     std::string m_name;
   private:
     void move_swap(Entity&& other);

@@ -48,9 +48,12 @@ namespace fury
 
   void Entity::release()
   {
-    EntityManager::remove_entity(m_id);
-    SceneGraphManager::remove_entity_nodes(m_id);
-    m_id = 0;
+    if (m_id > 0)
+    {
+      EntityManager::remove_entity(m_id);
+      SceneGraphManager::remove_entity_nodes(m_id);
+      m_id = 0;
+    }
   }
 
   void Entity::move_swap(Entity&& other)
@@ -69,10 +72,6 @@ namespace fury
 
   Entity::~Entity()
   {
-    // if we didn't move it
-    if (m_id > 0)
-    {
-      release();
-    }
+    release();
   }
 }

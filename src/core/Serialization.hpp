@@ -2,6 +2,7 @@
 
 #include "Logger.hpp"
 #include "EntityManager.hpp"
+#include "ObjectsRegistry.hpp"
 #include <fstream>
 #include <tuple>
 #include <array>
@@ -40,33 +41,6 @@ namespace fury
     using ClassType = U;
   };
 
-  template<typename T>
-  constexpr bool HasSerializableFields()
-  {
-    if constexpr (!HasAnySerializableField<T>::value)
-    {
-      return false;
-    }
-    if constexpr (HasBaseClass<T>::value)
-    {
-      if constexpr (HasAnySerializableField<typename T::BaseCls>::value)
-      {
-        return !std::is_same_v<decltype(T::get_serializable_fields()), decltype(T::BaseCls::get_serializable_fields())>;
-      }
-    }
-    return true;
-  }
-
-  template<typename T>
-  constexpr bool HasBaseClassSerializableFields()
-  {
-    if constexpr (HasBaseClass<T>::value)
-    {
-      return HasSerializableFields<typename T::BaseCls>();
-    }
-    return false;
-  }
-
   template<typename T, typename = void>
   struct IsRegisteredClass : std::false_type {};
 
@@ -75,7 +49,7 @@ namespace fury
 
   template<typename T, typename = void>
   struct HasAnySerializableField : std::false_type {};
-  
+
   template<typename T>
   struct HasAnySerializableField<T, std::void_t<decltype(T::get_serializable_fields())>> : std::true_type {};
 
@@ -132,6 +106,33 @@ namespace fury
 
   template<typename T>
   constexpr bool IsStdUniquePointer_v = IsStdUniquePointer<T>::value;
+
+  template<typename T>
+  constexpr bool HasSerializableFields()
+  {
+    if constexpr (!HasAnySerializableField<T>::value)
+    {
+      return false;
+    }
+    if constexpr (HasBaseClass<T>::value)
+    {
+      if constexpr (HasAnySerializableField<typename T::BaseCls>::value)
+      {
+        return !std::is_same_v<decltype(T::get_serializable_fields()), decltype(T::BaseCls::get_serializable_fields())>;
+      }
+    }
+    return true;
+  }
+
+  template<typename T>
+  constexpr bool HasBaseClassSerializableFields()
+  {
+    if constexpr (HasBaseClass<T>::value)
+    {
+      return HasSerializableFields<typename T::BaseCls>();
+    }
+    return false;
+  }
 
   template<typename T>
   struct Serializer
@@ -338,7 +339,7 @@ private:
         // write underlying obj
         if (field)
         {
-          if constexpr (IsRegisteredClass<Field::element_type>::value)
+          if constexpr (IsRegisteredClass<typename Field::element_type>::value)
           {
             const uint32_t id = field->get_dynamic_type_id();
             written_bytes += sizeof(id);
@@ -360,7 +361,7 @@ private:
           // if we haven't serialized shared pointer underlying data yet
           if (serialized_sps.count(field.get()) == 0)
           {
-            if constexpr (IsRegisteredClass<Field::element_type>::value)
+            if constexpr (IsRegisteredClass<typename Field::element_type>::value)
             {
               const uint32_t id = field->get_dynamic_type_id();
               ofs.write(reinterpret_cast<const char*>(&id), sizeof(id));
@@ -474,7 +475,7 @@ private:
           // if we haven't created shared instance of this object yet
           if (deserialized_sps.count(shared_resource_tag) == 0)
           {
-            if constexpr (IsRegisteredClass<Field::element_type>::value)
+            if constexpr (IsRegisteredClass<typename Field::element_type>::value)
             {
               uint32_t type_id;
               ifs.read(reinterpret_cast<char*>(&type_id), sizeof(type_id));
@@ -484,7 +485,7 @@ private:
             }
             else
             {
-              field = std::make_shared<Field::element_type>();
+              field = std::make_shared<typename Field::element_type>();
             }
             // read into shared pointer directly
             read_bytes += read_helper(ifs, *field, tag);

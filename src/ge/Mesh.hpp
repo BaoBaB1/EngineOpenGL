@@ -16,7 +16,7 @@ namespace fury
 {
   class Mesh {
   public:
-    FURY_REGISTER_CLASS(Mesh)
+    FURY_REGISTER_BASE_CLASS(Mesh)
     Mesh() = default;
     Mesh(const std::vector<Vertex>& vertices, const std::vector<Face>& faces);
     void set_material(const Material& material) { m_material = material; }
@@ -24,7 +24,7 @@ namespace fury
     const std::vector<Vertex>& vertices() const { return m_vertices; }
     std::vector<Face>& faces() { return m_faces; }
     const std::vector<Face>& faces() const { return m_faces; }
-    const std::vector<GLuint>& Mesh::faces_as_indices() const;
+    const std::vector<GLuint>& faces_as_indices() const;
     void set_texture(const std::shared_ptr<Texture2D>& tex, TextureType type) { m_textures[static_cast<int>(type)] = tex; }
     const std::shared_ptr<Texture2D> get_texture(TextureType type) const { return m_textures[static_cast<int>(type)]; }
     BoundingBox& bbox() { return m_bbox; }

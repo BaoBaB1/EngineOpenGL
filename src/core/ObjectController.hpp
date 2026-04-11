@@ -10,7 +10,7 @@ namespace fury
   class ObjectController : public ITickable
   {
   public:
-    FURY_REGISTER_CLASS(ObjectController)
+    FURY_REGISTER_BASE_CLASS(ObjectController)
     FURY_OnlyMovable(ObjectController)
     ObjectController() = default;
     void set_entity(Entity* entity) { m_entity = entity; }

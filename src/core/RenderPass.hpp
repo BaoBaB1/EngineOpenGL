@@ -5,20 +5,22 @@
 #include "opengl/VertexBufferObject.hpp"
 #include "opengl/ElementBufferObject.hpp"
 #include "opengl/SSBO.hpp"
+#include "Singletone.hpp"
 #include "glm/glm.hpp"
 #include "glad/glad.h"
 #include <vector>
 #include <map>
 #include <set>
+#include <optional>
 
 namespace fury
 {
-  class Object3D;
   class SceneRenderer;
-  class Polyline;
   struct ObjectChangeInfo;
   class ItemSelectionWheel;
   struct SelectionWheelSlot;
+  class Object3D;
+  class BoundingBox;
 
   class RenderPass : public ITickable
   {
@@ -49,7 +51,7 @@ namespace fury
     void render_scene();
     void render_selected_objects();
     void on_new_scene_object(Object3D* obj);
-    void handle_object_change(Object3D* obj, const ObjectChangeInfo& info);
+    void handle_object_change(const ObjectChangeInfo& info);
     void update_lights_data();
   private:
     // share all buffers data with shadow pass to avoid same data duplication
@@ -94,7 +96,7 @@ namespace fury
     void tick(float) override;
   private:
     void handle_visible_normals_toggle(Object3D* obj, bool is_visible);
-    void handle_object_change(Object3D* obj, const ObjectChangeInfo& info);
+    void handle_object_change(const ObjectChangeInfo& info);
   private:
     VertexArrayObject m_vao;
     VertexBufferObject m_vbo;
@@ -104,25 +106,6 @@ namespace fury
     std::vector<GLsizei> m_voffsets;
     std::vector<GLsizei> m_vcounts;
     std::map<const Object3D*, ObjectRenderOffsets> m_object_offsets;
-  };
-
-  class BoundingBoxPass : public RenderPass
-  {
-  public:
-    BoundingBoxPass(SceneRenderer* scene);
-    void update() override;
-    void tick(float) override;
-  private:
-    void handle_visible_bbox_toggle(Object3D* obj, bool is_visible);
-    void handle_scene_visible_bbox_toggle(bool is_visible);
-    void handle_object_change(Object3D*, const ObjectChangeInfo&);
-  private:
-    VertexArrayObject m_vao;
-    VertexBufferObject m_vbo;
-    VertexBufferObject m_vbo_instance;
-    ElementBufferObject m_ebo;
-    bool m_is_scene_bbox_visible = false;
-    uint32_t m_instances = 0;
   };
 
   class SelectionWheelPass : public RenderPass
@@ -153,18 +136,41 @@ namespace fury
     VertexArrayObject m_vao;
   };
 
-  class DebugPass : public RenderPass
+  // TODO: move normals pass here
+  class DebugPass : public Singletone<DebugPass>
   {
   public:
-    DebugPass(SceneRenderer* scene);
-    void update() override;
-    void tick(float) override;
-    void add_poly(const Polyline& poly);
+    DebugPass();
+    void update();
+    void tick(float);
+    void add_line(const glm::vec3& a, const glm::vec3& b, const glm::vec4& color = glm::vec4(1, 1, 1, 1));
+    void add_bbox(const BoundingBox& bbox, const glm::mat4& transform);
     void clear();
   private:
+    void handle_visible_bbox_toggle(Object3D* obj, bool is_visible);
+    void handle_scene_visible_bbox_toggle(bool is_visible);
+    void update_bbox_data();
+    void update_lines_data();
+  private:
+    struct LineVertex {
+      glm::vec3 pos;
+      glm::vec4 color;
+    };
+    // Lines
     VertexArrayObject m_vao;
     VertexBufferObject m_vbo;
-    std::vector<Polyline> m_polys;
+    std::vector<LineVertex> m_lines;
+    bool m_dirty_lines_data = true;
+    // AABBs
+    std::optional<glm::mat4> m_scene_bbox_matrix;
+    std::vector<uint32_t> m_objects_with_visible_bboxes;
+    std::vector<glm::mat4> m_bbox_instance_matrices;
+    VertexArrayObject m_vao_bbox;
+    VertexBufferObject m_vbo_bbox;
+    VertexBufferObject m_vbo_instance_bbox;
+    ElementBufferObject m_ebo_bbox;
+    bool m_dirty_bbox_data = true;
+    // Normals
   };
 
 }

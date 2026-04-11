@@ -16,6 +16,7 @@
 #include "Serialization.hpp"
 #include "ge/Object3D.hpp"
 #include "core/ObjectController.hpp"
+#include "Singletone.hpp"
 #include <vector>
 #include <memory>
 #include <string>
@@ -26,12 +27,12 @@ namespace fury
   class Skybox;
   struct ObjectChangeInfo;
 
-  class SceneRenderer : public ITickable
+  class SceneRenderer : public ITickable, public Singletone<SceneRenderer>
   {
   public:
-    FURY_REGISTER_CLASS(SceneRenderer)
-    SceneRenderer(WindowGLFW* window);
+    FURY_REGISTER_BASE_CLASS(SceneRenderer)
     void tick(float dt) override;
+    void init(WindowGLFW* window);
     ~SceneRenderer();
     Camera& get_camera() { return m_camera; }
     std::vector<Object3D*>& get_selected_objects() { return m_selected_objects; }
@@ -50,7 +51,7 @@ namespace fury
     void set_fps_limit(uint32_t fps) { m_fps_limiter.set_limit(fps); }
     uint32_t get_fps_limit() const { return m_fps_limiter.get_limit(); }
     Event<Object3D*> on_new_object_added;
-    Event<Object3D*> on_object_delete;
+    Event<Object3D*> on_object_deleted;
     // These have to be complete types...
     FURY_DECLARE_SERIALIZABLE_FIELDS(
       FURY_SERIALIZABLE_FIELD(1, &SceneRenderer::m_camera),
@@ -67,8 +68,7 @@ namespace fury
     void handle_window_size_change(int width, int height);
     void handle_keyboard_input(KeyboardHandler::InputKey key, KeyboardHandler::KeyState state);
     void change_polygon_mode(int new_mode);
-    void handle_added_object(Object3D* obj);
-    void handle_object_change(Object3D* obj, const ObjectChangeInfo& info);
+    void handle_object_change(const ObjectChangeInfo& info);
     void calculate_scene_bbox();
     void update_shadow_map();
     void handle_ui_component_opening();
@@ -85,7 +85,6 @@ namespace fury
     std::vector<Object3D*> m_selected_objects;
     std::vector<std::unique_ptr<RenderPass>> m_render_passes;
     std::unique_ptr<ShadowsPass> m_shadows_pass;
-    std::unique_ptr<DebugPass> m_debug_pass;
     std::vector<Light> m_lights;
     std::vector<std::unique_ptr<ObjectController>> m_controllers;
     ScreenQuad m_screen_quad;

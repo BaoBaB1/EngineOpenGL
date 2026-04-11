@@ -27,6 +27,7 @@
 #include "EntityManager.hpp"
 #include "SceneGraphManager.hpp"
 #include "ObjectChangeInfo.hpp"
+#include "Globals.hpp"
 
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -85,8 +86,9 @@ namespace
 
 namespace fury
 {
-  SceneRenderer::SceneRenderer(WindowGLFW* window) : m_window(window)
+  void SceneRenderer::init(WindowGLFW* window)
   {
+    m_window = window;
     const int w = window->width();
     const int h = window->height();
     AssetManager::init();
@@ -98,11 +100,25 @@ namespace fury
     file_explorer_component->on_hide += new InstanceListener(this, &SceneRenderer::handle_ui_component_closing);
     scene_info_component->on_show += new InstanceListener(this, &SceneRenderer::handle_ui_component_opening);
     scene_info_component->on_hide += new InstanceListener(this, &SceneRenderer::handle_ui_component_closing);
-    gizmo_component->on_object_change += new InstanceListener(this, &SceneRenderer::handle_object_change);
     scene_info_component->on_polygon_mode_change += new InstanceListener(this, &SceneRenderer::change_polygon_mode);
     scene_info_component->msaa_button_click += new InstanceListener(this, &SceneRenderer::handle_msaa_button_toggle);
-    scene_info_component->on_object_change += new InstanceListener(this, &SceneRenderer::handle_object_change);
-    on_new_object_added += new InstanceListener(this, &SceneRenderer::handle_added_object);
+    on_new_object_added += new FunctionListener(std::function(
+      [this](Object3D* obj)
+      {
+        ObjectChangeInfo info;
+        info.object = obj;
+        info.new_transform = SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id());
+        handle_object_change(info); 
+        EntityManager::add_entity(obj);
+      })
+    );
+    global_state::g_on_object_change += new FunctionListener(std::function(
+      [this](const ObjectChangeInfo& info)
+      {
+        handle_object_change(info);
+      })
+    );
+
     m_camera.set_screen_size({ w, h });
 
     CursorPositionHandler* cursor_pos_handler = m_window->get_input_handler<CursorPositionHandler>(UserInputHandler::CURSOR_POSITION);
@@ -179,11 +195,9 @@ namespace fury
 
     m_render_passes.emplace_back(std::make_unique<GeometryPass>(this, shadows_fbo.texture()->id()));
     m_render_passes.emplace_back(std::make_unique<NormalsPass>(this));
-    m_render_passes.emplace_back(std::make_unique<BoundingBoxPass>(this));
     m_render_passes.emplace_back(std::make_unique<SelectionWheelPass>(this, &m_selection_wheel));
     m_render_passes.emplace_back(std::make_unique<InfiniteGridPass>(this));
     m_shadows_pass = std::make_unique<ShadowsPass>(this, static_cast<GeometryPass*>(m_render_passes[0].get()));
-    m_debug_pass = std::make_unique<DebugPass>(this);
     
     //load(AssetManager::get_from_relative("scenes/demo.bin").value().string());
     create_default_scene();
@@ -227,6 +241,7 @@ namespace fury
       {
         rp->tick(dt);
       }
+      DebugPass::instance().tick(dt);
       m_ui.tick(dt);
 
       if (m_MSAA_enabled)
@@ -444,7 +459,7 @@ namespace fury
         TransformationSceneNode* selected_transform
           = SceneGraphManager::get_entity_node<TransformationSceneNode>(selected_obj->get_id());
         float distance = INFINITY;
-        m_debug_pass->clear();
+        DebugPass::instance().clear();
         for (const glm::vec3& p : points)
         {
           Ray ray(selected_transform->get_world_mat() * glm::vec4(p, 1), glm::vec3(0, -1, 0));
@@ -459,7 +474,7 @@ namespace fury
               , drawable_transform->get_world_mat() * glm::vec4(drawable->get_bbox().max(), 1));
             if (auto hit = ray.intersect_aabb(bbox_world))
             {
-              m_debug_pass->add_poly(Polyline({ ray.get_origin(), hit->position }));
+              DebugPass::instance().add_line(ray.get_origin(), hit->position);
               //Logger::info("hit {} distance {}", hit->position, hit->distance);
               distance = std::min(hit->distance, distance);
             }
@@ -467,7 +482,6 @@ namespace fury
         }
         if (distance != INFINITY)
         {
-          m_debug_pass->update();
           glm::vec3 old = selected_transform->get_translation();
           distance = distance - old.y;
           selected_transform->set_translation(glm::vec3(old.x, -distance, old.z));
@@ -504,6 +518,14 @@ namespace fury
           m_opened_ui_components--;
         }
       }
+      else if (key == Key::M)
+      {
+        Frustum fr = m_camera.get_frustum();
+        auto& dbg = DebugPass::instance();
+        for (const auto& [p1, p2] : fr.debug_lines) {
+          dbg.add_line(p1, p2, glm::vec4(0, 1, 0, 1));
+        }
+      }
     }
   }
 
@@ -512,17 +534,9 @@ namespace fury
     m_polygon_mode = new_mode;
   }
 
-  void SceneRenderer::handle_added_object(Object3D* obj)
+  void SceneRenderer::handle_object_change(const ObjectChangeInfo& info)
   {
-    ObjectChangeInfo info;
-    info.is_transformation_change = true;
-    // trigger function that already handles needed logic
-    handle_object_change(obj, info);
-  }
-
-  void SceneRenderer::handle_object_change(Object3D* obj, const ObjectChangeInfo& info)
-  {
-    if (info.is_transformation_change)
+    if (info.new_transform)
     {
       calculate_scene_bbox();
       update_shadow_map();
@@ -546,9 +560,11 @@ namespace fury
         drawable->calculate_bbox();
       // in world space
       auto node = SceneGraphManager::get_entity_node<TransformationSceneNode>(drawable->get_id());
-      glm::vec3 min_world = node->get_world_mat() * glm::vec4(drawable->get_bbox().min(), 1);
-      glm::vec3 max_world = node->get_world_mat() * glm::vec4(drawable->get_bbox().max(), 1);
-      m_bbox.grow(min_world, max_world);
+      const glm::vec3 min_world = node->get_world_mat() * glm::vec4(drawable->get_bbox().min(), 1);
+      const glm::vec3 max_world = node->get_world_mat() * glm::vec4(drawable->get_bbox().max(), 1);
+      const glm::vec3 true_min = glm::min(min_world, max_world);
+      const glm::vec3 true_max = glm::max(min_world, max_world);
+      m_bbox.grow(true_min, true_max);
     }
   }
 
@@ -592,7 +608,7 @@ namespace fury
 
   void SceneRenderer::remove_object(Object3D* obj)
   {
-    on_object_delete.notify(obj);
+    on_object_deleted.notify(obj);
     auto it = std::find_if(m_drawables.begin(), m_drawables.end(), [=](const auto& drawable) { return drawable.get() == obj; });
     m_drawables.erase(it);
     for (auto& rp : m_render_passes)
@@ -600,7 +616,7 @@ namespace fury
       rp->update();
     }
     update_shadow_map();
-    m_debug_pass->update();
+    DebugPass::instance().update();
     calculate_scene_bbox();
     if (m_MSAA_enabled)
     {
@@ -787,22 +803,18 @@ namespace fury
       drawable->update();
     }
 
+    for (SceneNode* node : SceneGraphManager::get_dirty_nodes())
+    {
+      node->update();
+    }
     calculate_scene_bbox();
+
     if (m_lights.empty())
     {
       create_default_lights();
       for (Light& light : m_lights)
       {
         EntityManager::add_entity(&light);
-      }
-    }
-
-    const std::vector<uint32_t> ids = SceneGraphManager::get_managed_entities();
-    for (uint32_t id : ids)
-    {
-      for (SceneNode* node : SceneGraphManager::get_entity_nodes(id))
-      {
-        node->update();
       }
     }
 
@@ -851,22 +863,23 @@ namespace fury
 
   void SceneRenderer::tick(float dt)
   {
-    bool need_update_shadow_map = false;
     for (const auto& c : m_controllers)
     {
       c->tick(dt);
-      need_update_shadow_map |= c->is_enabled();
     }
-
     m_cam_controller.tick(dt);
 
     for (SceneNode* node : SceneGraphManager::get_dirty_nodes())
     {
       node->update();
+      if (Entity* owner = node->get_owner(); owner->is_a(Object3D::get_static_type_id())) {
+        Object3D* obj = static_cast<Object3D*>(node->get_owner());
+        ObjectChangeInfo change_info;
+        change_info.object = obj;
+        change_info.new_transform = static_cast<TransformationSceneNode*>(node);
+        global_state::g_on_object_change.notify(change_info);
+      }
     }
-
-    if (need_update_shadow_map)
-      update_shadow_map();
 
     if (m_opened_ui_components == 0)
     {

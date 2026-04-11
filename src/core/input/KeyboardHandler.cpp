@@ -28,7 +28,8 @@ namespace
     {GLFW_KEY_P, KeyboardHandler::InputKey::P},
     {GLFW_KEY_L, KeyboardHandler::InputKey::L},
     {GLFW_KEY_BACKSPACE, KeyboardHandler::InputKey::BACKSPACE},
-    {GLFW_KEY_Q, KeyboardHandler::InputKey::Q}
+    {GLFW_KEY_Q, KeyboardHandler::InputKey::Q},
+    {GLFW_KEY_M, KeyboardHandler::InputKey::M},
   };
 }
 

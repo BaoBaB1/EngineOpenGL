@@ -8,6 +8,7 @@
 #include "core/TextureManager.hpp"
 #include "core/RotationController.hpp"
 #include "core/SceneGraphManager.hpp"
+#include "core/Globals.hpp"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -85,6 +86,10 @@ namespace fury
       if (ImGui::Checkbox("Show grid", &m_show_grid))
       {
       }
+      if (ImGui::Checkbox("Frustum culling", &m_frustum_culling_enabled))
+      {
+        on_frustum_culling_toggled.notify(m_frustum_culling_enabled);
+      }
       if (ImGui::Checkbox("VSync", &m_use_vsync))
       {
         if (m_use_vsync)
@@ -146,6 +151,13 @@ namespace fury
         ImGui::Dummy({ 0, 5 });
       render_object_properties(*m_scene->get_selected_objects().back());
     }
+
+    if (m_frustum_culling_enabled)
+    {
+      ImGui::Separator();
+      ImGui::Text(fmt::format("{} objects culled", m_num_culled_objects).c_str());
+    }
+
     ImGuiIO& io = ImGui::GetIO();
     ImGui::Separator();
     ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
@@ -179,8 +191,6 @@ namespace fury
       TransformationSceneNode* transform = SceneGraphManager::get_entity_node<TransformationSceneNode>(drawable.get_id());
       m_obj_translation = transform->get_translation();
       glm::vec3 old_translation = m_obj_translation;
-      ObjectChangeInfo transformation_change;
-      transformation_change.is_transformation_change = true;
 
       ImGui::PushItemWidth(slider_width);
       for (int i = 0; i < 3; i++)
@@ -189,9 +199,6 @@ namespace fury
         if (ImGui::InputFloat("##translation", &m_obj_translation.x + i))
         {
           transform->set_translation(m_obj_translation);
-          // in world space
-          transformation_change.position_change = m_obj_translation - old_translation;
-          on_object_change.notify(&drawable, transformation_change);
         }
         ImGui::PopID();
         ImGui::SameLine();
@@ -203,9 +210,6 @@ namespace fury
         if (ImGui::SliderFloat("##translation2", &m_obj_translation.x + i, -10.0f, 10.0f))
         {
           transform->set_translation(m_obj_translation);
-          // in world space
-          transformation_change.position_change = m_obj_translation - old_translation;
-          on_object_change.notify(&drawable, transformation_change);
         }
         ImGui::PopID();
         ImGui::SameLine();
@@ -226,7 +230,6 @@ namespace fury
           if (m_obj_scale.x != 0 && m_obj_scale.y != 0 && m_obj_scale.z != 0)
           {
             transform->set_scale(m_obj_scale);
-            on_object_change.notify(&drawable, transformation_change);
           }
         }
         ImGui::PopID();
@@ -239,7 +242,6 @@ namespace fury
         if (ImGui::SliderFloat("##scale2", &m_obj_scale.x + i, 0.1f, 5.0f))
         {
           transform->set_scale(m_obj_scale);
-          on_object_change.notify(&drawable, transformation_change);
         }
         ImGui::PopID();
         ImGui::SameLine();
@@ -283,8 +285,9 @@ namespace fury
       {
         drawable.set_color(m_obj_color);
         ObjectChangeInfo info;
-        info.is_vertex_change = true;
-        on_object_change.notify(&drawable, info);
+        info.is_color_change = true;
+        info.object = &drawable;
+        global_state::g_on_object_change.notify(info);
       }
 
       ImGui::Separator();
@@ -390,7 +393,8 @@ namespace fury
                 drawable.apply_shading(modes[i].first);
                 ObjectChangeInfo info;
                 info.is_shading_mode_change = true;
-                on_object_change.notify(&drawable, info);
+                info.object = &drawable;
+                global_state::g_on_object_change.notify(info);
               }
               if (selected)
                 ImGui::SetItemDefaultFocus();

@@ -6,8 +6,8 @@ int main()
 {
   glfwInit();
   fury::WindowGLFW window(1600, 900, "MainWindow");
-  auto scene = fury::SceneRenderer(&window);
-  scene.render();
+  fury::SceneRenderer::instance().init(&window);
+  fury::SceneRenderer::instance().render();
   glfwTerminate();
   return 0;
 }

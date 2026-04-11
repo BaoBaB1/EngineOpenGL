@@ -6,6 +6,11 @@
 #include <optional>
 #include <functional>
 
+struct TypeInfo {
+  uint32_t id;
+  const TypeInfo* base_info;
+};
+
 #define FURY_OnlyMovable(classname) \
   classname(const classname&) = delete; \
   classname& operator=(const classname&) = delete; \
@@ -41,20 +46,33 @@
   inline constexpr static uint32_t cls_id = fury::utils::FNV1a32(cls_name); \
   inline static int unused_dummy = fury::ObjectsRegistry::register_type<cls>(cls_id); \
   virtual uint32_t get_dynamic_type_id() const { return cls_id; } \
+  virtual const TypeInfo* get_type_info() const { return &cls_type_info; } \
+  bool is_a(uint32_t other_type_id) const \
+  { \
+    const TypeInfo* ti = get_type_info(); \
+    while (ti) { if (ti->id == other_type_id) { return true; } ti = ti->base_info; } \
+    return false; \
+  } \
   using SelfT = cls; \
   friend struct fury::Serializer<SelfT>; \
   FURY_IFELSE(generate_default_read_write_impl, FURY_GENERATE_READ_WRITE_FUNC_DEFAULT_IMPL, FURY_GENERATE_READ_WRITE_FUNC_NO_IMPL)
 
-#define FURY_REGISTER_CLASS(cls) FURY_REGISTER_COMMON(cls, 1)
+#define FURY_REGISTER_BASE_CLASS(cls) \
+  FURY_REGISTER_COMMON(cls, 1) \
+  inline static const TypeInfo cls_type_info = { cls_id, nullptr };
 
-#define FURY_REGISTER_CLASS_NO_DEFAULT_READ_WRITE_IMPL(cls) FURY_REGISTER_COMMON(cls, 0)
+#define FURY_REGISTER_BASE_CLASS_NO_DEFAULT_READ_WRITE_IMPL(cls) \
+  FURY_REGISTER_COMMON(cls, 0) \
+  inline static const TypeInfo cls_type_info = { cls_id, nullptr };
 
 #define FURY_REGISTER_DERIVED_CLASS(cls, base) \
-  FURY_REGISTER_CLASS(cls) \
+  FURY_REGISTER_COMMON(cls, 1) \
+  inline static const TypeInfo cls_type_info = { cls_id, &base::cls_type_info }; \
   using BaseCls = base;
 
 #define FURY_REGISTER_DERIVED_CLASS_NO_DEFAULT_IMPL_READ_WRITE_FUNC(cls, base) \
-  FURY_REGISTER_CLASS_NO_DEFAULT_READ_WRITE_IMPL(cls) \
+  FURY_REGISTER_COMMON(cls, 0) \
+  inline static const TypeInfo cls_type_info = { cls_id, &base::cls_type_info }; \
   using BaseCls = base;
 
 #define FURY_PROPERTY(name, type, field) \

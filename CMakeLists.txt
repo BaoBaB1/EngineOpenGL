@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.13.0)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(PROJECT_NAME "FuryEngine")
 project(${PROJECT_NAME})

@@ -9,7 +9,7 @@ namespace
 {
 	struct SimpleClass
 	{
-		FURY_REGISTER_CLASS(SimpleClass)
+		FURY_REGISTER_BASE_CLASS(SimpleClass)
 			FURY_DECLARE_SERIALIZABLE_FIELDS(
 				FURY_SERIALIZABLE_FIELD(1, &SimpleClass::a),
 				FURY_SERIALIZABLE_FIELD(2, &SimpleClass::b),
@@ -20,14 +20,14 @@ namespace
 		float b;
 		std::string name;
 		std::vector<int> vec;
-		bool operator==(const SimpleClass& other) {
+		bool operator==(const SimpleClass& other) const {
 			return a == other.a && b == other.b && name == other.name && vec == other.vec;
 		}
 	};
 
 	struct Base
 	{
-		FURY_REGISTER_CLASS(Base)
+		FURY_REGISTER_BASE_CLASS(Base)
 		FURY_DECLARE_SERIALIZABLE_FIELDS(
 			FURY_SERIALIZABLE_FIELD(1, &Base::base_field)
 		)

@@ -22,6 +22,7 @@ namespace fury
       SELECTION_WHEEL,
       SELECTION_WHEEL_ICON,
       GRID,
+      SIMPLE_WITH_VCOLOR,
       LAST_ITEM
     };
     static void init();

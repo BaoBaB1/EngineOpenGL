@@ -12,7 +12,7 @@ namespace fury
   class SceneNode
   {
   public:
-    FURY_REGISTER_CLASS(SceneNode)
+    FURY_REGISTER_BASE_CLASS(SceneNode)
     FURY_OnlyMovable(SceneNode)
     Entity* get_owner() { return m_owner; }
     void set_owner(Entity* owner) { m_owner = owner; }

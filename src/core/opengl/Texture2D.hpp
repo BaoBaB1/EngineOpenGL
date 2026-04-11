@@ -9,7 +9,7 @@ namespace fury
   class Texture2D : public Texture
   {
   public:
-    FURY_REGISTER_CLASS_NO_DEFAULT_READ_WRITE_IMPL(Texture2D)
+    FURY_REGISTER_BASE_CLASS_NO_DEFAULT_READ_WRITE_IMPL(Texture2D)
     static const Texture2D& get_placeholder();
     Texture2D() = default;
     Texture2D(int w, int h, GLint internalformat, GLint format, GLint type);

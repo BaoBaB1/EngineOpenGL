@@ -66,22 +66,9 @@ namespace fury
         {
           return;
         }
-        glm::vec3 old_scale;
-        glm::quat old_rotation;
-        glm::vec3 old_translation;
-        glm::vec3 old_skew;
-        glm::vec4 old_perspective;
-        glm::decompose(node->get_world_mat(), old_scale, old_rotation, old_translation, old_skew, old_perspective);
         node->set_scale(new_scale);
         node->set_translation(new_translation);
         node->set_rotation(new_rotation);
-        ObjectChangeInfo info;
-        info.is_transformation_change = true;
-        info.position_change = new_translation - old_translation;
-        info.scale_change = new_scale - old_scale;
-        info.rotation_angle_change = glm::angle(new_rotation) - glm::angle(old_rotation);
-        info.rotation_axis_change = glm::axis(new_rotation) - glm::axis(old_rotation);
-        on_object_change.notify(obj, info);
       }
     }
   }
