@@ -1,9 +1,6 @@
 #include "Camera.hpp"
 #include "Frustum.hpp"
 #include "core/SceneGraphManager.hpp"
-#include "input/UserInputHandler.hpp"
-#include "input/KeyboardHandler.hpp"
-#include "input/CursorPositionHandler.hpp"
 #include "core/IdGenerator.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>

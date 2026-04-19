@@ -31,7 +31,7 @@ namespace fury
   {
   public:
     ItemSelectionWheel() = default;
-    void init(WindowGLFW* window, const SelectionWheelConfig& config);
+    void init(int window_width, int window_height, const SelectionWheelConfig& config);
     std::vector<SelectionWheelSlot>& get_slots() { return m_slots; }
     bool is_visible() const { return m_is_visible; }
     void set_is_visible(bool v) { m_is_visible = v; }
@@ -44,8 +44,8 @@ namespace fury
   private:
     std::vector<SelectionWheelSlot> m_slots;
     SelectionWheelConfig m_config;
-    bool m_is_visible = false;
     int m_selected_slot = -1;
-    WindowGLFW* m_window = nullptr;
+    int m_window_size[2] = {};
+    bool m_is_visible = false;
   };
 }

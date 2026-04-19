@@ -1,6 +1,5 @@
 #include "CameraController.hpp"
-#include "input/CursorPositionHandler.hpp"
-#include "input/KeyboardHandler.hpp"
+#include "input/InputSystem.hpp"
 #include "Logger.hpp"
 #include "Camera.hpp"
 
@@ -9,49 +8,41 @@ namespace fury
   void CameraController::tick(float dt)
   {
     m_camera->tick(dt);
-    // do movement every frame while movement key is in PRESSED state
-    if (m_keyboard_handler && !m_keyboard_handler->get_pressed_keys().empty())
+    const InputSystem& input_system = InputSystem::instance();
+    if (input_system.get_axis_value("MoveForward"))
     {
-      using Key = KeyboardHandler::InputKey;
-      for (Key key : m_keyboard_handler->get_pressed_keys())
-      {
-        switch (key)
-        {
-        case Key::W:
-        case Key::ARROW_UP:
-          m_camera->move(Camera::Direction::FORWARD);
-          break;
-        case Key::A:
-        case Key::ARROW_LEFT:
-          m_camera->move(Camera::Direction::LEFT);
-          break;
-        case Key::S:
-        case Key::ARROW_DOWN:
-          m_camera->move(Camera::Direction::BACKWARD);
-          break;
-        case Key::D:
-        case Key::ARROW_RIGHT:
-          m_camera->move(Camera::Direction::RIGHT);
-          break;
-        case Key::SPACE:
-          m_camera->move(Camera::Direction::UP);
-          break;
-        case Key::LEFT_CTRL:
-          m_camera->move(Camera::Direction::DOWN);
-          break;
-        }
-      }
+      m_camera->move(Camera::Direction::FORWARD);
+    }
+    if (input_system.get_axis_value("MoveBackward"))
+    {
+      m_camera->move(Camera::Direction::BACKWARD);
+    }
+    if (input_system.get_axis_value("MoveLeft"))
+    {
+      m_camera->move(Camera::Direction::LEFT);
+    }
+    if (input_system.get_axis_value("MoveRight"))
+    {
+      m_camera->move(Camera::Direction::RIGHT);
+    }
+    if (input_system.get_axis_value("MoveUp"))
+    {
+      m_camera->move(Camera::Direction::UP);
+    }
+    if (input_system.get_axis_value("MoveDown"))
+    {
+      m_camera->move(Camera::Direction::DOWN);
     }
   }
 
   CameraController::~CameraController()
   {
-    m_cursor_handler->on_cursor_position_change.remove_by_owner(this);
+    InputSystem::instance().on_cursor_moved.remove_by_owner(this);
   }
 
-  void CameraController::init(Camera* camera, KeyboardHandler* keyboard_handler, CursorPositionHandler* cursor_handler)
+  void CameraController::init(Camera* camera)
   {
-    if (m_camera || m_cursor_handler || m_keyboard_handler)
+    if (m_camera)
     {
       Logger::error("Camera controller already initialized.");
       return;
@@ -62,20 +53,7 @@ namespace fury
       return;
     }
     m_camera = camera;
-    m_keyboard_handler = keyboard_handler;
-    m_cursor_handler = cursor_handler;
-    if (!keyboard_handler)
-    {
-      Logger::warn("Camera controller is missing keyboard handler");
-    }
-    if (!cursor_handler)
-    {
-      Logger::warn("Camera controller is missing cursor position handler");
-    }
-    else
-    {
-      cursor_handler->on_cursor_position_change += new InstanceListener(this, &CameraController::handle_cursor_move);
-    }
+    InputSystem::instance().on_cursor_moved += new InstanceListener(this, &CameraController::handle_cursor_move);
   }
 
   void CameraController::handle_cursor_move(double newx, double newy, double oldx, double oldy)
@@ -87,4 +65,4 @@ namespace fury
       m_camera->add_to_yaw_and_pitch(dx, dy);
     }
   }
-}
+} // namespace fury

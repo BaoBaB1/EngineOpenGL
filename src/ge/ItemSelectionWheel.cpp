@@ -1,26 +1,22 @@
 #include "ItemSelectionWheel.hpp"
 #include "utils/Constants.hpp"
-#include "core/input/CursorPositionHandler.hpp"
 #include "core/Logger.hpp"
 #include "core/opengl/Texture2D.hpp"
 #include "core/WindowGLFW.hpp"
+#include "core/input/InputSystem.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <cmath>
 
 namespace fury
 {
-  void ItemSelectionWheel::init(WindowGLFW* window, const SelectionWheelConfig& config)
+  void ItemSelectionWheel::init(int window_width, int window_height, const SelectionWheelConfig& config)
   {
-    CursorPositionHandler* cph = window->get_input_handler<CursorPositionHandler>(UserInputHandler::HandlerType::CURSOR_POSITION);
-    if (m_window)
-    {
-      assert(cph->on_cursor_position_change.remove_by_owner(this));
-    }
-    m_window = window;
+    m_window_size[0] = window_width;
+    m_window_size[1] = window_height;
     m_config = config;
-    window->get_input_handler<CursorPositionHandler>(UserInputHandler::HandlerType::CURSOR_POSITION)->on_cursor_position_change
-      += new InstanceListener(this, &ItemSelectionWheel::handle_cursor_position_change);
+    InputSystem::instance().on_cursor_moved +=
+        new InstanceListener(this, &ItemSelectionWheel::handle_cursor_position_change);
 
     constexpr int segments = 15;
     const float item_spacing = glm::radians(config.slots_spacing_deg);
@@ -49,7 +45,7 @@ namespace fury
           float theta = start_angle + seg * angle_step;
           const float x = r * glm::cos(theta);
           const float y = r * glm::sin(theta);
-          slot.arcs_data.emplace_back(glm::vec2{ x, y });
+          slot.arcs_data.emplace_back(glm::vec2 { x, y });
         }
       }
       slot.center = (slot.arcs_data[segments / 2 + 1] + slot.arcs_data[segments + segments / 2 + 1]) / 2.f;
@@ -67,13 +63,13 @@ namespace fury
     if (!m_is_visible)
       return;
     const glm::vec2 pos = { newx, newy };
-    const glm::vec2 center = { m_window->width() / 2.f, m_window->height() / 2.f };
+    const glm::vec2 center = { m_window_size[0] / 2.f, m_window_size[1] / 2.f };
     if (pos == center)
       return;
     const glm::vec2 dir = glm::normalize(pos - center);
     float angle = std::atan2(-dir.y, dir.x);
     float offset = glm::radians(m_config.slots_spacing_deg);
-    //angle += glm::radians(m_config.slots_spacing_deg);
+    // angle += glm::radians(m_config.slots_spacing_deg);
     if (angle < 0)
       angle += constants::PI2_F;
 
@@ -95,4 +91,4 @@ namespace fury
     }
     select(slot);
   }
-}
+} // namespace fury

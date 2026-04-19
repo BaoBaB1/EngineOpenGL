@@ -1,5 +1,4 @@
 #include "Gizmo.hpp"
-#include "core/input/KeyboardHandler.hpp"
 #include "core/Camera.hpp"
 #include "core/ObjectChangeInfo.hpp"
 #include "core/SceneRenderer.hpp"
@@ -17,7 +16,29 @@ namespace fury
 {
   Gizmo::Gizmo(SceneRenderer* scene) : UiComponent(scene)
   {
-    m_gizmo_operation= ImGuizmo::OPERATION::TRANSLATE;
+    m_gizmo_operation = ImGuizmo::OPERATION::TRANSLATE;
+    auto gizmo_mode_change_reactor = [this](InputCode key)
+    {
+      const InputSystem& input_system = InputSystem::instance();
+      if (input_system.get_active_input_context()->name == "UI")
+      {
+        if (key == InputCode::FURY_KEY_T)
+        {
+          m_gizmo_operation = ImGuizmo::OPERATION::TRANSLATE;
+        }
+        else if (key == InputCode::FURY_KEY_S)
+        {
+          m_gizmo_operation = ImGuizmo::OPERATION::SCALE;
+        }
+        else if (key == InputCode::FURY_KEY_R)
+        {
+          m_gizmo_operation = ImGuizmo::OPERATION::ROTATE;
+        }
+      }
+    };
+
+    InputSystem::instance().on_keyboard_button_clicked +=
+        new FunctionListener(std::function(gizmo_mode_change_reactor));
   }
 
   void Gizmo::tick(float)
@@ -26,21 +47,6 @@ namespace fury
     if (!m_scene->get_selected_objects().empty() && m_scene->get_ui().get_component("SceneInfo")->is_visible())
     {
       WindowGLFW* window = m_scene->get_window();
-      KeyboardHandler* kh = window->get_input_handler<KeyboardHandler>(UserInputHandler::KEYBOARD);
-      // default mode is translation
-      if (kh->get_keystate(KeyboardHandler::InputKey::T) == KeyboardHandler::KeyState::PRESSED)
-      {
-        m_gizmo_operation = ImGuizmo::OPERATION::TRANSLATE;
-      }
-      else if (kh->get_keystate(KeyboardHandler::InputKey::R) == KeyboardHandler::KeyState::PRESSED)
-      {
-        m_gizmo_operation= ImGuizmo::OPERATION::ROTATE;
-      }
-      else if (kh->get_keystate(KeyboardHandler::InputKey::S) == KeyboardHandler::KeyState::PRESSED)
-      {
-        m_gizmo_operation= ImGuizmo::OPERATION::SCALE;
-      }
-
       ImGuizmo::BeginFrame();
       ImGuizmo::SetOrthographic(false);
       ImGuizmo::SetRect(0, 0, window->width(), window->height());
@@ -51,8 +57,9 @@ namespace fury
 
       auto node = SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id());
       glm::mat4 model_mat = node->get_world_mat();
-      ImGuizmo::Manipulate(glm::value_ptr(cam.get_view_matrix()), glm::value_ptr(m_scene->get_camera().get_projection_matrix()),
-        static_cast<ImGuizmo::OPERATION>(m_gizmo_operation), gizmo_mode, glm::value_ptr(model_mat));
+      ImGuizmo::Manipulate(glm::value_ptr(cam.get_view_matrix()),
+                           glm::value_ptr(m_scene->get_camera().get_projection_matrix()),
+                           static_cast<ImGuizmo::OPERATION>(m_gizmo_operation), gizmo_mode, glm::value_ptr(model_mat));
       if (ImGuizmo::IsUsing() && node->get_world_mat() != model_mat)
       {
         glm::vec3 new_scale;
@@ -72,4 +79,4 @@ namespace fury
       }
     }
   }
-}
+} // namespace fury

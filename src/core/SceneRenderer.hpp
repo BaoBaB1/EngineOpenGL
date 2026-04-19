@@ -2,7 +2,7 @@
 
 #include "Camera.hpp"
 #include "opengl/FrameBufferObject.hpp"
-#include "input/KeyboardHandler.hpp"
+#include "input/InputSystem.hpp"
 #include "CameraController.hpp"
 #include "ui/Ui.hpp"
 #include "ScreenQuad.hpp"
@@ -64,9 +64,9 @@ namespace fury
     void prepare_scene_for_rendering();
     void select_object(Object3D* obj, bool click_from_menu_item);  // temporary function. remove when selection of multiple elements is supported
     void render_skybox();
-    void handle_mouse_click(int button, int x, int y);
+    void handle_mouse_click(InputCode, int x, int y);
     void handle_window_size_change(int width, int height);
-    void handle_keyboard_input(KeyboardHandler::InputKey key, KeyboardHandler::KeyState state);
+    void handle_keyboard_button_click(InputCode input_code);
     void change_polygon_mode(int new_mode);
     void handle_object_change(const ObjectChangeInfo& info);
     void calculate_scene_bbox();
@@ -99,7 +99,6 @@ namespace fury
     std::map<std::string, FrameBufferObject> m_fbos;
     GLint m_polygon_mode = GL_FILL;
     BoundingBox m_bbox;
-    int m_opened_ui_components = 0;
     FPSLimiter m_fps_limiter;
     ItemSelectionWheel m_selection_wheel;
   };

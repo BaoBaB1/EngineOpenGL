@@ -1,20 +1,8 @@
 #include "WindowGLFW.hpp"
-#include "input/KeyboardHandler.hpp"
-#include "input/CursorPositionHandler.hpp"
-#include "input/MouseInputHandler.hpp"
 #include "Logger.hpp"
+#include "input/InputSystem.hpp"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-
-static void window_focus_callback(GLFWwindow* window, int focused)
-{
-  if (focused)
-  {
-    fury::WindowGLFW* winglfw = static_cast<fury::WindowGLFW*>(glfwGetWindowUserPointer(window));
-    fury::CursorPositionHandler* cp = winglfw->get_input_handler<fury::CursorPositionHandler>(fury::UserInputHandler::CURSOR_POSITION);
-    cp->update_ignore_frames();
-  }
-}
 
 namespace fury
 {
@@ -36,34 +24,40 @@ namespace fury
     m_width = width;
     m_height = height;
     m_title = title;
-    // Tell GLFW what version of OpenGL we are using 
+    // Tell GLFW what version of OpenGL we are using
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
     // Tell GLFW we are using the CORE profile (only modern functions)
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_SAMPLES, 4); 
+    glfwWindowHint(GLFW_SAMPLES, 4);
     m_window = glfwCreateWindow(width, height, title, nullptr, glfwGetCurrentContext());
-    if (m_window == nullptr) {
+    if (m_window == nullptr)
+    {
       Logger::critical("Failed to create GLFW window");
       return;
     }
     glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPos(m_window, m_width / 2., m_height / 2.);
-    m_input_handlers[UserInputHandler::HandlerType::KEYBOARD] = std::make_unique<KeyboardHandler>(this);
-    m_input_handlers[UserInputHandler::HandlerType::CURSOR_POSITION] = std::make_unique<CursorPositionHandler>(this);
-    m_input_handlers[UserInputHandler::HandlerType::MOUSE_INPUT] = std::make_unique<MouseInputHandler>(this);
     glfwMakeContextCurrent(m_window);
     // disable vsync
     glfwSwapInterval(0);
     glfwSetWindowSizeLimits(m_window, 1600, 900, GLFW_DONT_CARE, GLFW_DONT_CARE);
-    glfwSetWindowFocusCallback(m_window, window_focus_callback);
-
     glfwSetWindowUserPointer(m_window, this);
     auto window_size_change_callback = [](GLFWwindow* window, int width, int height)
-      {
-        static_cast<WindowGLFW*>(glfwGetWindowUserPointer(window))->on_window_size_change.notify(width, height);
-      };
+    {
+      static_cast<WindowGLFW*>(glfwGetWindowUserPointer(window))->on_window_size_change.notify(width, height);
+    };
+    auto window_focus_change_callback = [](GLFWwindow* window, int focused)
+    {
+      static_cast<WindowGLFW*>(glfwGetWindowUserPointer(window))->on_window_focus_changed.notify(focused);
+    };
+    auto window_cursor_enter_callback = [](GLFWwindow* window, int entered)
+    {
+      static_cast<WindowGLFW*>(glfwGetWindowUserPointer(window))->on_window_cursor_entered.notify(entered);
+    };
     glfwSetWindowSizeCallback(m_window, window_size_change_callback);
+    glfwSetWindowFocusCallback(m_window, window_focus_change_callback);
+    glfwSetCursorEnterCallback(m_window, window_cursor_enter_callback);
     gladLoadGL();
     glViewport(0, 0, m_width, m_height);
   }
@@ -72,4 +66,4 @@ namespace fury
   {
     glfwDestroyWindow(m_window);
   }
-}
+} // namespace fury

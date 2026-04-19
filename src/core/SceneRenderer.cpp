@@ -4,10 +4,8 @@
 #include "opengl/VertexArrayObject.hpp"
 #include "opengl/VertexBufferObject.hpp"
 #include "opengl/ElementBufferObject.hpp"
+#include "input/InputSystem.hpp"
 #include "Camera.hpp"
-#include "input/KeyboardHandler.hpp"
-#include "input/CursorPositionHandler.hpp"
-#include "input/MouseInputHandler.hpp"
 #include "ShaderStorage.hpp"
 #include "BindGuard.hpp"
 #include "PipelineBufferManager.hpp"
@@ -50,6 +48,7 @@ constexpr int SHADOWMAP_HEIGHT = 2048;
 namespace
 {
   const std::filesystem::path SKYBOX_TEXTURES_FOLDER = fury::AssetManager::get_assets_folder() / "textures" / "skybox";
+  // clang-format off
   std::array<std::filesystem::path, 6> skybox_faces =
   {
     SKYBOX_TEXTURES_FOLDER / "right.jpg",
@@ -79,10 +78,11 @@ namespace
     };
     return shadow_map_data;
   };
+  // clang-format on
   constexpr std::array shadow_map_data = init_shadow_map_data();
 
   void setup_opengl();
-}
+} // namespace
 
 namespace fury
 {
@@ -91,8 +91,11 @@ namespace fury
     m_window = window;
     const int w = window->width();
     const int h = window->height();
+    InputSystem::instance().init(window);
     AssetManager::init();
+    ShaderStorage::init();
     m_ui.init(this);
+    m_cam_controller.init(&m_camera);
     SceneInfo* scene_info_component = m_ui.get_component<SceneInfo>("SceneInfo");
     Gizmo* gizmo_component = m_ui.get_component<Gizmo>("Gizmo");
     FileExplorer* file_explorer_component = m_ui.get_component<FileExplorer>("FileExplorer");
@@ -103,32 +106,23 @@ namespace fury
     scene_info_component->on_polygon_mode_change += new InstanceListener(this, &SceneRenderer::change_polygon_mode);
     scene_info_component->msaa_button_click += new InstanceListener(this, &SceneRenderer::handle_msaa_button_toggle);
     on_new_object_added += new FunctionListener(std::function(
-      [this](Object3D* obj)
-      {
-        ObjectChangeInfo info;
-        info.object = obj;
-        info.new_transform = SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id());
-        handle_object_change(info); 
-        EntityManager::add_entity(obj);
-      })
-    );
-    global_state::g_on_object_change += new FunctionListener(std::function(
-      [this](const ObjectChangeInfo& info)
-      {
-        handle_object_change(info);
-      })
-    );
+        [this](Object3D* obj)
+        {
+          ObjectChangeInfo info;
+          info.object = obj;
+          info.new_transform = SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id());
+          handle_object_change(info);
+          EntityManager::add_entity(obj);
+        }));
+    global_state::g_on_object_change +=
+        new FunctionListener(std::function([this](const ObjectChangeInfo& info) { handle_object_change(info); }));
 
     m_camera.set_screen_size({ w, h });
 
-    CursorPositionHandler* cursor_pos_handler = m_window->get_input_handler<CursorPositionHandler>(UserInputHandler::CURSOR_POSITION);
-    MouseInputHandler* mouse_input_handler = m_window->get_input_handler<MouseInputHandler>(UserInputHandler::MOUSE_INPUT);
-    KeyboardHandler* keyboard_input_handler = m_window->get_input_handler<KeyboardHandler>(UserInputHandler::KEYBOARD);
-    mouse_input_handler->on_button_click += new InstanceListener(this, &SceneRenderer::handle_mouse_click);
-    keyboard_input_handler->on_key_state_change += new InstanceListener(this, &SceneRenderer::handle_keyboard_input);
+    InputSystem& input_system = InputSystem::instance();
+    input_system.on_keyboard_button_clicked += new InstanceListener(this, &SceneRenderer::handle_keyboard_button_click);
+    input_system.on_mouse_button_clicked += new InstanceListener(this, &SceneRenderer::handle_mouse_click);
     m_window->on_window_size_change += new InstanceListener(this, &SceneRenderer::handle_window_size_change);
-    m_cam_controller.init(&m_camera, keyboard_input_handler, cursor_pos_handler);
-    ShaderStorage::init();
 
     auto& main_scene_fbo = m_fbos["main"];
     main_scene_fbo.bind();
@@ -147,7 +141,8 @@ namespace fury
 
     auto& shadows_fbo = m_fbos["shadowMap"];
     shadows_fbo.bind();
-    shadows_fbo.attach_texture(Texture2D(SHADOWMAP_WIDTH, SHADOWMAP_HEIGHT, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT), false);
+    shadows_fbo.attach_texture(
+        Texture2D(SHADOWMAP_WIDTH, SHADOWMAP_HEIGHT, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT), false);
     shadows_fbo.texture()->bind();
     // anything that is out of depth map is not in shadow
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -178,19 +173,20 @@ namespace fury
     ubo.unbind();
 
     ::setup_opengl();
-    
+
     SelectionWheelConfig cfg;
     cfg.items_count = 6;
     cfg.inner_circle_radius_px = 200;
     cfg.outer_circle_radius_px = 400;
     cfg.slots_spacing_deg = 0;
-    m_selection_wheel.init(m_window, cfg);
+    m_selection_wheel.init(m_window->width(), m_window->height(), cfg);
 
     // TODO: remove later. just for testing purposes now
     for (int i = 0; i < cfg.items_count; i++)
     {
       if (i % 2 == 0)
-        m_selection_wheel.get_slot(i)->icon = TextureManager::get(AssetManager::get_absolute_from_relative("textures/brick.jpg").value()).get();
+        m_selection_wheel.get_slot(i)->icon =
+            TextureManager::get(AssetManager::get_absolute_from_relative("textures/brick.jpg").value()).get();
     }
 
     m_render_passes.emplace_back(std::make_unique<GeometryPass>(this, shadows_fbo.texture()->id()));
@@ -198,8 +194,8 @@ namespace fury
     m_render_passes.emplace_back(std::make_unique<SelectionWheelPass>(this, &m_selection_wheel));
     m_render_passes.emplace_back(std::make_unique<InfiniteGridPass>(this));
     m_shadows_pass = std::make_unique<ShadowsPass>(this, static_cast<GeometryPass*>(m_render_passes[0].get()));
-    
-    //load(AssetManager::get_from_relative("scenes/demo.bin").value().string());
+
+    // load(AssetManager::get_from_relative("scenes/demo.bin").value().string());
     create_default_scene();
   }
 
@@ -278,7 +274,7 @@ namespace fury
     ofs.close();
     // fix to avoid camera jumps ???
     // again, cursor pos in handler can have huge offset difference at this point
-    m_window->get_input_handler<CursorPositionHandler>(UserInputHandler::CURSOR_POSITION)->update_ignore_frames();
+    // InputSystem::instance().cursor_movement_ignore_first_frames();
   }
 
   void SceneRenderer::load(const std::string& file)
@@ -318,9 +314,9 @@ namespace fury
     glDepthFunc(GL_LESS);
   }
 
-  void SceneRenderer::handle_mouse_click(int button, int x, int y)
+  void SceneRenderer::handle_mouse_click(InputCode input_code, int x, int y)
   {
-    if (button == GLFW_MOUSE_BUTTON_LEFT)
+    if (input_code == InputCode::FURY_MOUSE_BUTTON_LEFT)
     {
       if (m_selection_wheel.is_visible())
       {
@@ -336,7 +332,8 @@ namespace fury
       {
         TransformationSceneNode* node = SceneGraphManager::get_entity_node<TransformationSceneNode>(d->get_id());
         const glm::mat4 inv_model_mat = glm::inverse(node->get_world_mat());
-        Ray ray_local = Ray(inv_model_mat * glm::vec4(ray.get_origin(), 1), inv_model_mat * glm::vec4(ray.get_direction(), 0));
+        Ray ray_local =
+            Ray(inv_model_mat * glm::vec4(ray.get_origin(), 1), inv_model_mat * glm::vec4(ray.get_direction(), 0));
         if (auto hit = ray_local.intersect_object3d(d.get()))
         {
           const glm::vec3 ray_hit_pos_world = node->get_world_mat() * glm::vec4(hit->position, 1);
@@ -344,12 +341,13 @@ namespace fury
           Polyline poly;
           poly.add(ray.get_origin());
           poly.add(ray_hit_pos_world);
-          //auto dist = glm::distance(ray.get_origin(), glm::vec3(d->model_matrix() * glm::vec4(hit->position, 1)));
-          //std::cout << "dist " << d->name() << " " << dist << '\n';
+          // auto dist = glm::distance(ray.get_origin(), glm::vec3(d->model_matrix() * glm::vec4(hit->position, 1)));
+          // std::cout << "dist " << d->name() << " " << dist << '\n';
           rays.push_back(poly);
 #endif
-          // calculate distance in world space and find closest object. my guess is that we cannot use rayhit->distance here, because it's in local space,
-          // therefore, if ray instersects multiple objects, the object that is further may have less distance value than the object that is closer.
+          // calculate distance in world space and find closest object. my guess is that we cannot use rayhit->distance
+          // here, because it's in local space, therefore, if ray instersects multiple objects, the object that is
+          // further may have less distance value than the object that is closer.
           const float hit_distance_world = glm::distance2(ray.get_origin(), ray_hit_pos_world);
           if (hit_info.second > hit_distance_world)
           {
@@ -388,7 +386,8 @@ namespace fury
       fbo.bind();
       if (auto& tex = fbo.texture())
       {
-        tex->resize(width, height, fbo.texture()->internal_fmt(), fbo.texture()->format(), fbo.texture()->pixel_data_type());
+        tex->resize(width, height, fbo.texture()->internal_fmt(), fbo.texture()->format(),
+                    fbo.texture()->pixel_data_type());
       }
       if (auto& texMS = fbo.texture_ms())
       {
@@ -404,127 +403,101 @@ namespace fury
     glViewport(0, 0, width, height);
   }
 
-  void SceneRenderer::handle_keyboard_input(KeyboardHandler::InputKey key, KeyboardHandler::KeyState state)
+  void SceneRenderer::handle_keyboard_button_click(InputCode input_code)
   {
-    using Key = KeyboardHandler::InputKey;
-    using State = KeyboardHandler::KeyState;
-
-    if (m_ui.get_component<FileExplorer>("FileExplorer")->is_visible())
+    const InputSystem& input_system = InputSystem::instance();
+    if (input_code == InputCode::FURY_KEY_ESC)
     {
-      return;
+      assert(m_selected_objects.empty() || m_selected_objects.size() == 1);
+      for (Object3D* obj : m_selected_objects)
+      {
+        m_selected_objects.pop_back();
+        obj->select(false);
+      }
     }
-
-    // pressed once. if we want to know if key is being held, then need to use KeyboardHandler::get_pressed_keys() each frame
-    if (state == State::PRESSED)
+    else if (input_code == InputCode::FURY_KEY_O)
     {
-      if (key == Key::ESC)
+      m_show_shadow_map = !m_show_shadow_map;
+    }
+    else if (input_code == InputCode::FURY_KEY_P)
+    {
+      Camera::ProjectionMode current_mode = m_camera.get_projection_mode();
+      m_camera.set_projection_mode(current_mode == Camera::ProjectionMode::ORTHOGRAPHIC
+                                       ? Camera::ProjectionMode::PERSPECTIVE
+                                       : Camera::ProjectionMode::ORTHOGRAPHIC);
+    }
+    else if (input_code == InputCode::FURY_KEY_L && !m_selected_objects.empty())
+    {
+      // drop selected object on object below
+      Object3D* selected_obj = m_selected_objects.front();
+      // static constexpr int lower_bbox_points_indices[] = {0, 1, 4, 5};
+      //  TODO: iterate only over bottom bbox points
+      const auto points = selected_obj->get_bbox().get_points();
+      TransformationSceneNode* selected_transform =
+          SceneGraphManager::get_entity_node<TransformationSceneNode>(selected_obj->get_id());
+      float distance = INFINITY;
+      DebugPass::instance().clear();
+      for (const glm::vec3& p : points)
       {
-        assert(m_selected_objects.empty() || m_selected_objects.size() == 1);
-        for (Object3D* obj : m_selected_objects)
+        Ray ray(selected_transform->get_world_mat() * glm::vec4(p, 1), glm::vec3(0, -1, 0));
+        for (const auto& drawable : m_drawables)
         {
-          m_selected_objects.pop_back();
-          obj->select(false);
-        }
-      }
-      else if (key == Key::LEFT_SHIFT && m_opened_ui_components == 0)
-      {
-        if (m_camera.is_freezed())
-        {
-          glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-          m_camera.unfreeze();
-        }
-        else
-        {
-          glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-          m_camera.freeze();
-        }
-      }
-      else if (key == Key::O)
-      {
-        m_show_shadow_map = !m_show_shadow_map;
-      }
-      else if (key == Key::P)
-      {
-        Camera::ProjectionMode current_mode = m_camera.get_projection_mode();
-        m_camera.set_projection_mode(current_mode == Camera::ProjectionMode::ORTHOGRAPHIC ? 
-          Camera::ProjectionMode::PERSPECTIVE : Camera::ProjectionMode::ORTHOGRAPHIC);
-      }
-      else if (key == Key::L && !m_selected_objects.empty())
-      {
-        // drop selected object on object below
-        Object3D* selected_obj = m_selected_objects.front();
-        //static constexpr int lower_bbox_points_indices[] = {0, 1, 4, 5};
-        // TODO: iterate only over bottom bbox points
-        const auto points = selected_obj->get_bbox().get_points();
-        TransformationSceneNode* selected_transform
-          = SceneGraphManager::get_entity_node<TransformationSceneNode>(selected_obj->get_id());
-        float distance = INFINITY;
-        DebugPass::instance().clear();
-        for (const glm::vec3& p : points)
-        {
-          Ray ray(selected_transform->get_world_mat() * glm::vec4(p, 1), glm::vec3(0, -1, 0));
-          for (const auto& drawable : m_drawables)
-          {
-            if (drawable.get() == selected_obj)
-              continue;
-            BoundingBox bbox_world;
-            TransformationSceneNode* drawable_transform =
+          if (drawable.get() == selected_obj)
+            continue;
+          BoundingBox bbox_world;
+          TransformationSceneNode* drawable_transform =
               SceneGraphManager::get_entity_node<TransformationSceneNode>(drawable->get_id());
-            bbox_world.init(drawable_transform->get_world_mat() * glm::vec4(drawable->get_bbox().min(), 1)
-              , drawable_transform->get_world_mat() * glm::vec4(drawable->get_bbox().max(), 1));
-            if (auto hit = ray.intersect_aabb(bbox_world))
-            {
-              DebugPass::instance().add_line(ray.get_origin(), hit->position);
-              //Logger::info("hit {} distance {}", hit->position, hit->distance);
-              distance = std::min(hit->distance, distance);
-            }
+          bbox_world.init(drawable_transform->get_world_mat() * glm::vec4(drawable->get_bbox().min(), 1),
+                          drawable_transform->get_world_mat() * glm::vec4(drawable->get_bbox().max(), 1));
+          if (auto hit = ray.intersect_aabb(bbox_world))
+          {
+            DebugPass::instance().add_line(ray.get_origin(), hit->position);
+            // Logger::info("hit {} distance {}", hit->position, hit->distance);
+            distance = std::min(hit->distance, distance);
           }
         }
-        if (distance != INFINITY)
-        {
-          glm::vec3 old = selected_transform->get_translation();
-          distance = distance - old.y;
-          selected_transform->set_translation(glm::vec3(old.x, -distance, old.z));
-          update_shadow_map();
-        }
       }
-      else if (key == Key::BACKSPACE && !m_selected_objects.empty()
-        && !m_ui.get_component<SceneInfo>("SceneInfo")->is_visible()) // if it's visible, we can use backspace to remove values from imgui's input fields
+      if (distance != INFINITY)
       {
-        assert(m_selected_objects.size() == 1);
-        Object3D* selected_obj = m_selected_objects.front();
-        remove_object(m_selected_objects.front());
-        m_selected_objects.pop_back();
+        glm::vec3 old = selected_transform->get_translation();
+        distance = distance - old.y;
+        selected_transform->set_translation(glm::vec3(old.x, -distance, old.z));
+        update_shadow_map();
       }
-      else if (key == Key::GRAVE_ACCENT)
+    }
+    else if (input_code == InputCode::FURY_KEY_BACKSPACE && !m_selected_objects.empty())
+    {
+      assert(m_selected_objects.size() == 1);
+      Object3D* selected_obj = m_selected_objects.front();
+      remove_object(m_selected_objects.front());
+      m_selected_objects.pop_back();
+    }
+    else if (input_code == InputCode::FURY_KEY_GRAVE_ACCENT)
+    {
+      SceneInfo* scene_info = m_ui.get_component<SceneInfo>("SceneInfo");
+      scene_info->is_visible() ? scene_info->hide() : scene_info->show();
+    }
+    else if (input_code == InputCode::FURY_KEY_Q)
+    {
+      const bool will_be_visible = !m_selection_wheel.is_visible();
+      m_selection_wheel.select(-1);
+      m_selection_wheel.set_is_visible(will_be_visible);
+      if (will_be_visible)
       {
-        SceneInfo* scene_info = m_ui.get_component<SceneInfo>("SceneInfo");
-        scene_info->is_visible() ? scene_info->hide() : scene_info->show();
+        handle_ui_component_opening();
       }
-      else if (key == Key::Q)
+      else
       {
-        const bool will_be_visible = !m_selection_wheel.is_visible();
-        m_selection_wheel.select(-1);
-        m_selection_wheel.set_is_visible(will_be_visible);
-        if (will_be_visible)
-        {
-          m_camera.freeze();
-          glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-          m_opened_ui_components++;
-        }
-        else
-        {
-          // camera unfreeze is managed by tick() function
-          m_opened_ui_components--;
-        }
+        handle_ui_component_closing();
       }
-      else if (key == Key::M)
+    }
+    else if (input_code == InputCode::FURY_KEY_M)
+    {
+      Frustum fr = m_camera.get_frustum();
+      auto& dbg = DebugPass::instance();
+      for (const auto& [p1, p2] : fr.debug_lines)
       {
-        Frustum fr = m_camera.get_frustum();
-        auto& dbg = DebugPass::instance();
-        for (const auto& [p1, p2] : fr.debug_lines) {
-          dbg.add_line(p1, p2, glm::vec4(0, 1, 0, 1));
-        }
+        dbg.add_line(p1, p2, glm::vec4(0, 1, 0, 1));
       }
     }
   }
@@ -574,16 +547,16 @@ namespace fury
     shadows_fbo.bind();
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
-    //glEnable(GL_POLYGON_OFFSET_FILL);
-    //glPolygonOffset(1, 1);
+    // glEnable(GL_POLYGON_OFFSET_FILL);
+    // glPolygonOffset(1, 1);
     // TODO: gap between coplanar planes ...
-    //glCullFace(GL_FRONT);
+    // glCullFace(GL_FRONT);
     glViewport(0, 0, SHADOWMAP_WIDTH, SHADOWMAP_HEIGHT);
     glClear(GL_DEPTH_BUFFER_BIT);
     m_shadows_pass->update();
     glCullFace(GL_BACK);
     glEnable(GL_CULL_FACE);
-    //glDisable(GL_POLYGON_OFFSET_FILL);
+    // glDisable(GL_POLYGON_OFFSET_FILL);
     shadows_fbo.unbind();
     glViewport(0, 0, m_window->width(), m_window->height());
   }
@@ -592,13 +565,17 @@ namespace fury
   {
     m_camera.freeze();
     glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-    m_opened_ui_components++;
+    InputSystem::instance().push_context("UI");
   }
 
   void SceneRenderer::handle_ui_component_closing()
   {
-    // sometimes open/close is not paired (e.g. some function just closes some ui component)
-    m_opened_ui_components = std::max(0, --m_opened_ui_components);
+    InputSystem::instance().pop_context();
+    if (InputSystem::instance().get_active_input_context()->name == "FreeCam")
+    {
+      m_camera.unfreeze();
+      glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    }
   }
 
   void SceneRenderer::handle_msaa_button_toggle(bool enabled)
@@ -609,7 +586,8 @@ namespace fury
   void SceneRenderer::remove_object(Object3D* obj)
   {
     on_object_deleted.notify(obj);
-    auto it = std::find_if(m_drawables.begin(), m_drawables.end(), [=](const auto& drawable) { return drawable.get() == obj; });
+    auto it = std::find_if(m_drawables.begin(), m_drawables.end(),
+                           [=](const auto& drawable) { return drawable.get() == obj; });
     m_drawables.erase(it);
     for (auto& rp : m_render_passes)
     {
@@ -635,7 +613,6 @@ namespace fury
     m_selected_objects.clear();
     m_lights.clear();
     m_controllers.clear();
-    m_opened_ui_components = 0;
     m_ui.get_component<SceneInfo>("SceneInfo")->hide();
   }
 
@@ -718,11 +695,12 @@ namespace fury
     arr[4].position = glm::vec3(0.f, 0.f, 0.f), arr[4].color = glm::vec4(0.f, 0.f, 1.f, 1.f);
     arr[5].position = glm::vec3(0.f, 0.f, 1.f), arr[5].color = glm::vec4(0.f, 0.f, 1.f, 1.f);
     auto origin = std::make_unique<Polyline>();
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 6; i++)
+    {
       origin->add(arr[i]);
     }
     m_drawables.push_back(std::move(origin));
-    
+
     auto sun = m_drawables.emplace_back(std::make_unique<Icosahedron>())->cast_to<Icosahedron>();
     TransformationSceneNode* transform = sun->attach_node<TransformationSceneNode>();
     transform->set_translation(glm::vec3(0.f, 0.6f, 2.f));
@@ -746,7 +724,9 @@ namespace fury
     transform->set_translation(glm::vec3(0.25f));
     transform->set_scale(glm::vec3(0.5f));
     c->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
-    c->get_mesh(0).set_texture(TextureManager::get(AssetManager::get_absolute_from_relative("textures/brick.jpg").value()), TextureType::GENERIC);
+    c->get_mesh(0).set_texture(
+        TextureManager::get(AssetManager::get_absolute_from_relative("textures/brick.jpg").value()),
+        TextureType::GENERIC);
 
     c = m_drawables.emplace_back(std::make_unique<Cube>())->cast_to<Cube>();
     transform = c->attach_node<TransformationSceneNode>();
@@ -762,7 +742,8 @@ namespace fury
     pyr->set_color(glm::vec4(0.976f, 0.212f, 0.98f, 1.f));
     pyr->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
 
-    auto bc = m_drawables.emplace_back(std::make_unique<BezierCurve>(BezierCurveType::Quadratic))->cast_to<BezierCurve>();
+    auto bc =
+        m_drawables.emplace_back(std::make_unique<BezierCurve>(BezierCurveType::Quadratic))->cast_to<BezierCurve>();
     bc->set_start_point(Vertex());
     bc->set_end_point(Vertex(2.5f, 0.f, 0.f));
     bc->set_control_points({ Vertex(1.25f, 2.f, 0.f) });
@@ -771,7 +752,7 @@ namespace fury
     bc = m_drawables.emplace_back(std::make_unique<BezierCurve>(BezierCurveType::Cubic))->cast_to<BezierCurve>();
     bc->set_start_point(Vertex());
     bc->set_end_point(Vertex(0.f, 0.f, -2.5f));
-    bc->set_control_points({ Vertex(0.f, 2.f, -1.25f), Vertex {0.f, -2.f, -1.75} });
+    bc->set_control_points({ Vertex(0.f, 2.f, -1.25f), Vertex { 0.f, -2.f, -1.75 } });
 
     for (auto& drawable : m_drawables)
     {
@@ -782,7 +763,8 @@ namespace fury
       EntityManager::add_entity(drawable.get());
     }
 
-    auto& rotation_controller = m_controllers.emplace_back(new RotationController(glm::vec3(1, 0, 0), glm::radians(90.f)));
+    auto& rotation_controller =
+        m_controllers.emplace_back(new RotationController(glm::vec3(1, 0, 0), glm::radians(90.f)));
     rotation_controller->set_entity(pyr);
     prepare_scene_for_rendering();
   }
@@ -826,12 +808,13 @@ namespace fury
 
     // fix to avoid camera jumps ???
     // again, cursor pos in handler can have huge offset difference at this point
-    m_window->get_input_handler<CursorPositionHandler>(UserInputHandler::CURSOR_POSITION)->update_ignore_frames();
+    // InputSystem::instance().cursor_movement_ignore_first_frames();
   }
 
   void SceneRenderer::select_object(Object3D* obj, bool click_from_menu_item)
   {
-    // do not select object that is behind imgui's menu, but select it when we are clicking on obj name inside menu itself
+    // do not select object that is behind imgui's menu, but select it when we are clicking on obj name inside menu
+    // itself
     ImGuiIO& io = ImGui::GetIO();
     if (!click_from_menu_item && io.WantCaptureMouse)
     {
@@ -848,7 +831,7 @@ namespace fury
     {
       return;
     }
-    
+
     // for now support only single object selection
     assert(m_selected_objects.size() == 0 || m_selected_objects.size() == 1);
     Logger::debug("{} selected", obj->get_name());
@@ -872,7 +855,8 @@ namespace fury
     for (SceneNode* node : SceneGraphManager::get_dirty_nodes())
     {
       node->update();
-      if (Entity* owner = node->get_owner(); owner->is_a(Object3D::get_static_type_id())) {
+      if (Entity* owner = node->get_owner(); owner->is_a(Object3D::get_static_type_id()))
+      {
         Object3D* obj = static_cast<Object3D*>(node->get_owner());
         ObjectChangeInfo change_info;
         change_info.object = obj;
@@ -881,25 +865,13 @@ namespace fury
       }
     }
 
-    if (m_opened_ui_components == 0)
-    {
-      m_camera.unfreeze();
-      glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    }
-
-    double x, y;
-    glfwGetCursorPos(m_window->gl_window(), &x, &y);
-    // update virtual cursor pos to avoid camera jumps after cursor goes out of window or window regains focus,
-    // because once cursor goes out of glfw window cursor callback is no longer triggered
-    m_window->get_input_handler<CursorPositionHandler>(UserInputHandler::CURSOR_POSITION)->update_current_pos(x, y);
-
     UniformBuffer& ubo = PipelineUBOManager::get("cameraData");
     ubo.bind();
     ubo.set_data(&m_camera.get_view_matrix(), sizeof(glm::mat4), 0);
     ubo.set_data(&m_camera.get_projection_matrix(), sizeof(glm::mat4), sizeof(glm::mat4));
     ubo.unbind();
   }
-}
+} // namespace fury
 
 namespace
 {
@@ -915,4 +887,4 @@ namespace
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_MULTISAMPLE);
   }
-}
+} // namespace
