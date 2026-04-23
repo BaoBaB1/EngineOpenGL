@@ -12,6 +12,7 @@
 #include "ge/Polyline.hpp"
 #include "Globals.hpp"
 #include <glm/gtx/quaternion.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <numeric>
 
 namespace

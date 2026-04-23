@@ -43,13 +43,13 @@ namespace
 		int derived_field;
 	};
 
-	static constexpr std::string_view test_file("test.bin");
+	static std::string test_file("test.bin");
 
 	void create_test_file_and_open_stream(std::ofstream& ofs)
 	{
 		ofs.open(test_file, std::ios_base::binary | std::ios_base::out);
 		if (!ofs.is_open()) {
-			throw std::exception("Failed to open test file");
+			throw std::runtime_error("Failed to open test file");
 		}
 	}
 }

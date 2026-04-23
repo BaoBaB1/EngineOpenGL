@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Logger.hpp"
+#include "core/Logger.hpp"
 #include <glad/glad.h>
 #include <string>
 
@@ -16,16 +16,28 @@ namespace fury
     return error;
   }
 
-  inline void opengl_check_shader_program(GLuint id, int param_namei, const std::string& param_name)
+  inline bool check_shader(GLuint program, const std::string& name)
   {
+    bool ok = true;
+    int actual_error_msg_len = 0;
     int status;
-    glGetProgramiv(id, param_namei, &status);
+    glValidateProgram(program);
+    glGetProgramiv(program, GL_LINK_STATUS, &status);
     if (status != GL_TRUE)
     {
-      int32_t len = 0;
-      GLchar infoLog[512];
-      glGetShaderInfoLog(id, 512, &len, infoLog);
-      Logger::error("{} failed : {}", param_name, std::string(infoLog, len));
+      std::string error_msg(512, '\0');
+      glGetProgramInfoLog(program, 512, &actual_error_msg_len, error_msg.data());
+      Logger::error("GL_LINK_STATUS failure for shader {}. Error: {}", name, error_msg.substr(0, actual_error_msg_len));
+      ok = false;
     }
+    glGetProgramiv(program, GL_VALIDATE_STATUS, &status);
+    if (status != GL_TRUE)
+    {
+      std::string error_msg(512, '\0');
+      glGetProgramInfoLog(program, 512, &actual_error_msg_len, error_msg.data());
+      Logger::error("GL_VALIDATE_STATUS failure for shader {}. Error: {}", name, error_msg.substr(0, actual_error_msg_len));
+      ok = false;
+    }
+    return ok;
   }
 }

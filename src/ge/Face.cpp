@@ -1,4 +1,5 @@
 #include "Face.hpp"
+#include <cstring>
 
 namespace fury
 {

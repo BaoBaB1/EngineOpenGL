@@ -33,7 +33,7 @@ namespace fury
     m_window = glfwCreateWindow(width, height, title, nullptr, glfwGetCurrentContext());
     if (m_window == nullptr)
     {
-      Logger::critical("Failed to create GLFW window");
+      Logger::critical("Failed to create GLFW window. Make sure your driver supports at least OpenGL 4.4");
       return;
     }
     glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
