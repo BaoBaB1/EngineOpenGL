@@ -10,10 +10,15 @@ jobs:
     strategy:
       matrix:
         os: [ windows-latest, ubuntu-latest ]
-      fail-fast: true
+      fail-fast: false
     name: Build ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Install packages
+        if: matrix.os == 'ubuntu-latest'
+        # These are needed for glfw
+        run: |
+          sudo apt install libwayland-dev libxkbcommon-dev xorg-dev
       - name: Checkout
         uses: actions/checkout@v4
       - name: Configure CMake
