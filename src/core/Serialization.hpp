@@ -411,7 +411,7 @@ private:
       {
         // output Field type
         //Field::nothing;
-        static_assert(false, "Not supported serialization type");
+        static_assert(sizeof(Field) && 0, "Not supported serialization type");
       }
       size_t tmp = ofs.tellp();
       ofs.seekp(pos_written_bytes, std::ios_base::beg);
@@ -537,7 +537,7 @@ private:
       {
         // output Field type
         // Field::nothing;
-        static_assert(false, "Not supported deserialization type");
+        static_assert(sizeof(Field) && 0, "Not supported deserialization type");
       }
 
       if (read_bytes != field_size)

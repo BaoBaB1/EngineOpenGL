@@ -80,7 +80,7 @@ TEST(EventTest, RemoveListener)
 {
 	Event<int> event;
 	event += new FunctionListener(&bar);
-	auto lptr = event.get(0ULL);
+	auto lptr = event.get(size_t(0));
 	event -= lptr;
 	EXPECT_TRUE(event.listeners_count() == 0);
 }

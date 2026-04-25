@@ -67,7 +67,6 @@ namespace fury
         return {}; // some error
       szPath[count] = '\0';
       return std::filesystem::path(szPath);
-    }
 #endif
     }
 

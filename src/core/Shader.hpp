@@ -2,11 +2,8 @@
 
 #include "opengl/OpenGLObject.hpp"
 #include <glad/glad.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 #include <vector>
-#include <string_view>
+#include <string>
 #include <filesystem>
 
 namespace fury
@@ -19,13 +16,20 @@ namespace fury
     UNKNOWN
   };
 
+  struct ShaderDescription
+  {
+    std::vector<std::pair<fury::ShaderStage, std::filesystem::path>> sources;
+    std::string name;
+  };
+
   class Shader : public OpenGLObject
   {
   public:
     FURY_OnlyMovable(Shader)
     Shader() = default;
-    Shader(const std::vector<std::pair<ShaderStage, std::filesystem::path>>& description);
+    Shader(const ShaderDescription& description);
     ~Shader();
+    void init(const ShaderDescription& description);
     void set_matrix4f(const char* uniform_name, const glm::mat4& value);
     void set_vec3(const char* uniform_name, const glm::vec3& value);
     void set_bool(const char* uniform_name, bool value);
@@ -35,6 +39,6 @@ namespace fury
     void bind() const override;
     void unbind() const override;
   private:
-    void load(const std::vector<std::pair<ShaderStage, std::filesystem::path>>& description);
+    void load(const ShaderDescription& description);
   };
 }

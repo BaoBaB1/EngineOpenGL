@@ -76,11 +76,11 @@ struct TypeInfo {
   using BaseCls = base;
 
 #define FURY_PROPERTY(name, type, field) \
-  void set_##name(type name) { field = ##name; } \
+  void set_##name(type name) { field = name; } \
   type get_##name() const { return field; }
 
 #define FURY_PROPERTY_REF(name, type, field) \
-  void set_##name(const type& name) { field = ##name; } \
+  void set_##name(const type& name) { field = name; } \
   const type& get_##name() const { return field; } \
   type& get_##name() { return field; }
 

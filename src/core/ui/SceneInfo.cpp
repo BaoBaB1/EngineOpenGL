@@ -118,7 +118,7 @@ namespace fury
     {
       light_names.push_back(::light_type_to_str(light.get_type()));
     }
-    const int light_list_visible_items = std::min(light_names.size(), 6ULL);
+    const int light_list_visible_items = std::min<int>(light_names.size(), 6);
     ImGui::ListBox("##", &selected_light_idx, light_names.data(), light_names.size(), light_list_visible_items);
     if (selected_light_idx != -1)
     {
