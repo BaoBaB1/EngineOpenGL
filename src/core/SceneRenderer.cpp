@@ -533,6 +533,7 @@ namespace fury
         drawable->calculate_bbox();
       // in world space
       auto node = SceneGraphManager::get_entity_node<TransformationSceneNode>(drawable->get_id());
+      node->update();
       const glm::vec3 min_world = node->get_world_mat() * glm::vec4(drawable->get_bbox().min(), 1);
       const glm::vec3 max_world = node->get_world_mat() * glm::vec4(drawable->get_bbox().max(), 1);
       const glm::vec3 true_min = glm::min(min_world, max_world);
@@ -771,10 +772,6 @@ namespace fury
 
   void SceneRenderer::prepare_scene_for_rendering()
   {
-    // force transformation node update to update everything attached to camera's node
-    // (internally set dirty flag to true)
-    m_camera.look_at(m_camera.get_target());
-
     for (auto& drawable : m_drawables)
     {
       if (drawable->is_selected())
@@ -785,12 +782,7 @@ namespace fury
       drawable->update();
     }
 
-    for (SceneNode* node : SceneGraphManager::get_dirty_nodes())
-    {
-      node->update();
-    }
     calculate_scene_bbox();
-
     if (m_lights.empty())
     {
       create_default_lights();

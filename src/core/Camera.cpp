@@ -13,44 +13,13 @@ namespace fury
 
   Camera::Camera() : Entity("Camera")
   {
-    m_actual_speed = m_base_speed = 5.f;
+    m_speed = 5.f;
     m_sensivity = 0.2f;
     m_yaw = -90.f;
     m_pitch = 0.f;
     m_up = world_up;
     m_target = glm::vec3(0.f);
     m_freezed = false;
-  }
-
-  void Camera::move(Direction direction)
-  {
-    if (is_freezed())
-      return;
-    glm::vec3 pos = get_position();
-    switch (direction)
-    {
-    case Direction::FORWARD:
-      pos += m_actual_speed * m_target;
-      break;
-    case Direction::BACKWARD:
-      pos -= m_actual_speed * m_target;
-      break;
-    case Direction::LEFT:
-      pos -= m_right * m_actual_speed;
-      break;
-    case Direction::RIGHT:
-      pos += m_right * m_actual_speed;
-      break;
-    case Direction::UP:
-      pos += m_actual_speed * m_up;
-      break;
-    case Direction::DOWN:
-      pos -= m_actual_speed * m_up;
-      break;
-    default:
-      break;
-    }
-    set_position(pos);
   }
 
   const glm::vec3& Camera::get_position() const
@@ -260,10 +229,4 @@ namespace fury
     m_target = camera_dir;
     m_dirty = true;
   }
-
-  void Camera::tick(float dt)
-  {
-    m_actual_speed = m_base_speed * dt;
-  }
-
 };

@@ -222,6 +222,7 @@ namespace fury
       }
     }
   }
+
   void InputSystem::create_default_bindings(std::string_view context_name, InputContext& context)
   {
     context.actions.clear();
@@ -258,6 +259,10 @@ namespace fury
         else if (action.name == "MoveDown")
         {
           action.bindings.push_back(Binding { .input_code = InputCode::FURY_KEY_LEFT_CTRL });
+        }
+        else if (action.name == "SpeedUp")
+        {
+          action.bindings.push_back(Binding { .input_code = InputCode::FURY_KEY_LEFT_SHIFT, .scale = 5 });
         }
       }
     }

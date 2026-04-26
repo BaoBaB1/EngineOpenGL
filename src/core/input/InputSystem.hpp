@@ -14,7 +14,7 @@ namespace fury
 {
   // clang-format off
   constexpr static std::string_view movement_action_names[] = {
-      "MoveForward", "MoveBackward", "MoveLeft", "MoveRight", "MoveUp", "MoveDown"
+      "MoveForward", "MoveBackward", "MoveLeft", "MoveRight", "MoveUp", "MoveDown", "SpeedUp"
   };
     
   constexpr static std::string_view input_context_names[] = {

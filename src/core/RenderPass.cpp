@@ -439,6 +439,7 @@ namespace fury
     for (SceneNode* node : SceneGraphManager::get_dirty_nodes())
     {
       // if im light
+      bool lights_need_update = false;
       if (node->get_owner()->get_dynamic_type_id() == Light::get_static_type_id())
       {
         Light* light = static_cast<Light*>(node->get_owner());
@@ -450,8 +451,12 @@ namespace fury
           glm::vec3 dir = -glm::normalize(glm::vec3(transform_node->get_world_mat()[2]));
           light->get_description().dir = glm::vec4(dir, 0);
           //Logger::info("Updating lights data. New pos {}, new dir {}", light->get_description().position, light->get_description().dir);
-          update_lights_data();
+          lights_need_update = true;
         }
+      }
+      if (lights_need_update)
+      {
+        update_lights_data();
       }
     }
     render_scene();

@@ -114,33 +114,20 @@ float CalculateShadowValue(vec3 directionalLightDir)
 void main()
 {
 	fragColor = color;
-	vec3 ambientColor = vec3(1);
-	vec3 diffuseColor = vec3(1);
-	vec3 specularColor = vec3(1);
-	if (hasAmbientTex)
-	{
-		ambientColor = texture(ambientTex, uv).rgb;
-	}
-	if (hasDiffuseTex)
-	{
-		diffuseColor = texture(diffuseTex, uv).rgb;
-		fragColor = vec4(diffuseColor, 1);
-	}
-	if (hasSpecularTex)
-	{
-		specularColor = texture(specularTex, uv).rgb;
+	if (hasDefaultTexture) {
+		fragColor *= texture(defaultTexture, uv);
 	}
 
 	if (applyShading && numLights > 0)
 	{
-		vec3 ambientMaterialComponent = material.ambient;
-		vec3 diffuseMaterialComponent = material.diffuse;
-		vec3 specularMaterialComponent = material.specular;
+		vec3 ambientColor = hasAmbientTex ? texture(ambientTex, uv).rgb : material.ambient;
+		vec3 diffuseColor = hasDiffuseTex ? texture(diffuseTex, uv).rgb : material.diffuse;
+		vec3 specularColor = hasSpecularTex ? texture(specularTex, uv).rgb : material.specular;
 		float shininess = material.shininess;
 		float alpha = material.alpha;
 
 		// Phong shading model
-		fragColor = vec4(0);
+		vec4 lightColor = vec4(0);
 		for (int i = 0; i < numLights; i++)
 		{
 			LightInfo lightInfo = lightInfos[i];
@@ -151,25 +138,25 @@ void main()
 			// ambient light
 			// more lights - less ambient impact
 			float ambientStrength = (1 / numLights) * 0.1;
-			vec3 ambient = ambientStrength * ambientLightColor * ambientMaterialComponent * ambientColor;
+			vec3 ambient = ambientStrength * ambientLightColor * ambientColor;
 
 			//diffuse light
 			vec3 norm = normalize(normal);
 			vec3 lightDir = normalize(lightInfo.pos.rgb - fragment);
 			float diffuseValue = max(dot(norm, lightDir), 0.0);
-			vec3 diffuse = diffuseValue * diffuseLightColor * diffuseMaterialComponent * diffuseColor;
+			vec3 diffuse = diffuseValue * diffuseLightColor * diffuseColor;
 
 			// specular light
 			float specularStrength = 0.5f;
 			vec3 viewDir = normalize(viewPos - fragment);
 			vec3 reflectedDir = reflect(-lightDir, norm);
 			float specValue = pow(max(dot(viewDir, reflectedDir), 0.0), shininess);
-			vec3 specular = specularStrength * specValue * specularLightColor * specularMaterialComponent * specularColor;
+			vec3 specular = specularStrength * specValue * specularLightColor * specularColor;
 
 			if (lightInfo.type == g_directionalLightType)
 			{
 				float shadow = CalculateShadowValue(vec3(lightInfo.dir));
-				fragColor += vec4((ambient + (1.0 - shadow) * (diffuse + specular)), 1.0);
+				lightColor += vec4((ambient + (1.0 - shadow) * (diffuse + specular)), 1.0);
 			}
 			else
 			{
@@ -208,14 +195,9 @@ void main()
 						}
 					}
 				}
-				fragColor += vec4((ambient + diffuse + specular), 1.0);
+				lightColor += vec4((ambient + diffuse + specular), 1.0);
 			}
 		}
-		fragColor *= color;
-	}
-
-	if (hasDefaultTexture)
-	{
-		fragColor *= texture(defaultTexture, uv);
+		fragColor *= lightColor;
 	}
 }

@@ -14,3 +14,4 @@ Cpp11BracedListStyle: false
 AllowShortFunctionsOnASingleLine: InlineOnly
 AllowShortLambdasOnASingleLine: Inline
 EmptyLineBeforeAccessModifier: Leave
+InsertBraces: true

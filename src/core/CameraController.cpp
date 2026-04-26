@@ -7,31 +7,50 @@ namespace fury
 {
   void CameraController::tick(float dt)
   {
-    m_camera->tick(dt);
+    if (m_camera->is_freezed())
+    {
+      return;
+    }
     const InputSystem& input_system = InputSystem::instance();
+    float speed = m_camera->get_speed() * dt;
+    glm::vec3 pos = m_camera->get_position();
+    const glm::vec3& up = m_camera->get_up();
+    const glm::vec3& right = m_camera->get_right();
+    const glm::vec3& forward = m_camera->get_target();
+    if (float scale = input_system.get_axis_value("SpeedUp"))
+    {
+      speed *= scale;
+    }
     if (input_system.get_axis_value("MoveForward"))
     {
-      m_camera->move(Camera::Direction::FORWARD);
+      pos += speed * forward;
     }
     if (input_system.get_axis_value("MoveBackward"))
     {
-      m_camera->move(Camera::Direction::BACKWARD);
+      pos -= speed * forward;
     }
     if (input_system.get_axis_value("MoveLeft"))
     {
-      m_camera->move(Camera::Direction::LEFT);
+      pos -= right * speed;
     }
     if (input_system.get_axis_value("MoveRight"))
     {
-      m_camera->move(Camera::Direction::RIGHT);
+      pos += right * speed;
     }
     if (input_system.get_axis_value("MoveUp"))
     {
-      m_camera->move(Camera::Direction::UP);
+      pos += speed * up;
     }
     if (input_system.get_axis_value("MoveDown"))
     {
-      m_camera->move(Camera::Direction::DOWN);
+      pos -= speed * up;
+    }
+
+    // set position only if position actually changed, since
+    // Camera::set_position internally updates dirty flag
+    if (pos != m_camera->get_position())
+    {
+      m_camera->set_position(pos);
     }
   }
 
