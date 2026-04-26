@@ -98,10 +98,12 @@ namespace fury
   {
     if (m_dirty)
     {
+      m_dirty = false;
       m_local_mat = glm::mat4(1.f);
       m_local_mat = glm::translate(glm::mat4(1.f), m_translation) * glm::toMat4(m_rotation) * glm::scale(glm::mat4(1.f), m_scale);
       if (m_parent && m_parent->get_dynamic_type_id() == TransformationSceneNode::get_static_type_id())
       {
+        m_parent->update();
         m_world_mat = static_cast<TransformationSceneNode*>(m_parent)->get_world_mat() * m_local_mat;
       }
       else
@@ -109,7 +111,6 @@ namespace fury
         m_world_mat = m_local_mat;
       }
       SceneNode::update();
-      m_dirty = false;
     }
   }
 
