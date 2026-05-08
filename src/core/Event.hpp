@@ -35,12 +35,13 @@ namespace fury
   class NamedFunctionListener : public FunctionListener<ReturnType, Args...>
   {
   public:
-    using Parent = typename FunctionListener<ReturnType, Args...>;
-    NamedFunctionListener(const std::string& name, const Parent::Func& func) : Parent(func) { m_name = name; }
-    NamedFunctionListener(const std::string& name, const Parent::FuncPtr& func_ptr) : Parent(func_ptr)
-    {
-      m_name = name;
-    }
+    using Parent = FunctionListener<ReturnType, Args...>;
+    using Func = std::function<ReturnType(Args...)>;
+    using FuncPtr = ReturnType (*)(Args...);
+    // Apparently CTAD does not work with nested dependent aliases (at least with GCC),
+    // so specifying ctor argument like Parent::Func or Parent::FuncPtr fails type deduction...
+    NamedFunctionListener(const std::string& name, const Func& func) : Parent(func) { m_name = name; }
+    NamedFunctionListener(const std::string& name, FuncPtr func_ptr) : Parent(func_ptr) { m_name = name; }
     std::string_view get_name() const override { return m_name; }
   private:
     std::string m_name;
@@ -63,12 +64,13 @@ namespace fury
   class NamedInstanceListener : public InstanceListener<Class, ReturnType, Args...>
   {
   public:
-    using Parent = typename InstanceListener<Class, ReturnType, Args...>;
-    NamedInstanceListener(const std::string& name, Class* instance, Parent::ClassFunc func) : Parent(instance, func)
+    using Parent = InstanceListener<Class, ReturnType, Args...>;
+    using ClassFunc = ReturnType (Class::*)(Args...);
+    NamedInstanceListener(const std::string& name, Class* instance, ClassFunc func) : Parent(instance, func)
     {
       m_name = name;
     }
-    std::string_view get_name() const { return m_name; }
+    std::string_view get_name() const override { return m_name; }
   private:
     std::string m_name;
   };
