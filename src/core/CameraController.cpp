@@ -56,7 +56,7 @@ namespace fury
 
   CameraController::~CameraController()
   {
-    InputSystem::instance().on_cursor_moved.remove_by_owner(this);
+    InputSystem::instance().on_cursor_moved.remove_listener_by_instance(this);
   }
 
   void CameraController::init(Camera* camera)
