@@ -7,7 +7,6 @@ FetchContent_Declare(
   GIT_TAG v1.16.0
 )
 
-set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
 set(BUILD_GTEST ON CACHE BOOL "" FORCE)
 if (WIN32)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)

@@ -15,3 +15,6 @@ AllowShortFunctionsOnASingleLine: InlineOnly
 AllowShortLambdasOnASingleLine: Inline
 EmptyLineBeforeAccessModifier: Leave
 InsertBraces: true
+BreakBeforeConceptDeclarations: Always
+BreakTemplateDeclarations: Yes
+SpaceAfterTemplateKeyword: false
