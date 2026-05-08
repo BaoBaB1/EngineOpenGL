@@ -18,6 +18,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         # These are needed for glfw
         run: |
+          sudo apt update
           sudo apt install libwayland-dev libxkbcommon-dev xorg-dev
       - name: Checkout
         uses: actions/checkout@v4
