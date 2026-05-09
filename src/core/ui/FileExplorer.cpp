@@ -1,6 +1,6 @@
 #include "FileExplorer.hpp"
 #include "core/WindowGLFW.hpp"
-#include "core/SceneRenderer.hpp"
+#include "core/Scene.hpp"
 #include "core/AssetManager.hpp"
 
 #include <ImGuiFileDialog.h>
@@ -9,7 +9,7 @@
 
 namespace fury
 {
-  FileExplorer::FileExplorer(SceneRenderer* scene) : UiComponent(scene)
+  FileExplorer::FileExplorer(Scene* scene) : UiComponent(scene)
   {
   }
 

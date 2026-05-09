@@ -16,7 +16,8 @@
 #include "Serialization.hpp"
 #include "ge/Object3D.hpp"
 #include "core/ObjectController.hpp"
-#include "Singletone.hpp"
+#include "Singleton.hpp"
+#include "RenderInfo.hpp"
 #include <vector>
 #include <memory>
 #include <string>
@@ -27,13 +28,14 @@ namespace fury
   class Skybox;
   struct ObjectChangeInfo;
 
-  class SceneRenderer : public ITickable, public Singletone<SceneRenderer>
+  class Scene : public ITickable, public Singleton<Scene>
   {
   public:
-    FURY_REGISTER_BASE_CLASS(SceneRenderer)
+    FURY_REGISTER_BASE_CLASS(Scene)
     void tick(float dt) override;
     void init(WindowGLFW* window);
-    ~SceneRenderer();
+    ~Scene();
+    const RenderInfo& get_render_info() const { return m_render_info; }
     Camera& get_camera() { return m_camera; }
     std::vector<Object3D*>& get_selected_objects() { return m_selected_objects; }
     std::vector<std::unique_ptr<Object3D>>& get_drawables() { return m_drawables; }
@@ -54,12 +56,15 @@ namespace fury
     Event<Object3D*> on_object_deleted;
     // These have to be complete types...
     FURY_DECLARE_SERIALIZABLE_FIELDS(
-      FURY_SERIALIZABLE_FIELD(1, &SceneRenderer::m_camera),
-      FURY_SERIALIZABLE_FIELD(2, &SceneRenderer::m_polygon_mode),
-      FURY_SERIALIZABLE_FIELD(3, &SceneRenderer::m_drawables),
-      FURY_SERIALIZABLE_FIELD(4, &SceneRenderer::m_lights),
-      FURY_SERIALIZABLE_FIELD(5, &SceneRenderer::m_controllers)
+      FURY_SERIALIZABLE_FIELD(1, &Scene::m_camera),
+      FURY_SERIALIZABLE_FIELD(2, &Scene::m_polygon_mode),
+      FURY_SERIALIZABLE_FIELD(3, &Scene::m_drawables),
+      FURY_SERIALIZABLE_FIELD(4, &Scene::m_lights),
+      FURY_SERIALIZABLE_FIELD(5, &Scene::m_controllers)
     )
+  private:
+    Scene() = default;
+    friend class Singleton<Scene>;
   private:
     void prepare_scene_for_rendering();
     void select_object(Object3D* obj, bool click_from_menu_item);  // temporary function. remove when selection of multiple elements is supported
@@ -101,5 +106,6 @@ namespace fury
     BoundingBox m_bbox;
     FPSLimiter m_fps_limiter;
     ItemSelectionWheel m_selection_wheel;
+    RenderInfo m_render_info;
   };
 }

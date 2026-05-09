@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/Singletone.hpp"
+#include "core/Singleton.hpp"
 #include "core/Event.hpp"
 
 #include <string>
@@ -74,7 +74,7 @@ namespace fury
 
   class WindowGLFW;
 
-  class InputSystem : public Singletone<InputSystem>
+  class InputSystem : public Singleton<InputSystem>
   {
   public:
     void init(fury::WindowGLFW* window);
@@ -87,6 +87,9 @@ namespace fury
     Event<double, double, double, double> on_cursor_moved;
     Event<InputCode> on_keyboard_button_clicked;
     Event<InputCode> on_keyboard_button_released;
+  private:
+    InputSystem() = default;
+    friend class Singleton<InputSystem>;
   private:
     void init_keyboard_input(fury::WindowGLFW* window);
     void init_mouse_input(fury::WindowGLFW* window);

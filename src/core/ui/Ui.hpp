@@ -13,16 +13,16 @@
 
 namespace fury
 {
-  class SceneRenderer;
+  class Scene;
 
   class Ui : public ITickable
   {
   public:
     Ui() = default;
-    Ui(SceneRenderer* scene);
+    Ui(Scene* scene);
     FURY_OnlyMovable(Ui)
     ~Ui();
-    void init(SceneRenderer* scene);
+    void init(Scene* scene);
     void tick(float dt) override;
     UiComponent* get_component(const std::string& name) { return m_components.at(name).get(); }
     template<typename T> 

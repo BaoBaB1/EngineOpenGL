@@ -7,13 +7,13 @@
 
 namespace fury
 {
-	class SceneRenderer;
+	class Scene;
 	struct OpenFileExplorerContext;
 
 	class FileExplorer : public UiComponent
 	{
 	public:
-		FileExplorer(SceneRenderer* scene);
+		FileExplorer(Scene* scene);
 		void open(const OpenFileExplorerContext& ctx, std::function<void(const std::string&)> callback);
 		void tick(float) override;
 	private:

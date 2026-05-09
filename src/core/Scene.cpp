@@ -1,4 +1,4 @@
-#include "SceneRenderer.hpp"
+#include "Scene.hpp"
 #include "WindowGLFW.hpp"
 #include "Shader.hpp"
 #include "opengl/VertexArrayObject.hpp"
@@ -80,31 +80,26 @@ namespace
   };
   // clang-format on
   constexpr std::array shadow_map_data = init_shadow_map_data();
-
-  void setup_opengl();
 } // namespace
 
 namespace fury
 {
-  void SceneRenderer::init(WindowGLFW* window)
+  void Scene::init(WindowGLFW* window)
   {
     m_window = window;
     const int w = window->width();
     const int h = window->height();
-    InputSystem::instance().init(window);
-    AssetManager::init();
-    ShaderStorage::init();
     m_ui.init(this);
     m_cam_controller.init(&m_camera);
     SceneInfo* scene_info_component = m_ui.get_component<SceneInfo>("SceneInfo");
     Gizmo* gizmo_component = m_ui.get_component<Gizmo>("Gizmo");
     FileExplorer* file_explorer_component = m_ui.get_component<FileExplorer>("FileExplorer");
-    file_explorer_component->on_show += new InstanceListener(this, &SceneRenderer::handle_ui_component_opening);
-    file_explorer_component->on_hide += new InstanceListener(this, &SceneRenderer::handle_ui_component_closing);
-    scene_info_component->on_show += new InstanceListener(this, &SceneRenderer::handle_ui_component_opening);
-    scene_info_component->on_hide += new InstanceListener(this, &SceneRenderer::handle_ui_component_closing);
-    scene_info_component->on_polygon_mode_change += new InstanceListener(this, &SceneRenderer::change_polygon_mode);
-    scene_info_component->msaa_button_click += new InstanceListener(this, &SceneRenderer::handle_msaa_button_toggle);
+    file_explorer_component->on_show += new InstanceListener(this, &Scene::handle_ui_component_opening);
+    file_explorer_component->on_hide += new InstanceListener(this, &Scene::handle_ui_component_closing);
+    scene_info_component->on_show += new InstanceListener(this, &Scene::handle_ui_component_opening);
+    scene_info_component->on_hide += new InstanceListener(this, &Scene::handle_ui_component_closing);
+    scene_info_component->on_polygon_mode_change += new InstanceListener(this, &Scene::change_polygon_mode);
+    scene_info_component->msaa_button_click += new InstanceListener(this, &Scene::handle_msaa_button_toggle);
     on_new_object_added += new FunctionListener(std::function(
         [this](Object3D* obj)
         {
@@ -120,9 +115,9 @@ namespace fury
     m_camera.set_screen_size({ w, h });
 
     InputSystem& input_system = InputSystem::instance();
-    input_system.on_keyboard_button_clicked += new InstanceListener(this, &SceneRenderer::handle_keyboard_button_click);
-    input_system.on_mouse_button_clicked += new InstanceListener(this, &SceneRenderer::handle_mouse_click);
-    m_window->on_window_size_change += new InstanceListener(this, &SceneRenderer::handle_window_size_change);
+    input_system.on_keyboard_button_clicked += new InstanceListener(this, &Scene::handle_keyboard_button_click);
+    input_system.on_mouse_button_clicked += new InstanceListener(this, &Scene::handle_mouse_click);
+    m_window->on_window_size_change += new InstanceListener(this, &Scene::handle_window_size_change);
 
     auto& main_scene_fbo = m_fbos["main"];
     main_scene_fbo.bind();
@@ -172,8 +167,6 @@ namespace fury
     ubo.set_binding_point(0);
     ubo.unbind();
 
-    ::setup_opengl();
-
     SelectionWheelConfig cfg;
     cfg.items_count = 6;
     cfg.inner_circle_radius_px = 200;
@@ -185,8 +178,10 @@ namespace fury
     for (int i = 0; i < cfg.items_count; i++)
     {
       if (i % 2 == 0)
+      {
         m_selection_wheel.get_slot(i)->icon =
             TextureManager::get(AssetManager::get_absolute_from_relative("textures/brick.jpg").value()).get();
+      }
     }
 
     m_render_passes.emplace_back(std::make_unique<GeometryPass>(this, shadows_fbo.texture()->id()));
@@ -199,20 +194,32 @@ namespace fury
     create_default_scene();
   }
 
-  SceneRenderer::~SceneRenderer()
+  Scene::~Scene()
   {
   }
 
-  void SceneRenderer::render()
+  void Scene::render()
   {
+    using namespace std::chrono;
+    using namespace std::chrono_literals;
     const auto& main_fbo = m_fbos.at("main");
     const auto& main_fbo_ms = m_fbos.at("mainMS");
     GLFWwindow* gl_window = m_window->gl_window();
     ImGuiIO& io = ImGui::GetIO();
+    steady_clock::time_point prev_frame_time;
+    steady_clock::time_point fps_timer = steady_clock::now();
+    int frame_count_per_sec = 0;
     while (!glfwWindowShouldClose(gl_window))
     {
+      steady_clock::time_point frame_time_start = steady_clock::now();
+      if ((steady_clock::now() - fps_timer) >= 1s)
+      {
+        m_render_info.fps = frame_count_per_sec;
+        frame_count_per_sec = 0;
+        fps_timer += 1s;
+      }
+      const float dt = m_render_info.frame_time;
       glfwPollEvents();
-      const float dt = io.DeltaTime;
       tick(dt);
       glPolygonMode(GL_FRONT_AND_BACK, m_polygon_mode);
 
@@ -232,7 +239,9 @@ namespace fury
       glEnable(GL_DEPTH_TEST);
       // render scene before gui to make sure that imgui window always will be on top of drawn entities
       if (m_camera.get_projection_mode() == Camera::ProjectionMode::PERSPECTIVE)
+      {
         render_skybox();
+      }
       for (auto& rp : m_render_passes)
       {
         rp->tick(dt);
@@ -251,24 +260,28 @@ namespace fury
 
       m_screen_quad.tick(dt);
       if (m_show_shadow_map)
+      {
         m_shadow_map_quad.tick(dt);
-
+      }
       m_fps_limiter.wait();
       glfwSwapBuffers(gl_window);
+      frame_count_per_sec++;
+      m_render_info.frame_time = std::chrono::duration<float>(frame_time_start - prev_frame_time).count();
+      prev_frame_time = frame_time_start;
       SceneGraphManager::clear_dirty_nodes();
     }
   }
 
-  void SceneRenderer::save(const std::string& file) const
+  void Scene::save(const std::string& file) const
   {
     std::ofstream ofs(file, std::ios_base::binary);
     if (!ofs.is_open())
     {
-      Logger::error("SceneRenderer::save failed to open file {}.", file);
+      Logger::error("Scene::save failed to open file {}.", file);
       return;
     }
     serializer::prepare_for_serialization();
-    Serializer<SceneRenderer>::write(ofs, this);
+    Serializer<Scene>::write(ofs, this);
     // TODO: rewrite
     SceneGraphManager::write(ofs);
     ofs.close();
@@ -277,7 +290,7 @@ namespace fury
     // InputSystem::instance().cursor_movement_ignore_first_frames();
   }
 
-  void SceneRenderer::load(const std::string& file)
+  void Scene::load(const std::string& file)
   {
     std::ifstream ifs(file, std::ios_base::binary);
     if (!ifs.is_open())
@@ -289,13 +302,13 @@ namespace fury
     SceneGraphManager::clear();
     EntityManager::clear();
     serializer::prepare_for_serialization();
-    Serializer<SceneRenderer>::read(ifs, this);
+    Serializer<Scene>::read(ifs, this);
     SceneGraphManager::read(ifs);
     ifs.close();
     prepare_scene_for_rendering();
   }
 
-  void SceneRenderer::clear()
+  void Scene::clear()
   {
     while (!m_drawables.empty())
     {
@@ -303,7 +316,7 @@ namespace fury
     }
   }
 
-  void SceneRenderer::render_skybox()
+  void Scene::render_skybox()
   {
     glDepthFunc(GL_LEQUAL);
     Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::SKYBOX);
@@ -314,7 +327,7 @@ namespace fury
     glDepthFunc(GL_LESS);
   }
 
-  void SceneRenderer::handle_mouse_click(InputCode input_code, int x, int y)
+  void Scene::handle_mouse_click(InputCode input_code, int x, int y)
   {
     if (input_code == InputCode::FURY_MOUSE_BUTTON_LEFT)
     {
@@ -369,11 +382,13 @@ namespace fury
     }
   }
 
-  void SceneRenderer::handle_window_size_change(int width, int height)
+  void Scene::handle_window_size_change(int width, int height)
   {
     // to avoid crash when window is completely minimized
     if (width == 0 || height == 0)
+    {
       return;
+    }
     m_window->set_width(width);
     m_window->set_height(height);
     m_camera.set_screen_size({ width, height });
@@ -403,7 +418,7 @@ namespace fury
     glViewport(0, 0, width, height);
   }
 
-  void SceneRenderer::handle_keyboard_button_click(InputCode input_code)
+  void Scene::handle_keyboard_button_click(InputCode input_code)
   {
     const InputSystem& input_system = InputSystem::instance();
     if (input_code == InputCode::FURY_KEY_ESC)
@@ -443,7 +458,9 @@ namespace fury
         for (const auto& drawable : m_drawables)
         {
           if (drawable.get() == selected_obj)
+          {
             continue;
+          }
           BoundingBox bbox_world;
           TransformationSceneNode* drawable_transform =
               SceneGraphManager::get_entity_node<TransformationSceneNode>(drawable->get_id());
@@ -502,12 +519,12 @@ namespace fury
     }
   }
 
-  void SceneRenderer::change_polygon_mode(int new_mode)
+  void Scene::change_polygon_mode(int new_mode)
   {
     m_polygon_mode = new_mode;
   }
 
-  void SceneRenderer::handle_object_change(const ObjectChangeInfo& info)
+  void Scene::handle_object_change(const ObjectChangeInfo& info)
   {
     if (info.new_transform)
     {
@@ -524,13 +541,15 @@ namespace fury
     }
   }
 
-  void SceneRenderer::calculate_scene_bbox()
+  void Scene::calculate_scene_bbox()
   {
     m_bbox.reset();
     for (auto& drawable : m_drawables)
     {
       if (drawable->get_bbox().is_empty())
+      {
         drawable->calculate_bbox();
+      }
       // in world space
       auto node = SceneGraphManager::get_entity_node<TransformationSceneNode>(drawable->get_id());
       node->update();
@@ -542,7 +561,7 @@ namespace fury
     }
   }
 
-  void SceneRenderer::update_shadow_map()
+  void Scene::update_shadow_map()
   {
     auto& shadows_fbo = m_fbos.at("shadowMap");
     shadows_fbo.bind();
@@ -562,14 +581,14 @@ namespace fury
     glViewport(0, 0, m_window->width(), m_window->height());
   }
 
-  void SceneRenderer::handle_ui_component_opening()
+  void Scene::handle_ui_component_opening()
   {
     m_camera.freeze();
     glfwSetInputMode(m_window->gl_window(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     InputSystem::instance().push_context("UI");
   }
 
-  void SceneRenderer::handle_ui_component_closing()
+  void Scene::handle_ui_component_closing()
   {
     InputSystem::instance().pop_context();
     if (InputSystem::instance().get_active_input_context()->name == "FreeCam")
@@ -579,12 +598,12 @@ namespace fury
     }
   }
 
-  void SceneRenderer::handle_msaa_button_toggle(bool enabled)
+  void Scene::handle_msaa_button_toggle(bool enabled)
   {
     m_MSAA_enabled = enabled;
   }
 
-  void SceneRenderer::remove_object(Object3D* obj)
+  void Scene::remove_object(Object3D* obj)
   {
     on_object_deleted.notify(obj);
     auto it = std::find_if(m_drawables.begin(), m_drawables.end(),
@@ -607,7 +626,7 @@ namespace fury
     }
   }
 
-  void SceneRenderer::cleanup()
+  void Scene::cleanup()
   {
     // cleanup current scene
     m_drawables.clear();
@@ -617,7 +636,7 @@ namespace fury
     m_ui.get_component<SceneInfo>("SceneInfo")->hide();
   }
 
-  void SceneRenderer::create_default_lights()
+  void Scene::create_default_lights()
   {
     Light& dir_light = m_lights.emplace_back();
     dir_light.enable();
@@ -633,7 +652,7 @@ namespace fury
     transform->set_parent(SceneGraphManager::get_entity_node<TransformationSceneNode>(m_camera.get_id()));
   }
 
-  void SceneRenderer::setup_directional_light(Light* light)
+  void Scene::setup_directional_light(Light* light)
   {
     // center is in world space
     const glm::vec3 bbox_center = m_bbox.center();
@@ -652,7 +671,7 @@ namespace fury
     light->set_description(desc);
   }
 
-  std::vector<const Light*> SceneRenderer::get_active_lights() const
+  std::vector<const Light*> Scene::get_active_lights() const
   {
     std::vector<const Light*> active_lights;
     active_lights.reserve(m_lights.size());
@@ -666,7 +685,7 @@ namespace fury
     return active_lights;
   }
 
-  std::vector<Light*> SceneRenderer::get_lights(LightType type)
+  std::vector<Light*> Scene::get_lights(LightType type)
   {
     std::vector<Light*> lights;
     lights.reserve(m_lights.size());
@@ -680,7 +699,7 @@ namespace fury
     return lights;
   }
 
-  void SceneRenderer::create_default_scene()
+  void Scene::create_default_scene()
   {
     cleanup();
     m_camera.attach_node<TransformationSceneNode>();
@@ -770,7 +789,7 @@ namespace fury
     prepare_scene_for_rendering();
   }
 
-  void SceneRenderer::prepare_scene_for_rendering()
+  void Scene::prepare_scene_for_rendering()
   {
     for (auto& drawable : m_drawables)
     {
@@ -803,7 +822,7 @@ namespace fury
     // InputSystem::instance().cursor_movement_ignore_first_frames();
   }
 
-  void SceneRenderer::select_object(Object3D* obj, bool click_from_menu_item)
+  void Scene::select_object(Object3D* obj, bool click_from_menu_item)
   {
     // do not select object that is behind imgui's menu, but select it when we are clicking on obj name inside menu
     // itself
@@ -836,7 +855,7 @@ namespace fury
     obj->select(true);
   }
 
-  void SceneRenderer::tick(float dt)
+  void Scene::tick(float dt)
   {
     for (const auto& c : m_controllers)
     {
@@ -864,19 +883,3 @@ namespace fury
     ubo.unbind();
   }
 } // namespace fury
-
-namespace
-{
-  void setup_opengl()
-  {
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_BLEND);
-    glEnable(GL_STENCIL_TEST);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glFrontFace(GL_CCW);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable(GL_MULTISAMPLE);
-  }
-} // namespace

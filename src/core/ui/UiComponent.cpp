@@ -1,9 +1,9 @@
 #include "UiComponent.hpp"
-#include "core/SceneRenderer.hpp"
+#include "core/Scene.hpp"
 
 namespace fury
 {
-  UiComponent::UiComponent(SceneRenderer* scene) : m_scene(scene)
+  UiComponent::UiComponent(Scene* scene) : m_scene(scene)
   {
   }
 

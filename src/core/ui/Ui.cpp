@@ -1,5 +1,5 @@
 #include "Ui.hpp"
-#include "core/SceneRenderer.hpp"
+#include "core/Scene.hpp"
 #include "core/WindowGLFW.hpp"
 
 #include "imgui.h"
@@ -9,12 +9,12 @@
 
 namespace fury
 {
-  Ui::Ui(SceneRenderer* scene)
+  Ui::Ui(Scene* scene)
   {
     init(scene);
   }
 
-  void Ui::init(SceneRenderer* scene)
+  void Ui::init(Scene* scene)
   {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();

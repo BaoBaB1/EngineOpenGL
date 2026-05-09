@@ -1,5 +1,5 @@
 #include "MenuBar.hpp"
-#include "core/SceneRenderer.hpp"
+#include "core/Scene.hpp"
 #include "core/WindowGLFW.hpp"
 #include "ge/Pyramid.hpp"
 #include "ge/Icosahedron.hpp"
@@ -11,7 +11,7 @@
 
 namespace fury
 {
-  MenuBar::MenuBar(SceneRenderer* scene) : UiComponent(scene)
+  MenuBar::MenuBar(Scene* scene) : UiComponent(scene)
   {
     m_is_visible = true;
   }

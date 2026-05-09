@@ -4,12 +4,12 @@
 
 namespace fury
 {
-	class SceneRenderer;
+	class Scene;
 
 	class Gizmo : public UiComponent
 	{
 	public:
-		Gizmo(SceneRenderer* scene);
+		Gizmo(Scene* scene);
 		void tick(float) override;
 	private:
 		uint16_t m_gizmo_operation;

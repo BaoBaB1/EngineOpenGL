@@ -5,7 +5,7 @@
 
 namespace fury
 {
-	class SceneRenderer;
+	class Scene;
 	class Object3D;
 	struct ObjectChangeInfo;
 	class MenuBar;
@@ -14,7 +14,7 @@ namespace fury
 	class SceneInfo : public UiComponent
 	{
 	public:
-		SceneInfo(SceneRenderer* scene, MenuBar* menubar);
+		SceneInfo(Scene* scene, MenuBar* menubar);
 		bool is_grid_visible() const { return m_show_grid; }
 		bool is_frustum_culling_enabled() const { return m_frustum_culling_enabled; }
 		void set_num_culled_objects(uint32_t val) { m_num_culled_objects = val; }

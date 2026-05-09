@@ -4,7 +4,7 @@
 
 namespace fury
 {
-	class SceneRenderer;
+	class Scene;
 
 	struct OpenFileExplorerContext
 	{
@@ -17,7 +17,7 @@ namespace fury
 	class MenuBar : public UiComponent
 	{
 	public:
-		MenuBar(SceneRenderer* scene);
+		MenuBar(Scene* scene);
 		void tick(float) override;
 		const float get_height() const { return m_height; }
 	private:

@@ -2,7 +2,7 @@
 #include "MenuBar.hpp"
 #include "ge/Object3D.hpp"
 #include "core/Camera.hpp"
-#include "core/SceneRenderer.hpp"
+#include "core/Scene.hpp"
 #include "core/WindowGLFW.hpp"
 #include "core/ObjectChangeInfo.hpp"
 #include "core/TextureManager.hpp"
@@ -28,7 +28,7 @@ namespace
 
 namespace fury
 {
-  SceneInfo::SceneInfo(SceneRenderer* scene, MenuBar* menubar) : UiComponent(scene), m_menubar(menubar)
+  SceneInfo::SceneInfo(Scene* scene, MenuBar* menubar) : UiComponent(scene), m_menubar(menubar)
   {
   }
 
@@ -160,7 +160,9 @@ namespace fury
 
     ImGuiIO& io = ImGui::GetIO();
     ImGui::Separator();
-    ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+    const RenderInfo& info = m_scene->get_render_info();
+    ImGui::Text("Frame time %.3f ms", info.frame_time * 1000.f);
+    ImGui::Text("FPS %d", info.fps);
     ImGui::End();
 
     ImGui::Render();

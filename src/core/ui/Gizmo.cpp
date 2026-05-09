@@ -1,7 +1,7 @@
 #include "Gizmo.hpp"
 #include "core/Camera.hpp"
 #include "core/ObjectChangeInfo.hpp"
-#include "core/SceneRenderer.hpp"
+#include "core/Scene.hpp"
 #include "core/WindowGLFW.hpp"
 #include "ge/Object3D.hpp"
 #include "core/SceneGraphManager.hpp"
@@ -14,7 +14,7 @@
 
 namespace fury
 {
-  Gizmo::Gizmo(SceneRenderer* scene) : UiComponent(scene)
+  Gizmo::Gizmo(Scene* scene) : UiComponent(scene)
   {
     m_gizmo_operation = ImGuizmo::OPERATION::TRANSLATE;
     auto gizmo_mode_change_reactor = [this](InputCode key)

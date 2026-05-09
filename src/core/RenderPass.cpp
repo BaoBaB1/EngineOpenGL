@@ -6,7 +6,7 @@
 #include "BindGuard.hpp"
 #include "Shader.hpp"
 #include "ShaderStorage.hpp"
-#include "SceneRenderer.hpp"
+#include "Scene.hpp"
 #include "SceneGraphManager.hpp"
 #include "Event.hpp"
 #include "ge/Polyline.hpp"
@@ -39,11 +39,11 @@ namespace
 
 namespace fury
 {
-  RenderPass::RenderPass(SceneRenderer* scene) : m_scene(scene)
+  RenderPass::RenderPass(Scene* scene) : m_scene(scene)
   {
   }
 
-  GeometryPass::GeometryPass(SceneRenderer* scene, int shadow_map_texture) : RenderPass(scene)
+  GeometryPass::GeometryPass(Scene* scene, int shadow_map_texture) : RenderPass(scene)
   {
     m_shadow_map_texture = shadow_map_texture;
     BindChainFIFO bind_chain({ &m_vao_indices, &m_vbo_indices });
@@ -463,7 +463,7 @@ namespace fury
     render_selected_objects();
   }
 
-  NormalsPass::NormalsPass(SceneRenderer* scene) : RenderPass(scene)
+  NormalsPass::NormalsPass(Scene* scene) : RenderPass(scene)
   {
     // TODO: remove listener in dctor
     SceneInfo* scene_info_component = scene->get_ui().get_component<SceneInfo>("SceneInfo");
@@ -598,7 +598,7 @@ namespace fury
     }
   }
 
-  ShadowsPass::ShadowsPass(SceneRenderer* scene, GeometryPass* gp) : RenderPass(scene)
+  ShadowsPass::ShadowsPass(Scene* scene, GeometryPass* gp) : RenderPass(scene)
   {
     m_gp = gp;
   }
@@ -671,7 +671,7 @@ namespace fury
 
   DebugPass::DebugPass()
   {
-    SceneRenderer& scene = SceneRenderer::instance();
+    Scene& scene = Scene::instance();
 
     global_state::g_on_object_change += new FunctionListener(std::function(
       [this](const ObjectChangeInfo& info) {
@@ -817,7 +817,7 @@ namespace fury
     m_dirty_bbox_data = true;
     if (is_visible)
     {
-      add_bbox(SceneRenderer::instance().get_bbox(), glm::mat4(1.f));
+      add_bbox(Scene::instance().get_bbox(), glm::mat4(1.f));
       m_scene_bbox_matrix = m_bbox_instance_matrices.back();
       m_bbox_instance_matrices.pop_back();
     }
@@ -868,7 +868,7 @@ namespace fury
     m_dirty_bbox_data = true;
   }
 
-  SelectionWheelPass::SelectionWheelPass(SceneRenderer* scene, ItemSelectionWheel* wheel) : RenderPass(scene), m_wheel(wheel)
+  SelectionWheelPass::SelectionWheelPass(Scene* scene, ItemSelectionWheel* wheel) : RenderPass(scene), m_wheel(wheel)
   {
     const auto& slots = wheel->get_slots();
     if (slots.empty())
@@ -995,7 +995,7 @@ namespace fury
     glLineWidth(1);
   }
 
-  InfiniteGridPass::InfiniteGridPass(SceneRenderer* scene) : RenderPass(scene)
+  InfiniteGridPass::InfiniteGridPass(Scene* scene) : RenderPass(scene)
   {
   }
 

@@ -5,7 +5,7 @@
 #include "opengl/VertexBufferObject.hpp"
 #include "opengl/ElementBufferObject.hpp"
 #include "opengl/SSBO.hpp"
-#include "Singletone.hpp"
+#include "Singleton.hpp"
 #include "glm/glm.hpp"
 #include "glad/glad.h"
 #include <vector>
@@ -15,7 +15,7 @@
 
 namespace fury
 {
-  class SceneRenderer;
+  class Scene;
   struct ObjectChangeInfo;
   class ItemSelectionWheel;
   struct SelectionWheelSlot;
@@ -25,10 +25,10 @@ namespace fury
   class RenderPass : public ITickable
   {
   public:
-    RenderPass(SceneRenderer* scene);
+    RenderPass(Scene* scene);
     virtual void update() = 0;
   protected:
-    SceneRenderer* m_scene = nullptr;
+    Scene* m_scene = nullptr;
   };
 
   class GeometryPass : public RenderPass
@@ -42,7 +42,7 @@ namespace fury
       size_t basev = 0;
     };
   public:
-    GeometryPass(SceneRenderer* scene, int shadow_map_texture);
+    GeometryPass(Scene* scene, int shadow_map_texture);
     void update() override;
     void tick(float) override;
   private:
@@ -71,7 +71,7 @@ namespace fury
   class ShadowsPass : public RenderPass
   {
   public:
-    ShadowsPass(SceneRenderer* scene, GeometryPass* gp);
+    ShadowsPass(Scene* scene, GeometryPass* gp);
     void update() override;
     void tick(float) override;
   private:
@@ -91,7 +91,7 @@ namespace fury
       size_t internal_idx = 0;
     };
   public:
-    NormalsPass(SceneRenderer* scene);
+    NormalsPass(Scene* scene);
     void update() override;
     void tick(float) override;
   private:
@@ -111,7 +111,7 @@ namespace fury
   class SelectionWheelPass : public RenderPass
   {
   public:
-    SelectionWheelPass(SceneRenderer* scene, ItemSelectionWheel* wheel);
+    SelectionWheelPass(Scene* scene, ItemSelectionWheel* wheel);
     void update() override;
     void tick(float) override;
   private:
@@ -129,7 +129,7 @@ namespace fury
   class InfiniteGridPass : public RenderPass
   {
   public:
-    InfiniteGridPass(SceneRenderer* scene);
+    InfiniteGridPass(Scene* scene);
     void update() override {}
     void tick(float) override;
   private:
@@ -137,15 +137,17 @@ namespace fury
   };
 
   // TODO: move normals pass here
-  class DebugPass : public Singletone<DebugPass>
+  class DebugPass : public Singleton<DebugPass>
   {
   public:
-    DebugPass();
     void update();
     void tick(float);
     void add_line(const glm::vec3& a, const glm::vec3& b, const glm::vec4& color = glm::vec4(1, 1, 1, 1));
     void add_bbox(const BoundingBox& bbox, const glm::mat4& transform);
     void clear();
+  private:
+    DebugPass();
+    friend class Singleton<DebugPass>;
   private:
     void handle_visible_bbox_toggle(Object3D* obj, bool is_visible);
     void handle_scene_visible_bbox_toggle(bool is_visible);

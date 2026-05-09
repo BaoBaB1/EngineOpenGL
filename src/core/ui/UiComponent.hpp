@@ -5,12 +5,12 @@
 
 namespace fury
 {
-  class SceneRenderer;
+  class Scene;
 
   class UiComponent : public ITickable
   {
   public:
-    UiComponent(SceneRenderer* scene);
+    UiComponent(Scene* scene);
     virtual void show();
     virtual void hide();
     bool is_visible() const { return m_is_visible; }
@@ -18,6 +18,6 @@ namespace fury
     Event<> on_hide;
   protected:
     bool m_is_visible = false;
-    SceneRenderer* m_scene = nullptr;
+    Scene* m_scene = nullptr;
   };
 } // namespace fury
