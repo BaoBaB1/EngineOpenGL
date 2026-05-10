@@ -68,22 +68,21 @@ namespace fury
     if (info.is_color_change)
     {
       const Object3D* obj = info.object;
-      std::vector<MeshRenderOffsets>& offsets = m_render_offsets.at(obj);
+      const std::vector<MeshRenderOffsets>& offsets = m_render_offsets.at(obj);
       BindGuard bg(obj->get_render_config().use_indices ? &m_vbo_indices : &m_vbo_arrays);
-      for (const MeshRenderOffsets& mesh_offset : offsets)
+      assert(offsets.size() == obj->mesh_count());
+      for (int i = 0; const MeshRenderOffsets& mesh_offset : offsets)
       {
-        const size_t mesh_count = obj->mesh_count();
-        for (size_t i = 0; i < mesh_count; i++)
+        const Mesh& mesh = obj->get_mesh(i++);
+        if (obj->get_render_config().use_indices)
         {
-          const Mesh& mesh = obj->get_mesh(i);
-          if (obj->get_render_config().use_indices)
-          {
-            m_vbo_indices.set_data(mesh.vertices().data(), mesh.vertices().size() * sizeof(Vertex), mesh_offset.vbo_indices_offset);
-          }
-          else
-          {
-            m_vbo_arrays.set_data(mesh.vertices().data(), mesh.vertices().size() * sizeof(Vertex), mesh_offset.vbo_arrays_offset);
-          }
+          m_vbo_indices.set_data(mesh.vertices().data(), mesh.vertices().size() * sizeof(Vertex),
+                                 mesh_offset.vbo_indices_offset);
+        }
+        else
+        {
+          m_vbo_arrays.set_data(mesh.vertices().data(), mesh.vertices().size() * sizeof(Vertex),
+                                mesh_offset.vbo_arrays_offset);
         }
       }
     }
@@ -164,15 +163,11 @@ namespace fury
     Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::DEFAULT);
     shader->bind();
     shader->set_vec3("viewPos", camera.get_position());
-    shader->set_int("defaultTexture", 0);
-    shader->set_int("ambientTex", 1);
-    shader->set_int("diffuseTex", 2);
-    shader->set_int("specularTex", 3);
-    shader->set_int("shadowMap", 4);
     shader->set_int("numLights", m_scene->get_active_lights().size());
-
-    // set shadow map
-    glActiveTexture(GL_TEXTURE0 + 4);
+    // bind shadow map. LAST because all others are used in loop below
+    const int shadow_map_slot = static_cast<int>(TextureType::LAST);
+    shader->set_int("shadowMap", shadow_map_slot);
+    glActiveTexture(GL_TEXTURE0 + shadow_map_slot);
     glBindTexture(GL_TEXTURE_2D, m_shadow_map_texture);
 
     SceneInfo* scene_info_component = m_scene->get_ui().get_component<SceneInfo>("SceneInfo");
@@ -248,46 +243,21 @@ namespace fury
           const MeshRenderOffsets& mesh_offsets = meshes_offsets[mesh_i];
           const Mesh& mesh = obj->get_mesh(mesh_i);
 
-          // bind textures
-          if (auto tex = mesh.get_texture(TextureType::GENERIC))
+          const static std::array texture_uniform_names = { "ambientTex", "diffuseTex", "specularTex" };
+          const static std::array texture_uniform_bools = { "hasAmbientTex", "hasDiffuseTex", "hasSpecularTex" };
+          for (int i = 0; i < static_cast<int>(TextureType::LAST); i++)
           {
-            shader->set_bool("hasDefaultTexture", true);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, tex->id());
-          }
-          else
-          {
-            shader->set_bool("hasDefaultTexture", false);
-          }
-          if (auto tex = mesh.get_texture(TextureType::AMBIENT))
-          {
-            shader->set_bool("hasAmbientTex", true);
-            glActiveTexture(GL_TEXTURE0 + 1);
-            glBindTexture(GL_TEXTURE_2D, tex->id());
-          }
-          else
-          {
-            shader->set_bool("hasAmbientTex", false);
-          }
-          if (auto tex = mesh.get_texture(TextureType::DIFFUSE))
-          {
-            shader->set_bool("hasDiffuseTex", true);
-            glActiveTexture(GL_TEXTURE0 + 2);
-            glBindTexture(GL_TEXTURE_2D, tex->id());
-          }
-          else
-          {
-            shader->set_bool("hasDiffuseTex", false);
-          }
-          if (auto tex = mesh.get_texture(TextureType::SPECULAR))
-          {
-            shader->set_bool("hasSpecularTex", true);
-            glActiveTexture(GL_TEXTURE0 + 3);
-            glBindTexture(GL_TEXTURE_2D, tex->id());
-          }
-          else
-          {
-            shader->set_bool("hasSpecularTex", false);
+            if (auto tex = mesh.get_texture(static_cast<TextureType>(i)))
+            {
+              shader->set_bool(texture_uniform_bools[i], true);
+              shader->set_int(texture_uniform_names[i], i);
+              glActiveTexture(GL_TEXTURE0 + i);
+              glBindTexture(GL_TEXTURE_2D, tex->id());
+            }
+            else
+            {
+              shader->set_bool(texture_uniform_bools[i], false);
+            }
           }
 
           // set mesh material
@@ -309,11 +279,6 @@ namespace fury
           // disable stencil buffer writing
           glStencilFunc(GL_ALWAYS, 0, 0xFF);
           glStencilMask(0x00);
-          for (int i = 0; i < 4; i++)
-          {
-            glActiveTexture(GL_TEXTURE0 + i);
-            glBindTexture(GL_TEXTURE_2D, 0);
-          }
         }
       }
     }

@@ -15,7 +15,6 @@ namespace fury
 
   enum class TextureType : uint8_t
   {
-    GENERIC,
     AMBIENT,
     DIFFUSE,
     SPECULAR,
@@ -47,6 +46,6 @@ namespace fury
     int m_nchannels = 0;
     bool m_disabled = true;
     std::string m_file;
-    TextureType m_type = TextureType::GENERIC;
+    TextureType m_type = TextureType::LAST;
   };
 }

@@ -490,8 +490,6 @@ namespace
   {
     switch (type)
     {
-    case TextureType::GENERIC:
-      return "Generic texture";
     case TextureType::DIFFUSE:
       return "Diffuse texture";
     case TextureType::AMBIENT:

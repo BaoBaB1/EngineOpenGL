@@ -51,12 +51,10 @@ in vec2 uv;
 in vec4 fragPosDirectionalLightSpace;
 
 uniform bool applyShading;
-uniform bool hasDefaultTexture;
 uniform bool hasAmbientTex;
 uniform bool hasDiffuseTex;
 uniform bool hasSpecularTex;
 uniform vec3 viewPos;
-uniform sampler2D defaultTexture;
 uniform sampler2D ambientTex;
 uniform sampler2D diffuseTex;
 uniform sampler2D specularTex;
@@ -114,14 +112,13 @@ float CalculateShadowValue(vec3 directionalLightDir)
 void main()
 {
 	fragColor = color;
-	if (hasDefaultTexture) {
-		fragColor *= texture(defaultTexture, uv);
+	if (hasDiffuseTex) {
+		fragColor *= texture(diffuseTex, uv);
 	}
 
 	if (applyShading && numLights > 0)
 	{
 		vec3 ambientColor = hasAmbientTex ? texture(ambientTex, uv).rgb : material.ambient;
-		vec3 diffuseColor = hasDiffuseTex ? texture(diffuseTex, uv).rgb : material.diffuse;
 		vec3 specularColor = hasSpecularTex ? texture(specularTex, uv).rgb : material.specular;
 		float shininess = material.shininess;
 		float alpha = material.alpha;
@@ -144,7 +141,7 @@ void main()
 			vec3 norm = normalize(normal);
 			vec3 lightDir = normalize(lightInfo.pos.rgb - fragment);
 			float diffuseValue = max(dot(norm, lightDir), 0.0);
-			vec3 diffuse = diffuseValue * diffuseLightColor * diffuseColor;
+			vec3 diffuse = diffuseValue * diffuseLightColor * material.diffuse;
 
 			// specular light
 			float specularStrength = 0.5f;

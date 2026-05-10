@@ -30,6 +30,8 @@ namespace fury
       calc_max_extent(scene->mRootNode, scene);
       const std::filesystem::path filepath = std::filesystem::path(file);
       process(scene->mRootNode, scene, filepath, model);
+      Logger::info("Loaded model {}. Vertex count {}, face count {}.", file,
+                   model.get_geometry_metadata().vert_count_total, model.get_geometry_metadata().face_count_total);
       ::center_around_origin(model);
       // set some shading mode so that textures will be applied (if present) during rendering
       model.set_shading_mode(ShadingProcessor::ShadingMode::SMOOTH_SHADING);

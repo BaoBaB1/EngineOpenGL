@@ -746,7 +746,7 @@ namespace fury
     c->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
     c->get_mesh(0).set_texture(
         TextureManager::get(AssetManager::get_absolute_from_relative("textures/brick.jpg").value()),
-        TextureType::GENERIC);
+        TextureType::DIFFUSE);
 
     c = m_drawables.emplace_back(std::make_unique<Cube>())->cast_to<Cube>();
     transform = c->attach_node<TransformationSceneNode>();
