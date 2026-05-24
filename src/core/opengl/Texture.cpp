@@ -14,15 +14,16 @@ namespace fury
     glDeleteTextures(1, id_ref());
   }
 
-  std::unique_ptr<unsigned char, StbDeleter> Texture::load(const char* filename)
+  void Texture::init(const std::filesystem::path& file, bool flip_vertically)
   {
-    StbDeleter deleter;
-    std::unique_ptr<unsigned char, StbDeleter> data(stbi_load(filename, &m_width, &m_height, &m_nchannels, 0), deleter);
-    if (!data)
-    {
-      throw std::runtime_error(std::string("Could not load texture from file ") + filename);
-    }
-    return data;
+    init(file.string(), flip_vertically);
   }
 
+  void Texture::init(const std::string& file, bool flip_vertically)
+  {
+    stbi_set_flip_vertically_on_load(flip_vertically);
+    m_texture_data.file = file;
+    m_texture_data.pixels.reset(
+        stbi_load(file.c_str(), &m_texture_data.width, &m_texture_data.height, &m_texture_data.channels, 0));
+  }
 }

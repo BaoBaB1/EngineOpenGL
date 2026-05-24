@@ -9,6 +9,8 @@
 #include "Scene.hpp"
 #include "SceneGraphManager.hpp"
 #include "Event.hpp"
+#include "ui/SceneInfo.hpp"
+#include "ui/Gizmo.hpp"
 #include "ge/Polyline.hpp"
 #include "Globals.hpp"
 #include <glm/gtx/quaternion.hpp>
@@ -159,7 +161,7 @@ namespace fury
 
   void GeometryPass::render_scene()
   {
-    Camera& camera = m_scene->get_camera();
+    const Camera& camera = m_scene->get_camera();
     Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::DEFAULT);
     shader->bind();
     shader->set_vec3("viewPos", camera.get_position());

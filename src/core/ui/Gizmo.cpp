@@ -52,7 +52,7 @@ namespace fury
       ImGuizmo::SetRect(0, 0, window->width(), window->height());
 
       Object3D* obj = m_scene->get_selected_objects().back();
-      Camera& cam = m_scene->get_camera();
+      const Camera& cam = m_scene->get_camera();
       ImGuizmo::MODE gizmo_mode = ImGuizmo::MODE::LOCAL;
 
       auto node = SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id());

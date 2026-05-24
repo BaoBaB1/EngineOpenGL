@@ -1,8 +1,14 @@
 #include "Object3D.hpp"
 #include "core/Logger.hpp"
+#include "core/SceneGraph.hpp"
 
 namespace fury
 {
+  Object3D::Object3D()
+  {
+    attach_node<TransformationSceneNode>();
+  }
+
   ObjectGeometryMetadata Object3D::get_geometry_metadata() const
   {
     ObjectGeometryMetadata res;
