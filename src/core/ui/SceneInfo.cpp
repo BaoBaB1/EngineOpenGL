@@ -9,6 +9,7 @@
 #include "core/RotationController.hpp"
 #include "core/SceneGraphManager.hpp"
 #include "core/Globals.hpp"
+#include "FileExplorer.hpp"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>

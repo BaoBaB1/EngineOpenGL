@@ -2,6 +2,7 @@
 #include "Logger.hpp"
 #include "AssetManager.hpp"
 #include "TextureManager.hpp"
+#include "ge/Object3D.hpp"
 #include <assimp/Importer.hpp>
 
 namespace
@@ -15,38 +16,39 @@ namespace
 
 namespace fury
 {
-  bool ModelLoader::load(const std::string& file, unsigned int flags, Object3D& model)
+  std::unique_ptr<Object3D> ModelLoader::load(const std::string& file, unsigned int flags)
   {
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(file, flags);
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
     {
       Logger::error("Failed to load file {}. Assimp error {}.", file, importer.GetErrorString());
-      return false;
+      return {};
     }
     else
     {
+      auto pmodel = std::make_unique<Object3D>();
       // calc extent to scale all vertices in range [-1, 1]
       calc_max_extent(scene->mRootNode, scene);
       const std::filesystem::path filepath = std::filesystem::path(file);
-      process(scene->mRootNode, scene, filepath, model);
+      process(scene->mRootNode, scene, filepath, pmodel.get());
       Logger::info("Loaded model {}. Vertex count {}, face count {}.", file,
-                   model.get_geometry_metadata().vert_count_total, model.get_geometry_metadata().face_count_total);
-      ::center_around_origin(model);
+                   pmodel->get_geometry_metadata().vert_count_total, pmodel->get_geometry_metadata().face_count_total);
+      ::center_around_origin(*pmodel);
       // set some shading mode so that textures will be applied (if present) during rendering
-      model.set_shading_mode(ShadingProcessor::ShadingMode::SMOOTH_SHADING);
-      model.set_is_fixed_shading(true);
-      ::add_assets(filepath, model);
-      return true;
+      pmodel->set_shading_mode(ShadingProcessor::ShadingMode::SMOOTH_SHADING);
+      pmodel->set_is_fixed_shading(true);
+      ::add_assets(filepath, *pmodel);
+      return pmodel;
     }
   }
 
-  void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::filesystem::path& file, Object3D& model)
+  void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::filesystem::path& file, Object3D* model)
   {
     for (unsigned int i = 0; i < root->mNumMeshes; i++)
     {
       const aiMesh* inmesh = scene->mMeshes[root->mMeshes[i]];
-      Mesh& outmesh = model.emplace_mesh();
+      Mesh& outmesh = model->emplace_mesh();
 
       const bool has_normals = inmesh->HasNormals();
       const bool has_texture_coords = inmesh->HasTextureCoords(0);
@@ -130,12 +132,6 @@ namespace fury
     {
       process(root->mChildren[i], scene, file, model);
     }
-
-    if (root == scene->mRootNode)
-    {
-      ObjectGeometryMetadata meta = model.get_geometry_metadata();
-      Logger::info("Model has been loaded. Vertex count: {}, face count {}", meta.vert_count_total, meta.face_count_total);
-    }
   }
 
   void ModelLoader::calc_max_extent(const aiNode* root, const aiScene* scene)
@@ -189,9 +185,19 @@ namespace
       // tex_path is relative to file's folder
       aiString tex_path;
       material->GetTexture(assimp_tex_type, 0, &tex_path);
-      auto tex = TextureManager::get(file.parent_path() / tex_path.C_Str());
-      tex->set_type(engine_tex_type);
-      mesh.set_texture(tex, engine_tex_type);
+
+      // Only read texture data but do not create OpenGL texture,
+      // since model reading is (or can be) done in a separate thread
+      // that doesn't have access to OpenGL context created in main thread.
+      const std::filesystem::path full_tex_path = file.parent_path() / tex_path.C_Str();
+      std::shared_ptr<Texture2D> texture = TextureManager::get(full_tex_path, false);
+      if (!texture)
+      {
+        texture = std::make_shared<Texture2D>();
+        texture->init(full_tex_path.string());
+        TextureManager::add(texture);
+      }
+      mesh.set_texture(texture, engine_tex_type);
     }
   }
 

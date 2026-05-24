@@ -35,6 +35,7 @@ namespace fury
     };
   public:
     FURY_REGISTER_DERIVED_CLASS(Object3D, Entity)
+    Object3D();
     template<typename T>
     static T* cast_to(Object3D* obj) { return static_cast<T*>(obj); }
     template<typename T>

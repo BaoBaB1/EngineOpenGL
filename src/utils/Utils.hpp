@@ -9,6 +9,9 @@ namespace fury
 {
   namespace utils
   {
+    template<typename... T>
+    constexpr static bool always_false = false;
+
     std::filesystem::path get_exe_path();
     void trim(std::string& str, const char* pattern = " \t\n\r\f\v");
     std::string trim(const std::string& str, const char* pattern = " \t\n\r\f\v");
@@ -31,5 +34,5 @@ namespace fury
       return seed;
     }
 
-  } // utils namespace
-} // fury namespace
+  } // namespace utils
+} // namespace fury

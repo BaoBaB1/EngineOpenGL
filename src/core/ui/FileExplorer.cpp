@@ -2,6 +2,7 @@
 #include "core/WindowGLFW.hpp"
 #include "core/Scene.hpp"
 #include "core/AssetManager.hpp"
+#include "MenuBar.hpp"
 
 #include <ImGuiFileDialog.h>
 #include <GLFW/glfw3.h>

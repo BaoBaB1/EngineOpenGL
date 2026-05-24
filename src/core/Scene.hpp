@@ -22,23 +22,72 @@
 #include <memory>
 #include <string>
 #include <map>
+#include <future>
+#include <mutex>
 
 namespace fury
 {
   class Skybox;
   struct ObjectChangeInfo;
 
+  enum class DeferredCommandContext
+  {
+    ADD_OBJECT
+  };
+
   class Scene : public ITickable, public Singleton<Scene>
   {
   public:
     FURY_REGISTER_BASE_CLASS(Scene)
+    ~Scene();
+    template<typename T>
+    void add_async_task(std::future<T> future, DeferredCommandContext ctx)
+    {
+      std::lock_guard lg(m_async_tasks_vec_mutex);
+      if (ctx == DeferredCommandContext::ADD_OBJECT)
+      {
+        auto wrapped_fut = std::make_shared<decltype(future)>(std::move(future));
+        auto sp = std::make_shared<std::function<bool()>>(
+            [=]() mutable
+            {
+              // Return true if future is ready and false otherwise, so that if future is not ready yet
+              // main thread won't wait and will proceed rendering current frame and recheck condition on the next one
+              if (wrapped_fut->wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+              {
+                std::unique_ptr<Object3D> obj = wrapped_fut->get();
+                for (Mesh& m : obj->get_meshes())
+                {
+                  for (int i = 0; i < static_cast<int>(TextureType::LAST); i++)
+                  {
+                    if (auto tex = m.get_texture(static_cast<TextureType>(i)))
+                    {
+                      if (!tex->is_created())
+                      {
+                        // At this point texture data should be read (done in other thread)
+                        // but OpenGL texture is not created via glTex* calls yet.
+                        assert(tex->is_initialized());
+                        tex->create();
+                      }
+                    }
+                  }
+                }
+                add_object(std::move(obj));
+                return true;
+              }
+              return false;
+            });
+        m_async_tasks.emplace_back([sp]() { return (*sp)(); });
+      }
+    }
     void tick(float dt) override;
     void init(WindowGLFW* window);
-    ~Scene();
+    void add_object(std::unique_ptr<Object3D> object);
+    void remove_object(Object3D* obj);
+    void remove_object(uint32_t id);
     const RenderInfo& get_render_info() const { return m_render_info; }
-    Camera& get_camera() { return m_camera; }
-    std::vector<Object3D*>& get_selected_objects() { return m_selected_objects; }
-    std::vector<std::unique_ptr<Object3D>>& get_drawables() { return m_drawables; }
+    const Camera& get_camera() const { return m_camera; }
+    const std::vector<Object3D*>& get_selected_objects() const { return m_selected_objects; }
+    const std::vector<std::unique_ptr<Object3D>>& get_drawables() { return m_drawables; }
     BoundingBox& get_bbox() { return m_bbox; }
     WindowGLFW* get_window() { return m_window; }
     Ui& get_ui() { return m_ui; }
@@ -53,8 +102,9 @@ namespace fury
     void set_fps_limit(uint32_t fps) { m_fps_limiter.set_limit(fps); }
     uint32_t get_fps_limit() const { return m_fps_limiter.get_limit(); }
     Event<Object3D*> on_new_object_added;
-    Event<Object3D*> on_object_deleted;
+    Event<Object3D*> on_object_about_be_deleted;
     // These have to be complete types...
+    // clang-format off
     FURY_DECLARE_SERIALIZABLE_FIELDS(
       FURY_SERIALIZABLE_FIELD(1, &Scene::m_camera),
       FURY_SERIALIZABLE_FIELD(2, &Scene::m_polygon_mode),
@@ -62,12 +112,16 @@ namespace fury
       FURY_SERIALIZABLE_FIELD(4, &Scene::m_lights),
       FURY_SERIALIZABLE_FIELD(5, &Scene::m_controllers)
     )
+    // clang-format on
   private:
     Scene() = default;
     friend class Singleton<Scene>;
   private:
     void prepare_scene_for_rendering();
-    void select_object(Object3D* obj, bool click_from_menu_item);  // temporary function. remove when selection of multiple elements is supported
+    void process_async_results();
+    void select_object(
+        Object3D* obj,
+        bool click_from_menu_item); // temporary function. remove when selection of multiple elements is supported
     void render_skybox();
     void handle_mouse_click(InputCode, int x, int y);
     void handle_window_size_change(int width, int height);
@@ -79,7 +133,6 @@ namespace fury
     void handle_ui_component_opening();
     void handle_ui_component_closing();
     void handle_msaa_button_toggle(bool enabled);
-    void remove_object(Object3D* obj);
     void cleanup();
     void setup_directional_light(Light* light);
     void create_default_lights();
@@ -107,5 +160,7 @@ namespace fury
     FPSLimiter m_fps_limiter;
     ItemSelectionWheel m_selection_wheel;
     RenderInfo m_render_info;
+    std::vector<std::function<bool()>> m_async_tasks;
+    std::mutex m_async_tasks_vec_mutex;
   };
-}
+} // namespace fury

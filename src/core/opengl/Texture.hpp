@@ -21,31 +21,39 @@ namespace fury
     LAST
   };
 
+  struct TextureData
+  {
+    std::string file;
+    std::unique_ptr<unsigned char, StbDeleter> pixels;
+    int width = 0;
+    int height = 0;
+    int channels = 0;
+  };
+
   class Texture : public OpenGLObject
   {
   public:
     FURY_OnlyMovable(Texture)
     ~Texture();
-    virtual void resize(int w, int h, GLint internalformat, GLint format, GLint type) = 0;
-    virtual void init(const std::string& filename) = 0;
-    std::unique_ptr<unsigned char, StbDeleter> load(const char* filename);
+    virtual void resize(int w, int h) = 0;
+    void init(const std::filesystem::path& file, bool flip_vertically = true);
+    void init(const std::string& file, bool flip_vertically = true);
     void disable() { m_disabled = true; }
     void enable() { m_disabled = false; }
     bool disabled() const { return m_disabled; }
-    int width() const { return m_width; }
-    int height() const { return m_height; }
-    int nchannels() const { return m_nchannels; }
+    bool is_initialized() const { return m_texture_data.pixels != nullptr; }
+    bool is_created() const { return id() > 0; }
+    int width() const { return m_texture_data.width; }
+    int height() const { return m_texture_data.height; }
+    int nchannels() const { return m_texture_data.channels; }
     void set_type(TextureType type) { m_type = type; }
     TextureType get_type() const { return m_type; }
-    const std::string& get_file() const { return m_file; }
+    const std::string& get_file() const { return m_texture_data.file; }
   protected:
     Texture();
   protected:
-    int m_width = 0;
-    int m_height = 0;
-    int m_nchannels = 0;
+    TextureData m_texture_data;
     bool m_disabled = true;
-    std::string m_file;
     TextureType m_type = TextureType::LAST;
   };
 }

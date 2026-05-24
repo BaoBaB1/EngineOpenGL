@@ -26,6 +26,9 @@
 #include "SceneGraphManager.hpp"
 #include "ObjectChangeInfo.hpp"
 #include "Globals.hpp"
+#include "ui/SceneInfo.hpp"
+#include "ui/Gizmo.hpp"
+#include "ui/FileExplorer.hpp"
 
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -84,6 +87,33 @@ namespace
 
 namespace fury
 {
+  void Scene::add_object(std::unique_ptr<Object3D> object)
+  {
+    if (!object) [[unlikely]]
+    {
+      return;
+    }
+    m_drawables.emplace_back(std::move(object));
+    on_new_object_added.notify(m_drawables.back().get());
+  }
+
+  void Scene::remove_object(uint32_t id)
+  {
+    if (Entity* ent = EntityManager::get_entity(id))
+    {
+      if (ent->is_a(Object3D::get_static_type_id()))
+      {
+        remove_object(static_cast<Object3D*>(ent));
+      }
+      else
+      {
+        Logger::info(
+            "[Scene::remove_object]: Tried to remove entity that is not Object3D. Entity id {}, entity type {}", id,
+            ent->get_class_name());
+      }
+    }
+  }
+
   void Scene::init(WindowGLFW* window)
   {
     m_window = window;
@@ -121,7 +151,12 @@ namespace fury
 
     auto& main_scene_fbo = m_fbos["main"];
     main_scene_fbo.bind();
-    main_scene_fbo.attach_texture(Texture2D(w, h, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE));
+    {
+      Texture2D t;
+      t.init(w, h, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE);
+      t.resize(w, h);
+      main_scene_fbo.attach_texture(std::move(t));
+    }
     RenderBufferCreateInfo info = { w, h };
     main_scene_fbo.attach_renderbuffer(info);
     main_scene_fbo.unbind();
@@ -136,8 +171,12 @@ namespace fury
 
     auto& shadows_fbo = m_fbos["shadowMap"];
     shadows_fbo.bind();
-    shadows_fbo.attach_texture(
-        Texture2D(SHADOWMAP_WIDTH, SHADOWMAP_HEIGHT, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT), false);
+    {
+      Texture2D t;
+      t.init(SHADOWMAP_WIDTH, SHADOWMAP_HEIGHT, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT);
+      t.resize(SHADOWMAP_WIDTH, SHADOWMAP_HEIGHT);
+      shadows_fbo.attach_texture(std::move(t), false);
+    }
     shadows_fbo.texture()->bind();
     // anything that is out of depth map is not in shadow
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -198,6 +237,31 @@ namespace fury
   {
   }
 
+  void Scene::process_async_results()
+  {
+    // Process async results from other threads
+    if (!m_async_tasks.empty())
+    {
+      std::lock_guard lg(m_async_tasks_vec_mutex);
+      std::vector<int> items_to_remove;
+      items_to_remove.reserve(m_async_tasks.size());
+      for (int i = 0; auto& task : m_async_tasks)
+      {
+        const bool is_future_ready_and_completed = task();
+        if (is_future_ready_and_completed)
+        {
+          items_to_remove.emplace_back(i);
+        }
+        i++;
+      }
+      std::sort(items_to_remove.begin(), items_to_remove.end());
+      for (int i = items_to_remove.size() - 1; i >= 0; i--)
+      {
+        m_async_tasks.erase(m_async_tasks.begin() + i);
+      }
+    }
+  }
+
   void Scene::render()
   {
     using namespace std::chrono;
@@ -211,6 +275,7 @@ namespace fury
     int frame_count_per_sec = 0;
     while (!glfwWindowShouldClose(gl_window))
     {
+      process_async_results();
       steady_clock::time_point frame_time_start = steady_clock::now();
       if ((steady_clock::now() - fps_timer) >= 1s)
       {
@@ -401,8 +466,7 @@ namespace fury
       fbo.bind();
       if (auto& tex = fbo.texture())
       {
-        tex->resize(width, height, fbo.texture()->internal_fmt(), fbo.texture()->format(),
-                    fbo.texture()->pixel_data_type());
+        tex->resize(width, height);
       }
       if (auto& texMS = fbo.texture_ms())
       {
@@ -605,7 +669,11 @@ namespace fury
 
   void Scene::remove_object(Object3D* obj)
   {
-    on_object_deleted.notify(obj);
+    if (!obj) [[unlikely]]
+    {
+      return;
+    }
+    on_object_about_be_deleted.notify(obj);
     auto it = std::find_if(m_drawables.begin(), m_drawables.end(),
                            [=](const auto& drawable) { return drawable.get() == obj; });
     m_drawables.erase(it);
@@ -722,7 +790,7 @@ namespace fury
     m_drawables.push_back(std::move(origin));
 
     auto sun = m_drawables.emplace_back(std::make_unique<Icosahedron>())->cast_to<Icosahedron>();
-    TransformationSceneNode* transform = sun->attach_node<TransformationSceneNode>();
+    TransformationSceneNode* transform = SceneGraphManager::get_entity_node<TransformationSceneNode>(sun->get_id());
     transform->set_translation(glm::vec3(0.f, 0.6f, 2.f));
     transform->set_scale(glm::vec3(0.3f));
     sun->set_color(glm::vec4(1.f, 1.f, 0.f, 1.f));
@@ -731,7 +799,7 @@ namespace fury
     sun->project_points_on_sphere();
 
     auto sphere = m_drawables.emplace_back(std::make_unique<Icosahedron>())->cast_to<Icosahedron>();
-    transform = sphere->attach_node<TransformationSceneNode>();
+    transform = SceneGraphManager::get_entity_node<TransformationSceneNode>(sphere->get_id());
     transform->set_translation(glm::vec3(2.5f, 0.5f, 2.f));
     transform->set_scale(glm::vec3(0.3f));
     sphere->set_color(glm::vec4(1.f, 0.f, 0.f, 1.f));
@@ -740,7 +808,7 @@ namespace fury
     sphere->apply_shading(Object3D::ShadingMode::SMOOTH_SHADING);
 
     auto c = m_drawables.emplace_back(std::make_unique<Cube>())->cast_to<Cube>();
-    transform = c->attach_node<TransformationSceneNode>();
+    transform = SceneGraphManager::get_entity_node<TransformationSceneNode>(c->get_id());
     transform->set_translation(glm::vec3(0.25f));
     transform->set_scale(glm::vec3(0.5f));
     c->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
@@ -749,14 +817,14 @@ namespace fury
         TextureType::DIFFUSE);
 
     c = m_drawables.emplace_back(std::make_unique<Cube>())->cast_to<Cube>();
-    transform = c->attach_node<TransformationSceneNode>();
+    transform = SceneGraphManager::get_entity_node<TransformationSceneNode>(c->get_id());
     transform->set_translation(glm::vec3(1.25f, 1.f, 1.f));
     c->set_color(glm::vec4(0.4f, 1.f, 0.4f, 1.f));
     c->apply_shading(Object3D::ShadingMode::FLAT_SHADING);
     c->visible_normals(true);
 
     auto pyr = m_drawables.emplace_back(std::make_unique<Pyramid>())->cast_to<Pyramid>();
-    transform = pyr->attach_node<TransformationSceneNode>();
+    transform = SceneGraphManager::get_entity_node<TransformationSceneNode>(pyr->get_id());
     transform->set_translation(glm::vec3(0.75f, 0.65f, 2.25f));
     transform->set_scale(glm::vec3(0.5f));
     pyr->set_color(glm::vec4(0.976f, 0.212f, 0.98f, 1.f));
@@ -776,10 +844,6 @@ namespace fury
 
     for (auto& drawable : m_drawables)
     {
-      if (!SceneGraphManager::get_entity_node<TransformationSceneNode>(drawable->get_id()))
-      {
-        drawable->attach_node<TransformationSceneNode>();
-      }
       EntityManager::add_entity(drawable.get());
     }
 

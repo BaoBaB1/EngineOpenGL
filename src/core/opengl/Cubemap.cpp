@@ -7,11 +7,6 @@ namespace fury
     set_textures(textures);
   }
 
-  Cubemap::Cubemap(const std::array<std::string_view, 6>& textures)
-  {
-    set_textures(textures);
-  }
-
   Cubemap::Cubemap(const std::array<std::filesystem::path, 6>& textures)
   {
     set_textures(textures);
