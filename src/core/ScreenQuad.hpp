@@ -16,8 +16,8 @@ namespace fury
     void tick(float dt) override;
     GLuint get_texture_id() const { return m_tex_id; }
   private:
-    VertexArrayObject vao;
-    VertexBufferObject vbo;
+    VertexArrayObject m_vao;
+    VertexBufferObject m_vbo;
     GLuint m_tex_id = 0;
     bool m_is_single_channel = false;
   };

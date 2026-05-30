@@ -681,6 +681,9 @@ namespace fury
           }
         }));
 
+    scene.on_object_about_be_deleted +=
+        new FunctionListener(std::function([=, this](Object3D* obj) { remove_bbox_data(obj); }));
+
     // Lines
     {
       BindChainFIFO bc({ &m_vao, &m_vbo });
@@ -771,11 +774,21 @@ namespace fury
     m_dirty_lines_data = true;
   }
 
-  void DebugPass::clear()
+  void DebugPass::clear_lines()
   {
     m_lines.clear();
+  }
+
+  void DebugPass::clear_bboxes()
+  {
     m_bbox_instance_matrices.clear();
     m_objects_with_visible_bboxes.clear();
+  }
+
+  void DebugPass::clear()
+  {
+    clear_lines();
+    clear_bboxes();
   }
 
   void DebugPass::handle_visible_bbox_toggle(Object3D* obj, bool is_visible)
@@ -789,23 +802,7 @@ namespace fury
     }
     else
     {
-      int idx = 0;
-      for (uint32_t id : m_objects_with_visible_bboxes)
-      {
-        if (id == obj->get_id())
-        {
-          break;
-        }
-        idx++;
-      }
-      // Swap item to be removed with last and pop it
-      std::iter_swap(m_objects_with_visible_bboxes.begin() + idx,
-                     m_objects_with_visible_bboxes.begin() + (m_objects_with_visible_bboxes.size() - 1));
-      std::iter_swap(m_bbox_instance_matrices.begin() + idx,
-                     m_bbox_instance_matrices.begin() + (m_bbox_instance_matrices.size() - 1));
-      m_objects_with_visible_bboxes.pop_back();
-      m_bbox_instance_matrices.pop_back();
-      m_dirty_bbox_data = true;
+      remove_bbox_data(obj);
     }
   }
 
@@ -838,6 +835,31 @@ namespace fury
     }
     m_vbo_instance_bbox.unbind();
     m_dirty_bbox_data = false;
+  }
+
+  void DebugPass::remove_bbox_data(Object3D* obj)
+  {
+    int idx = -1;
+    for (size_t i = 0; i < m_objects_with_visible_bboxes.size(); i++)
+    {
+      if (m_objects_with_visible_bboxes[i] == obj->get_id())
+      {
+        idx = i;
+        break;
+      }
+    }
+    if (idx == -1)
+    {
+      return;
+    }
+    // Swap item to be removed with last and pop it
+    std::iter_swap(m_objects_with_visible_bboxes.begin() + idx,
+                   m_objects_with_visible_bboxes.begin() + (m_objects_with_visible_bboxes.size() - 1));
+    std::iter_swap(m_bbox_instance_matrices.begin() + idx,
+                   m_bbox_instance_matrices.begin() + (m_bbox_instance_matrices.size() - 1));
+    m_objects_with_visible_bboxes.pop_back();
+    m_bbox_instance_matrices.pop_back();
+    m_dirty_bbox_data = true;
   }
 
   void DebugPass::update_lines_data()

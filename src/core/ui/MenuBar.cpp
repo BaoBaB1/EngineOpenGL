@@ -60,9 +60,9 @@ namespace fury
       {
         if (ImGui::MenuItem("Save"))
         {
-          auto callback = [&](const std::string& file)
+          auto callback = [=, this](const std::string& file)
           {
-            m_scene->save(file);
+            ThreadPool::instance().enqueue([scene = m_scene, file]() { scene->save(file); });
           };
           OpenFileExplorerContext ctx;
           ctx.save_scene = true;

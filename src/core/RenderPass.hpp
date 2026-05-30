@@ -145,6 +145,8 @@ namespace fury
     void add_line(const glm::vec3& a, const glm::vec3& b, const glm::vec4& color = glm::vec4(1, 1, 1, 1));
     void add_bbox(const BoundingBox& bbox, const glm::mat4& transform);
     void clear();
+    void clear_lines();
+    void clear_bboxes();
   private:
     DebugPass();
     friend class Singleton<DebugPass>;
@@ -153,6 +155,7 @@ namespace fury
     void handle_scene_visible_bbox_toggle(bool is_visible);
     void update_bbox_data();
     void update_lines_data();
+    void remove_bbox_data(Object3D* obj);
   private:
     struct LineVertex
     {

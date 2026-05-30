@@ -253,6 +253,8 @@ namespace fury
         uint64_t chunk_size;
         ifs.read(reinterpret_cast<char*>(&chunk_size), sizeof(uint64_t));
         read_bytes += sizeof(uint8_t) + serializable_name_len + sizeof(uint64_t);
+        // TODO: Synonyms/aliases system to be able to deal with the issue when class name has changed
+        // but class layout/fields remain the same.
         if (serializable_name != T::cls_name)
         {
           Logger::error("Expected serializable chunk {}, got {} instead.", T::cls_name, serializable_name.c_str());
@@ -481,6 +483,7 @@ namespace fury
         field.resize(num_elems);
         std::for_each(field.begin(), field.end(), [&](auto& item) { read_bytes += read_helper(ifs, item, tag); });
       }
+      // If array size will ever change, then it will break serialization!!!
       else if constexpr (IsStdArray_v<Field>)
       {
         std::for_each(field.begin(), field.end(), [&](auto& elem) { read_bytes += read_helper(ifs, elem, tag); });
@@ -593,7 +596,7 @@ namespace fury
         }
         Logger::critical("Failed to read field with tag {} of object {}. Field size {}, read bytes {}.", tag, name,
                          field_size, read_bytes);
-        throw std::runtime_error("Critical error");
+        throw std::runtime_error("Deserialization critical error");
       }
       return read_bytes;
     }

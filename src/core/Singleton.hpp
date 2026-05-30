@@ -13,8 +13,8 @@ namespace fury
     }
     Singleton(const Singleton&) = delete;
     Singleton& operator=(const Singleton&) = delete;
-    Singleton(Singleton&&) = default;
-    Singleton& operator=(Singleton&&) = default;
+    Singleton(Singleton&&) noexcept = default;
+    Singleton& operator=(Singleton&&) noexcept = default;
     ~Singleton() = default;
   protected:
     Singleton() = default;

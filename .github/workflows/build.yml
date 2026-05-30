@@ -9,7 +9,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ windows-latest, ubuntu-latest ]
+        os: [ windows-latest, windows-2022, ubuntu-latest ]
       fail-fast: false
     name: Build ${{ matrix.os }}
     runs-on: ${{ matrix.os }}

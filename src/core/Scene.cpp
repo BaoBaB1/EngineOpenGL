@@ -8,7 +8,6 @@
 #include "Camera.hpp"
 #include "ShaderStorage.hpp"
 #include "BindGuard.hpp"
-#include "PipelineBufferManager.hpp"
 #include "Logger.hpp"
 #include "ge/Cube.hpp"
 #include "ge/Icosahedron.hpp"
@@ -29,6 +28,7 @@
 #include "ui/SceneInfo.hpp"
 #include "ui/Gizmo.hpp"
 #include "ui/FileExplorer.hpp"
+#include "RenderPass.hpp"
 
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -87,6 +87,10 @@ namespace
 
 namespace fury
 {
+  Scene::Scene()
+  {
+  }
+
   void Scene::add_object(std::unique_ptr<Object3D> object)
   {
     if (!object) [[unlikely]]
@@ -200,11 +204,10 @@ namespace fury
     m_shadow_map_quad.init(shadow_map_data, shadows_fbo.texture()->id(), true);
     m_fps_limiter.set_limit(glfwGetVideoMode(glfwGetPrimaryMonitor())->refreshRate);
 
-    UniformBuffer& ubo = PipelineUBOManager::get("cameraData");
-    ubo.bind();
-    ubo.resize(sizeof(glm::mat4) * 2);
-    ubo.set_binding_point(0);
-    ubo.unbind();
+    m_camera_data_ubo.bind();
+    m_camera_data_ubo.resize(sizeof(glm::mat4) * 2);
+    m_camera_data_ubo.set_binding_point(0);
+    m_camera_data_ubo.unbind();
 
     SelectionWheelConfig cfg;
     cfg.items_count = 6;
@@ -369,6 +372,7 @@ namespace fury
     serializer::prepare_for_serialization();
     Serializer<Scene>::read(ifs, this);
     SceneGraphManager::read(ifs);
+    m_camera.update_camera_vectors();
     ifs.close();
     prepare_scene_for_rendering();
   }
@@ -485,7 +489,23 @@ namespace fury
   void Scene::handle_keyboard_button_click(InputCode input_code)
   {
     const InputSystem& input_system = InputSystem::instance();
-    if (input_code == InputCode::FURY_KEY_ESC)
+    const InputContext* ic = input_system.get_active_input_context();
+
+    if (input_code == InputCode::FURY_KEY_GRAVE_ACCENT)
+    {
+      SceneInfo* scene_info = m_ui.get_component<SceneInfo>("SceneInfo");
+      scene_info->is_visible() ? scene_info->hide() : scene_info->show();
+    }
+
+    if (ic->name == "UI")
+    {
+      // Following actions can only be triggered in free camera mode
+      return;
+    }
+
+    switch (input_code)
+    {
+    case InputCode::FURY_KEY_ESC:
     {
       assert(m_selected_objects.empty() || m_selected_objects.size() == 1);
       for (Object3D* obj : m_selected_objects)
@@ -494,71 +514,21 @@ namespace fury
         obj->select(false);
       }
     }
-    else if (input_code == InputCode::FURY_KEY_O)
+    break;
+    case InputCode::FURY_KEY_O:
     {
       m_show_shadow_map = !m_show_shadow_map;
     }
-    else if (input_code == InputCode::FURY_KEY_P)
+    break;
+    case InputCode::FURY_KEY_P:
     {
       Camera::ProjectionMode current_mode = m_camera.get_projection_mode();
       m_camera.set_projection_mode(current_mode == Camera::ProjectionMode::ORTHOGRAPHIC
                                        ? Camera::ProjectionMode::PERSPECTIVE
                                        : Camera::ProjectionMode::ORTHOGRAPHIC);
     }
-    else if (input_code == InputCode::FURY_KEY_L && !m_selected_objects.empty())
-    {
-      // drop selected object on object below
-      Object3D* selected_obj = m_selected_objects.front();
-      // static constexpr int lower_bbox_points_indices[] = {0, 1, 4, 5};
-      //  TODO: iterate only over bottom bbox points
-      const auto points = selected_obj->get_bbox().get_points();
-      TransformationSceneNode* selected_transform =
-          SceneGraphManager::get_entity_node<TransformationSceneNode>(selected_obj->get_id());
-      float distance = INFINITY;
-      DebugPass::instance().clear();
-      for (const glm::vec3& p : points)
-      {
-        Ray ray(selected_transform->get_world_mat() * glm::vec4(p, 1), glm::vec3(0, -1, 0));
-        for (const auto& drawable : m_drawables)
-        {
-          if (drawable.get() == selected_obj)
-          {
-            continue;
-          }
-          BoundingBox bbox_world;
-          TransformationSceneNode* drawable_transform =
-              SceneGraphManager::get_entity_node<TransformationSceneNode>(drawable->get_id());
-          bbox_world.init(drawable_transform->get_world_mat() * glm::vec4(drawable->get_bbox().min(), 1),
-                          drawable_transform->get_world_mat() * glm::vec4(drawable->get_bbox().max(), 1));
-          if (auto hit = ray.intersect_aabb(bbox_world))
-          {
-            DebugPass::instance().add_line(ray.get_origin(), hit->position);
-            // Logger::info("hit {} distance {}", hit->position, hit->distance);
-            distance = std::min(hit->distance, distance);
-          }
-        }
-      }
-      if (distance != INFINITY)
-      {
-        glm::vec3 old = selected_transform->get_translation();
-        distance = distance - old.y;
-        selected_transform->set_translation(glm::vec3(old.x, -distance, old.z));
-        update_shadow_map();
-      }
-    }
-    else if (input_code == InputCode::FURY_KEY_BACKSPACE && !m_selected_objects.empty())
-    {
-      assert(m_selected_objects.size() == 1);
-      Object3D* selected_obj = m_selected_objects.front();
-      remove_object(m_selected_objects.front());
-      m_selected_objects.pop_back();
-    }
-    else if (input_code == InputCode::FURY_KEY_GRAVE_ACCENT)
-    {
-      SceneInfo* scene_info = m_ui.get_component<SceneInfo>("SceneInfo");
-      scene_info->is_visible() ? scene_info->hide() : scene_info->show();
-    }
-    else if (input_code == InputCode::FURY_KEY_Q)
+    break;
+    case InputCode::FURY_KEY_Q:
     {
       const bool will_be_visible = !m_selection_wheel.is_visible();
       m_selection_wheel.select(-1);
@@ -572,7 +542,8 @@ namespace fury
         handle_ui_component_closing();
       }
     }
-    else if (input_code == InputCode::FURY_KEY_M)
+    break;
+    case InputCode::FURY_KEY_M:
     {
       Frustum fr = m_camera.get_frustum();
       auto& dbg = DebugPass::instance();
@@ -580,6 +551,63 @@ namespace fury
       {
         dbg.add_line(p1, p2, glm::vec4(0, 1, 0, 1));
       }
+    }
+    break;
+    case InputCode::FURY_KEY_L:
+    {
+      if (!m_selected_objects.empty())
+      {
+        // drop selected object on object below
+        Object3D* selected_obj = m_selected_objects.front();
+        // static constexpr int lower_bbox_points_indices[] = {0, 1, 4, 5};
+        //  TODO: iterate only over bottom bbox points
+        const auto points = selected_obj->get_bbox().get_points();
+        TransformationSceneNode* selected_transform =
+            SceneGraphManager::get_entity_node<TransformationSceneNode>(selected_obj->get_id());
+        float distance = INFINITY;
+        DebugPass::instance().clear_lines();
+        for (const glm::vec3& p : points)
+        {
+          Ray ray(selected_transform->get_world_mat() * glm::vec4(p, 1), glm::vec3(0, -1, 0));
+          for (const auto& drawable : m_drawables)
+          {
+            if (drawable.get() == selected_obj)
+            {
+              continue;
+            }
+            BoundingBox bbox_world;
+            TransformationSceneNode* drawable_transform =
+                SceneGraphManager::get_entity_node<TransformationSceneNode>(drawable->get_id());
+            bbox_world.init(drawable_transform->get_world_mat() * glm::vec4(drawable->get_bbox().min(), 1),
+                            drawable_transform->get_world_mat() * glm::vec4(drawable->get_bbox().max(), 1));
+            if (auto hit = ray.intersect_aabb(bbox_world))
+            {
+              DebugPass::instance().add_line(ray.get_origin(), hit->position);
+              // Logger::info("hit {} distance {}", hit->position, hit->distance);
+              distance = std::min(hit->distance, distance);
+            }
+          }
+        }
+        if (distance != INFINITY)
+        {
+          glm::vec3 old = selected_transform->get_translation();
+          distance = distance - old.y;
+          selected_transform->set_translation(glm::vec3(old.x, -distance, old.z));
+          update_shadow_map();
+        }
+      }
+    }
+    break;
+    case InputCode::FURY_KEY_BACKSPACE:
+    {
+      assert(m_selected_objects.size() == 1);
+      Object3D* selected_obj = m_selected_objects.front();
+      remove_object(m_selected_objects.front());
+      m_selected_objects.pop_back();
+    }
+    break;
+    default:
+      break;
     }
   }
 
@@ -940,10 +968,9 @@ namespace fury
       }
     }
 
-    UniformBuffer& ubo = PipelineUBOManager::get("cameraData");
-    ubo.bind();
-    ubo.set_data(&m_camera.get_view_matrix(), sizeof(glm::mat4), 0);
-    ubo.set_data(&m_camera.get_projection_matrix(), sizeof(glm::mat4), sizeof(glm::mat4));
-    ubo.unbind();
+    m_camera_data_ubo.bind();
+    m_camera_data_ubo.set_data(&m_camera.get_view_matrix(), sizeof(glm::mat4), 0);
+    m_camera_data_ubo.set_data(&m_camera.get_projection_matrix(), sizeof(glm::mat4), sizeof(glm::mat4));
+    m_camera_data_ubo.unbind();
   }
 } // namespace fury

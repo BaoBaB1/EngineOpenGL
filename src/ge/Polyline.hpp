@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./ge/Object3D.hpp"
+#include "Object3D.hpp"
 #include "Vertex.hpp"
 
 namespace fury

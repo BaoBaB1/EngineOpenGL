@@ -2,13 +2,13 @@
 
 #include "Camera.hpp"
 #include "opengl/FrameBufferObject.hpp"
+#include "opengl/UniformBuffer.hpp"
 #include "input/InputSystem.hpp"
 #include "CameraController.hpp"
 #include "ui/Ui.hpp"
 #include "ScreenQuad.hpp"
 #include "ITickable.hpp"
 #include "ge/Skybox.hpp"
-#include "RenderPass.hpp"
 #include "ge/BoundingBox.hpp"
 #include "FPSLimiter.hpp"
 #include "ge/ItemSelectionWheel.hpp"
@@ -29,6 +29,9 @@ namespace fury
 {
   class Skybox;
   struct ObjectChangeInfo;
+  class ObjectController;
+  class RenderPass;
+  class ShadowsPass;
 
   enum class DeferredCommandContext
   {
@@ -114,7 +117,7 @@ namespace fury
     )
     // clang-format on
   private:
-    Scene() = default;
+    Scene();
     friend class Singleton<Scene>;
   private:
     void prepare_scene_for_rendering();
@@ -138,6 +141,12 @@ namespace fury
     void create_default_lights();
     friend class SceneInfo;
   private:
+    Camera m_camera;
+    Skybox m_skybox;
+    std::mutex m_async_tasks_vec_mutex;
+    ScreenQuad m_screen_quad;
+    ScreenQuad m_shadow_map_quad;
+    ItemSelectionWheel m_selection_wheel;
     // store pointers to make virtual methods work
     std::vector<std::unique_ptr<Object3D>> m_drawables;
     std::vector<Object3D*> m_selected_objects;
@@ -145,22 +154,17 @@ namespace fury
     std::unique_ptr<ShadowsPass> m_shadows_pass;
     std::vector<Light> m_lights;
     std::vector<std::unique_ptr<ObjectController>> m_controllers;
-    ScreenQuad m_screen_quad;
-    ScreenQuad m_shadow_map_quad;
-    bool m_show_shadow_map = false;
-    bool m_MSAA_enabled = true;
-    Skybox m_skybox;
-    WindowGLFW* m_window;
-    Ui m_ui;
-    CameraController m_cam_controller;
-    Camera m_camera;
+    std::vector<std::function<bool()>> m_async_tasks;
     std::map<std::string, FrameBufferObject> m_fbos;
-    GLint m_polygon_mode = GL_FILL;
+    UniformBuffer m_camera_data_ubo;
+    Ui m_ui;
     BoundingBox m_bbox;
     FPSLimiter m_fps_limiter;
-    ItemSelectionWheel m_selection_wheel;
+    CameraController m_cam_controller;
     RenderInfo m_render_info;
-    std::vector<std::function<bool()>> m_async_tasks;
-    std::mutex m_async_tasks_vec_mutex;
+    WindowGLFW* m_window = nullptr;
+    GLint m_polygon_mode = GL_FILL;
+    bool m_show_shadow_map = false;
+    bool m_MSAA_enabled = true;
   };
 } // namespace fury

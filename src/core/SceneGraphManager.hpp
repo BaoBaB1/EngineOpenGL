@@ -1,7 +1,6 @@
 #pragma once
 
 #include "SceneGraph.hpp"
-#include "EntityManager.hpp"
 #include "Logger.hpp"
 #include <set>
 #include <fstream>
