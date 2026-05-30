@@ -22,4 +22,4 @@ namespace fury
       node->set_rotation(glm::rotate(q, m_angle * dt, m_axis));
     }
   }
-}
+} // namespace fury

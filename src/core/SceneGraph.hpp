@@ -55,13 +55,11 @@ namespace fury
     const glm::vec3& get_scale() const { return m_scale; }
     const glm::vec3& get_translation() const { return m_translation; }
     const glm::quat& get_rotation() const { return m_rotation; }
-    FURY_DECLARE_SERIALIZABLE_FIELDS(
-      FURY_SERIALIZABLE_FIELD(1, &TransformationSceneNode::m_scale),
-      FURY_SERIALIZABLE_FIELD(2, &TransformationSceneNode::m_translation),
-      FURY_SERIALIZABLE_FIELD(3, &TransformationSceneNode::m_rotation),
-      FURY_SERIALIZABLE_FIELD(4, &TransformationSceneNode::m_local_mat),
-      FURY_SERIALIZABLE_FIELD(5, &TransformationSceneNode::m_world_mat)
-    )
+    FURY_DECLARE_SERIALIZABLE_FIELDS(FURY_SERIALIZABLE_FIELD(1, &TransformationSceneNode::m_scale),
+                                     FURY_SERIALIZABLE_FIELD(2, &TransformationSceneNode::m_translation),
+                                     FURY_SERIALIZABLE_FIELD(3, &TransformationSceneNode::m_rotation),
+                                     FURY_SERIALIZABLE_FIELD(4, &TransformationSceneNode::m_local_mat),
+                                     FURY_SERIALIZABLE_FIELD(5, &TransformationSceneNode::m_world_mat))
   private:
     glm::vec3 m_scale = glm::vec3(1);
     glm::vec3 m_translation = glm::vec3(0);
@@ -70,4 +68,4 @@ namespace fury
     glm::mat4 m_local_mat = glm::mat4(1.f);
     glm::mat4 m_world_mat = glm::mat4(1.f);
   };
-}
+} // namespace fury

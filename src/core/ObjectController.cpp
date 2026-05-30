@@ -25,4 +25,4 @@ namespace fury
     }
     return sizeof(id);
   }
-}
+} // namespace fury

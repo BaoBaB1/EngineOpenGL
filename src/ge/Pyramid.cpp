@@ -19,4 +19,4 @@ namespace fury
     mesh.faces().emplace_back(Face({ 2, 4, 3 }));
     mesh.faces().emplace_back(Face({ 3, 4, 0 }));
   }
-}
+} // namespace fury

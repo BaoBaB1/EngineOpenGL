@@ -37,9 +37,15 @@ namespace fury
     FURY_REGISTER_DERIVED_CLASS(Object3D, Entity)
     Object3D();
     template<typename T>
-    static T* cast_to(Object3D* obj) { return static_cast<T*>(obj); }
+    static T* cast_to(Object3D* obj)
+    {
+      return static_cast<T*>(obj);
+    }
     template<typename T>
-    T* cast_to() { return static_cast<T*>(this); }
+    T* cast_to()
+    {
+      return static_cast<T*>(this);
+    }
     void set_color(const glm::vec4& color);
     ObjectGeometryMetadata get_geometry_metadata() const;
     glm::vec3 center() const;
@@ -73,15 +79,13 @@ namespace fury
     BoundingBox& get_bbox() { return m_bbox; }
     FURY_PROPERTY_REF(name, std::string, m_name)
     FURY_PROPERTY_REF(render_config, RenderConfig, m_render_config)
-    FURY_DECLARE_SERIALIZABLE_FIELDS(
-      FURY_SERIALIZABLE_FIELD(1, &Object3D::m_flags),
-      FURY_SERIALIZABLE_FIELD(2, &Object3D::m_color),
-      FURY_SERIALIZABLE_FIELD(3, &Object3D::m_meshes),
-      FURY_SERIALIZABLE_FIELD(4, &Object3D::m_shading_mode),
-      FURY_SERIALIZABLE_FIELD(5, &Object3D::m_bbox),
-      FURY_SERIALIZABLE_FIELD(6, &Object3D::m_render_config),
-      FURY_SERIALIZABLE_FIELD(7, &Object3D::m_center)
-    )
+    FURY_DECLARE_SERIALIZABLE_FIELDS(FURY_SERIALIZABLE_FIELD(1, &Object3D::m_flags),
+                                     FURY_SERIALIZABLE_FIELD(2, &Object3D::m_color),
+                                     FURY_SERIALIZABLE_FIELD(3, &Object3D::m_meshes),
+                                     FURY_SERIALIZABLE_FIELD(4, &Object3D::m_shading_mode),
+                                     FURY_SERIALIZABLE_FIELD(5, &Object3D::m_bbox),
+                                     FURY_SERIALIZABLE_FIELD(6, &Object3D::m_render_config),
+                                     FURY_SERIALIZABLE_FIELD(7, &Object3D::m_center))
   protected:
     enum Flag
     {
@@ -103,8 +107,8 @@ namespace fury
     bool m_need_update = false;
     uint32_t m_flags = HAS_SURFACE;
     ShadingMode m_shading_mode = ShadingMode::NO_SHADING;
-    BoundingBox m_bbox;             // bounding box which covers all meshes
+    BoundingBox m_bbox; // bounding box which covers all meshes
     RenderConfig m_render_config;
     std::array<std::shared_ptr<std::vector<Mesh>>, ShadingMode::LAST_ITEM + 1> m_cached_meshes;
   };
-}
+} // namespace fury

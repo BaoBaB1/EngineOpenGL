@@ -74,4 +74,4 @@ namespace fury
   {
     release();
   }
-}
+} // namespace fury

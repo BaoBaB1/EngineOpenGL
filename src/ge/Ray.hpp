@@ -30,4 +30,4 @@ namespace fury
     glm::vec3 m_origin;
     glm::vec3 m_dir;
   };
-}
+} // namespace fury

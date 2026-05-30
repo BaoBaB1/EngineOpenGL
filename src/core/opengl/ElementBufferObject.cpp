@@ -2,11 +2,11 @@
 
 namespace fury
 {
-	ElementBufferObject::ElementBufferObject() : OpenGLBuffer(GL_ELEMENT_ARRAY_BUFFER)
-	{
-	}
+  ElementBufferObject::ElementBufferObject() : OpenGLBuffer(GL_ELEMENT_ARRAY_BUFFER)
+  {
+  }
 
-	ElementBufferObject::ElementBufferObject(size_t size) : OpenGLBuffer(GL_ELEMENT_ARRAY_BUFFER, size)
-	{
-	}
-}
+  ElementBufferObject::ElementBufferObject(size_t size) : OpenGLBuffer(GL_ELEMENT_ARRAY_BUFFER, size)
+  {
+  }
+} // namespace fury

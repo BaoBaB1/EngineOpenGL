@@ -21,4 +21,4 @@ namespace fury
     GLuint m_tex_id = 0;
     bool m_is_single_channel = false;
   };
-}
+} // namespace fury

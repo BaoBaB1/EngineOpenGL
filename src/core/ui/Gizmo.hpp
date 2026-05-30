@@ -4,14 +4,14 @@
 
 namespace fury
 {
-	class Scene;
+  class Scene;
 
-	class Gizmo : public UiComponent
-	{
-	public:
-		Gizmo(Scene* scene);
-		void tick(float) override;
-	private:
-		uint16_t m_gizmo_operation;
-	};
-}
+  class Gizmo : public UiComponent
+  {
+  public:
+    Gizmo(Scene* scene);
+    void tick(float) override;
+  private:
+    uint16_t m_gizmo_operation;
+  };
+} // namespace fury

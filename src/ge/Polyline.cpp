@@ -7,7 +7,7 @@ namespace fury
   {
     emplace_mesh();
     m_render_config.use_indices = false;
-    m_render_config.mode = GL_LINE_STRIP; 
+    m_render_config.mode = GL_LINE_STRIP;
     set_flag(HAS_SURFACE, false);
   }
 
@@ -25,4 +25,4 @@ namespace fury
   {
     get_mesh(0).append_vertex(point);
   }
-}
+} // namespace fury

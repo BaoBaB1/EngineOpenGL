@@ -52,7 +52,9 @@ namespace fury
     if (tmax > std::max(tmin, 0.0f))
     {
       if (tmin < 0)
+      {
         tmin = tmax;
+      }
       RayHit hit;
       hit.position = m_origin + tmin * m_dir;
       hit.distance = glm::distance(m_origin, hit.position);
@@ -92,13 +94,14 @@ namespace fury
           {
             for (const auto& face : mesh.faces())
             {
-              if (auto hit = intersect_triangle(
-                mesh.get_vertex(face[0]).position, mesh.get_vertex(face[1]).position, mesh.get_vertex(face[2]).position)
-                )
+              if (auto hit = intersect_triangle(mesh.get_vertex(face[0]).position, mesh.get_vertex(face[1]).position,
+                                                mesh.get_vertex(face[2]).position))
               {
                 // find closest hit
                 if (!rhit || rhit->distance > hit->distance)
+                {
                   rhit = hit;
+                }
               }
             }
           }
@@ -110,13 +113,14 @@ namespace fury
             const auto& vertices = mesh.vertices();
             for (size_t i = 0; i < vertices.size(); i += 3)
             {
-              if (auto hit = intersect_triangle(
-                mesh.get_vertex(i).position, mesh.get_vertex(i + 1).position, mesh.get_vertex(i + 2).position)
-                )
+              if (auto hit = intersect_triangle(mesh.get_vertex(i).position, mesh.get_vertex(i + 1).position,
+                                                mesh.get_vertex(i + 2).position))
               {
                 // find closest hit
                 if (!rhit || rhit->distance > hit->distance)
+                {
                   rhit = hit;
+                }
               }
             }
           }
@@ -124,9 +128,11 @@ namespace fury
       }
       else
       {
-        Logger::info("Bounding box of object {} is intersected, but could not test if object is actually hit. Primitives are not triangles", obj->get_name());
+        Logger::info("Bounding box of object {} is intersected, but could not test if object is actually hit. "
+                     "Primitives are not triangles",
+                     obj->get_name());
       }
     }
     return rhit;
   }
-}
+} // namespace fury

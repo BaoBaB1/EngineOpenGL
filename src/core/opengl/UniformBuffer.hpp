@@ -4,10 +4,10 @@
 
 namespace fury
 {
-	class UniformBuffer : public OpenGLBuffer
-	{
-	public:
-		UniformBuffer();
-		UniformBuffer(size_t size);
-	};
-}
+  class UniformBuffer : public OpenGLBuffer
+  {
+  public:
+    UniformBuffer();
+    UniformBuffer(size_t size);
+  };
+} // namespace fury

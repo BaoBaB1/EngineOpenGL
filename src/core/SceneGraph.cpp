@@ -40,7 +40,7 @@ namespace fury
       return;
     }
     m_children.push_back(child);
-    //child->m_parent = this;
+    // child->m_parent = this;
   }
 
   SceneNode* SceneNode::find_child(SceneNode* child)
@@ -90,7 +90,7 @@ namespace fury
   }
 
   TransformationSceneNode::TransformationSceneNode(const glm::mat4& local_mat, const glm::mat4& world_mat)
-    : m_local_mat(local_mat), m_world_mat(world_mat)
+      : m_local_mat(local_mat), m_world_mat(world_mat)
   {
   }
 
@@ -100,7 +100,8 @@ namespace fury
     {
       m_dirty = false;
       m_local_mat = glm::mat4(1.f);
-      m_local_mat = glm::translate(glm::mat4(1.f), m_translation) * glm::toMat4(m_rotation) * glm::scale(glm::mat4(1.f), m_scale);
+      m_local_mat =
+          glm::translate(glm::mat4(1.f), m_translation) * glm::toMat4(m_rotation) * glm::scale(glm::mat4(1.f), m_scale);
       if (m_parent && m_parent->get_dynamic_type_id() == TransformationSceneNode::get_static_type_id())
       {
         m_parent->update();
@@ -156,4 +157,4 @@ namespace fury
       mark_dirty();
     }
   }
-}
+} // namespace fury

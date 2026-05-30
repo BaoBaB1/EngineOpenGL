@@ -9,4 +9,4 @@ namespace fury
   {
     inline Event<const ObjectChangeInfo&> g_on_object_change;
   }
-}
+} // namespace fury

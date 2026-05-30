@@ -6,7 +6,7 @@
 namespace fury
 {
   class Entity;
- 
+
   class ObjectController : public ITickable
   {
   public:
@@ -18,10 +18,10 @@ namespace fury
     bool is_enabled() const { return m_enabled; }
     void disable() { m_enabled = false; }
     void enable() { m_enabled = true; }
-    FURY_DECLARE_SERIALIZABLE_FIELDS(
-      FURY_SERIALIZABLE_FIELD(1, &ObjectController::m_enabled),
-      FURY_SERIALIZABLE_FIELD2(2, &ObjectController::m_entity, &ObjectController::read_entity, &ObjectController::write_entity)
-    )
+    FURY_DECLARE_SERIALIZABLE_FIELDS(FURY_SERIALIZABLE_FIELD(1, &ObjectController::m_enabled),
+                                     FURY_SERIALIZABLE_FIELD2(2, &ObjectController::m_entity,
+                                                              &ObjectController::read_entity,
+                                                              &ObjectController::write_entity))
   protected:
     Entity* m_entity = nullptr;
     bool m_enabled = true;
@@ -29,4 +29,4 @@ namespace fury
     uint32_t write_entity(std::ofstream& ofs) const;
     uint32_t read_entity(std::ifstream& ifs);
   };
-}
+} // namespace fury

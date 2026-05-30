@@ -56,4 +56,4 @@ namespace fury
     bool m_disabled = true;
     TextureType m_type = TextureType::LAST;
   };
-}
+} // namespace fury

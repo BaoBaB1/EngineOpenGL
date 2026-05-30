@@ -24,4 +24,4 @@ namespace fury
   using Face = FaceN<3>;
   using Face3 = FaceN<3>;
   using Face4 = FaceN<4>;
-}
+} // namespace fury

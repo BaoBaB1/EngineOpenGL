@@ -37,9 +37,11 @@ namespace fury
   {
     m_screen_size = screen_size;
     m_projection_mat[ProjectionMode::PERSPECTIVE] = glm::mat4(1.f);
-    m_projection_mat[ProjectionMode::PERSPECTIVE] = glm::perspective(glm::radians(m_fovy), get_aspect(), get_znear(), get_zfar());
-    const glm::vec2 ortho_wh = { 2.5f * get_aspect(), 2.5f};
-    m_projection_mat[ProjectionMode::ORTHOGRAPHIC] = glm::ortho(-ortho_wh.x, ortho_wh.x, -ortho_wh.y, ortho_wh.y, 0.1f, 100.f);
+    m_projection_mat[ProjectionMode::PERSPECTIVE] =
+        glm::perspective(glm::radians(m_fovy), get_aspect(), get_znear(), get_zfar());
+    const glm::vec2 ortho_wh = { 2.5f * get_aspect(), 2.5f };
+    m_projection_mat[ProjectionMode::ORTHOGRAPHIC] =
+        glm::ortho(-ortho_wh.x, ortho_wh.x, -ortho_wh.y, ortho_wh.y, 0.1f, 100.f);
   }
 
   const glm::mat4& Camera::get_view_matrix() const
@@ -90,7 +92,7 @@ namespace fury
     fr.left.distance = -glm::dot(fr.left.normal, far_bottom_left);
     fr.right.normal = glm::normalize(glm::cross(far_top_right - cam_pos, far_bottom_right - cam_pos));
     fr.right.distance = -glm::dot(fr.right.normal, far_bottom_right);
-    fr.top.normal = glm::normalize(glm::cross(far_top_left -cam_pos, far_top_right - cam_pos));
+    fr.top.normal = glm::normalize(glm::cross(far_top_left - cam_pos, far_top_right - cam_pos));
     fr.top.distance = -glm::dot(fr.top.normal, far_top_left);
     fr.bottom.normal = glm::normalize(glm::cross(far_bottom_right - cam_pos, far_bottom_left - cam_pos));
     fr.bottom.distance = -glm::dot(fr.bottom.normal, far_bottom_left);
@@ -198,7 +200,9 @@ namespace fury
   void Camera::add_to_yaw_and_pitch(float x_offset, float y_offset)
   {
     if (is_freezed())
+    {
       return;
+    }
     m_yaw += x_offset * m_sensivity;
     m_pitch += y_offset * m_sensivity;
     update_camera_vectors();
@@ -208,9 +212,13 @@ namespace fury
   {
     glm::vec3 dir;
     if (m_pitch > 89.0f)
+    {
       m_pitch = 89.0f;
+    }
     if (m_pitch < -89.0f)
+    {
       m_pitch = -89.0f;
+    }
     dir.x = cos(glm::radians(m_yaw)) * cos(glm::radians(m_pitch));
     dir.y = -sin(glm::radians(m_pitch)); // -sin ?
     dir.z = sin(glm::radians(m_yaw)) * cos(glm::radians(m_pitch));
@@ -218,7 +226,8 @@ namespace fury
     m_dirty = true;
   }
 
-  void Camera::look_at(const glm::vec3& target) {
+  void Camera::look_at(const glm::vec3& target)
+  {
     const glm::vec3& pos = get_position();
     assert(target != pos);
     glm::vec3 camera_dir = glm::normalize(target - pos);
@@ -229,4 +238,4 @@ namespace fury
     m_target = camera_dir;
     m_dirty = true;
   }
-};
+}; // namespace fury

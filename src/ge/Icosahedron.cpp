@@ -49,15 +49,19 @@ namespace fury
     mesh.append_face(Face({ 10, 8, 4 }));
   }
 
-  void Icosahedron::project_points_on_sphere() {
+  void Icosahedron::project_points_on_sphere()
+  {
     auto& mesh = get_mesh(0);
-    for (Vertex& v : mesh.vertices()) {
+    for (Vertex& v : mesh.vertices())
+    {
       v.position = glm::normalize(v.position);
     }
   }
 
-  void Icosahedron::subdivide_triangles(int subdivision_level, const Vertex& a, const Vertex& b, const Vertex& c) {
-    if (subdivision_level == 0) {
+  void Icosahedron::subdivide_triangles(int subdivision_level, const Vertex& a, const Vertex& b, const Vertex& c)
+  {
+    if (subdivision_level == 0)
+    {
       auto& mesh = get_mesh(0);
       GLuint ind = mesh.append_vertex(a);
       GLuint ind2 = mesh.append_vertex(b);
@@ -69,18 +73,20 @@ namespace fury
     Vertex bc((b.position + c.position) / 2.f);
     Vertex ac((a.position + c.position) / 2.f);
     ab.color = bc.color = ac.color = m_color;
-    // ORDER IS IMPORTANT !!! 
+    // ORDER IS IMPORTANT !!!
     subdivide_triangles(subdivision_level - 1, a, ab, ac);
     subdivide_triangles(subdivision_level - 1, b, bc, ab);
     subdivide_triangles(subdivision_level - 1, c, ac, bc);
     subdivide_triangles(subdivision_level - 1, ab, bc, ac);
   }
 
-  void Icosahedron::subdivide_triangles(int subdivision_depth) {
+  void Icosahedron::subdivide_triangles(int subdivision_depth)
+  {
     std::vector<Face> faces = std::move(get_mesh(0).faces());
     std::vector<Vertex> vertices = std::move(get_mesh(0).vertices());
     allocate_memory_before_subdivision(subdivision_depth, (int)faces.size());
-    for (size_t i = 0; i < faces.size(); ++i) {
+    for (size_t i = 0; i < faces.size(); ++i)
+    {
       assert(faces[i].size == 3);
       GLuint index = faces[i].data[0];
       GLuint index2 = faces[i].data[1];
@@ -89,7 +95,8 @@ namespace fury
     }
   }
 
-  void Icosahedron::allocate_memory_before_subdivision(int subdivision_depth, int face_count) {
+  void Icosahedron::allocate_memory_before_subdivision(int subdivision_depth, int face_count)
+  {
     auto& mesh = get_mesh(0);
     mesh.vertices().clear();
     mesh.faces().clear();
@@ -99,4 +106,4 @@ namespace fury
     mesh.faces().reserve(new_face_count);
     Logger::debug("Preallocaing memory for {} icosahedron points and {} faces.", new_vert_count, new_face_count);
   }
-}
+} // namespace fury

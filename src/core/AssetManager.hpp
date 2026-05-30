@@ -18,4 +18,4 @@ namespace fury
   private:
     static std::unordered_set<std::filesystem::path> assets;
   };
-};
+}; // namespace fury

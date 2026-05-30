@@ -18,4 +18,4 @@ namespace fury
     VertexBufferObject m_vbo;
     VertexArrayObject m_vao;
   };
-}
+} // namespace fury

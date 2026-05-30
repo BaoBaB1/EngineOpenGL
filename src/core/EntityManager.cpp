@@ -61,4 +61,4 @@ namespace fury
     }
     return false;
   }
-}
+} // namespace fury

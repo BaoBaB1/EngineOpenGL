@@ -29,4 +29,4 @@ namespace fury
   {
     glDeleteVertexArrays(1, id_ref());
   }
-}
+} // namespace fury

@@ -4,12 +4,14 @@
 namespace fury
 {
   template<int N>
-  FaceN<N>::FaceN(const FaceN& other) {
+  FaceN<N>::FaceN(const FaceN& other)
+  {
     std::memcpy(data, other.data, sizeof(IdxType) * N);
   }
 
   template<int N>
-  FaceN<N>& FaceN<N>::operator=(const FaceN& other) {
+  FaceN<N>& FaceN<N>::operator=(const FaceN& other)
+  {
     if (this != &other)
     {
       std::memcpy(data, other.data, sizeof(IdxType) * N);
@@ -40,4 +42,4 @@ namespace fury
   template struct FaceN<3>;
   // TODO: do i even need it ?
   template struct FaceN<4>;
-}
+} // namespace fury

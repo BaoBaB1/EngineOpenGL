@@ -25,7 +25,7 @@ namespace
   const char* shading_mode_to_str(Object3D::ShadingMode mode);
   const char* texture_type_to_str(TextureType type);
   const char* light_type_to_str(LightType type);
-}
+} // namespace
 
 namespace fury
 {
@@ -36,7 +36,9 @@ namespace fury
   void SceneInfo::tick(float)
   {
     if (!is_visible())
+    {
       return;
+    }
 
     WindowGLFW* window = m_scene->get_window();
 
@@ -111,8 +113,9 @@ namespace fury
     static int selected_light_idx = -1;
     ImGui::Separator();
     ImGui::Text("Lights");
-    ImGui::Text(fmt::format("Active lights {}. Valid lights {}.", m_scene->get_active_lights().size(), lights.size()).c_str());
-    // clear vector in case some lights were added/removed from scene 
+    ImGui::Text(
+        fmt::format("Active lights {}. Valid lights {}.", m_scene->get_active_lights().size(), lights.size()).c_str());
+    // clear vector in case some lights were added/removed from scene
     // (lights.size() check is not reliable, because we could remove and add new light at the same time)
     light_names.clear();
     for (const Light& light : lights)
@@ -145,11 +148,13 @@ namespace fury
         ImGui::Text("Attached to %s", transform->get_parent()->get_owner()->get_name().c_str());
       }
     }
-    
+
     if (!m_scene->get_selected_objects().empty())
     {
       if (is_general_header_opened)
+      {
         ImGui::Dummy({ 0, 5 });
+      }
       render_object_properties(*m_scene->get_selected_objects().back());
     }
 
@@ -182,7 +187,7 @@ namespace fury
       ImVec2 text_size = ImGui::CalcTextSize("Translation");
       ImGui::SetCursorPosX((wsize.x / 2.f) - (text_size.x / 2.f));
       ImGui::Text("Translation");
-      
+
       ImGui::PushItemWidth(-1);
       // 3 sliders + 2 spacings
       const ImVec2 item_spacing = ImGui::GetStyle().ItemSpacing;
@@ -191,7 +196,8 @@ namespace fury
       ImGui::PopItemWidth();
 
       render_xyz_markers(item_spacing.x, slider_width, item_spacing.x);
-      TransformationSceneNode* transform = SceneGraphManager::get_entity_node<TransformationSceneNode>(drawable.get_id());
+      TransformationSceneNode* transform =
+          SceneGraphManager::get_entity_node<TransformationSceneNode>(drawable.get_id());
       m_obj_translation = transform->get_translation();
       glm::vec3 old_translation = m_obj_translation;
 
@@ -266,9 +272,13 @@ namespace fury
             if (ImGui::Checkbox("Rotate", &rotating))
             {
               if (rotating)
+              {
                 controller->enable();
+              }
               else
+              {
                 controller->disable();
+              }
             }
             const glm::vec3 axis = static_cast<RotationController*>(controller.get())->get_rotation_axis();
             const float angle = static_cast<RotationController*>(controller.get())->get_rotation_angle();
@@ -278,7 +288,7 @@ namespace fury
           break;
         }
       }
-    
+
       // other properties
       ImGui::Separator();
       ImGui::PushItemWidth(-1);
@@ -324,9 +334,9 @@ namespace fury
                 OpenFileExplorerContext ctx;
                 ctx.select_texture = true;
                 auto callback = [=, &mesh](const std::string& file)
-                  {
-                    mesh.set_texture(TextureManager::get(file), tt);
-                  };
+                {
+                  mesh.set_texture(TextureManager::get(file), tt);
+                };
                 m_scene->get_ui().get_component<FileExplorer>("FileExplorer")->open(ctx, callback);
               }
               ImGui::TreePop();
@@ -356,14 +366,15 @@ namespace fury
         const auto next_line_cursor_pos = ImGui::GetCursorPos();
         ImGui::SameLine();
         const auto same_line_cursor_pos = ImGui::GetCursorPos();
-        const float width_of_next_checkbox = ImGui::CalcTextSize("Visible normals").x
-          + ImGui::GetFrameHeight() + ImGui::GetCurrentContext()->Style.ItemInnerSpacing.x;
+        const float width_of_next_checkbox = ImGui::CalcTextSize("Visible normals").x + ImGui::GetFrameHeight() +
+                                             ImGui::GetCurrentContext()->Style.ItemInnerSpacing.x;
         constexpr float x_offset = 25;
         if (same_line_cursor_pos.x + x_offset + width_of_next_checkbox > ImGui::GetWindowSize().x)
         {
           ImGui::SetCursorPos(next_line_cursor_pos);
         }
-        else {
+        else
+        {
           ImGui::Dummy(ImVec2(x_offset, 0));
           ImGui::SameLine();
         }
@@ -400,7 +411,9 @@ namespace fury
                 global_state::g_on_object_change.notify(info);
               }
               if (selected)
+              {
                 ImGui::SetItemDefaultFocus();
+              }
             }
             ImGui::EndCombo();
           }
@@ -419,14 +432,22 @@ namespace fury
       ImGui::SetCursorPosX(offset_from_left + (item_width / 2.f) + (item_width * i) + (spacing * i) - (size.x / 2.f));
       ImGui::Text(XYZ[i]);
       if (i < 2)
+      {
         ImGui::SameLine();
+      }
     }
   }
 
   void SceneInfo::render_fps_locks()
   {
-    static constexpr std::array<std::pair<std::string_view, int>, 8> fps_locks = { {
-        {"0", 0}, {"30", 30}, {"60", 60}, {"120", 120}, {"144", 144}, {"180", 180}, {"240", 240}, {"360", 360}} };
+    static constexpr std::array<std::pair<std::string_view, int>, 8> fps_locks = { { { "0", 0 },
+                                                                                     { "30", 30 },
+                                                                                     { "60", 60 },
+                                                                                     { "120", 120 },
+                                                                                     { "144", 144 },
+                                                                                     { "180", 180 },
+                                                                                     { "240", 240 },
+                                                                                     { "360", 360 } } };
     static const char* selected_fps_lock = nullptr;
     static bool once = true;
     if (once)
@@ -444,7 +465,9 @@ namespace fury
       once = false;
     }
     if (m_use_vsync)
+    {
       ImGui::BeginDisabled();
+    }
     if (ImGui::BeginCombo("FPS lock", selected_fps_lock))
     {
       for (const auto& [label, fps] : fps_locks)
@@ -464,9 +487,11 @@ namespace fury
       ImGui::EndCombo();
     }
     if (m_use_vsync)
+    {
       ImGui::EndDisabled();
+    }
   }
-}
+} // namespace fury
 
 namespace
 {
@@ -516,4 +541,4 @@ namespace
       return "Unknown light";
     }
   };
-}
+} // namespace

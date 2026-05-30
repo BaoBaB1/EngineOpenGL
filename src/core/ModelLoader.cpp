@@ -8,11 +8,11 @@
 namespace
 {
   void center_around_origin(fury::Object3D& model);
-  void read_textures(fury::Mesh& mesh, const aiMaterial* material, const std::filesystem::path& file, 
-    aiTextureType assimp_type, fury::TextureType engine_type);
+  void read_textures(fury::Mesh& mesh, const aiMaterial* material, const std::filesystem::path& file,
+                     aiTextureType assimp_type, fury::TextureType engine_type);
   void add_assets(const std::filesystem::path& file, const fury::Object3D& model);
   float get_max_extent(const aiVector3D& min, const aiVector3D& max);
-}
+} // namespace
 
 namespace fury
 {
@@ -43,7 +43,8 @@ namespace fury
     }
   }
 
-  void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::filesystem::path& file, Object3D* model)
+  void ModelLoader::process(const aiNode* root, const aiScene* scene, const std::filesystem::path& file,
+                            Object3D* model)
   {
     for (unsigned int i = 0; i < root->mNumMeshes; i++)
     {
@@ -147,7 +148,7 @@ namespace fury
       calc_max_extent(root->mChildren[i], scene);
     }
   }
-}
+} // namespace fury
 
 namespace
 {
@@ -172,15 +173,16 @@ namespace
     model.get_bbox().init(bbox.min() - bbox_center, bbox.max() - bbox_center);
   }
 
-  void read_textures(fury::Mesh& mesh, const aiMaterial* material, const std::filesystem::path& file, 
-    aiTextureType assimp_tex_type, fury::TextureType engine_tex_type)
+  void read_textures(fury::Mesh& mesh, const aiMaterial* material, const std::filesystem::path& file,
+                     aiTextureType assimp_tex_type, fury::TextureType engine_tex_type)
   {
     const unsigned int tex_count = material->GetTextureCount(assimp_tex_type);
     if (tex_count)
     {
       if (tex_count > 1)
       {
-        Logger::warn("File {} has {} {} textures, but only first one is taken.", file.string(), tex_count, aiTextureTypeToString(assimp_tex_type));
+        Logger::warn("File {} has {} {} textures, but only first one is taken.", file.string(), tex_count,
+                     aiTextureTypeToString(assimp_tex_type));
       }
       // tex_path is relative to file's folder
       aiString tex_path;
@@ -231,4 +233,4 @@ namespace
     const float z = std::max(std::abs(max.z), std::abs(min.z));
     return std::max(x, std::max(y, z));
   }
-}
+} // namespace

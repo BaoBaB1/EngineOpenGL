@@ -18,4 +18,4 @@ namespace fury
   private:
     static std::map<std::filesystem::path, std::shared_ptr<Texture2D>> textures;
   };
-}
+} // namespace fury

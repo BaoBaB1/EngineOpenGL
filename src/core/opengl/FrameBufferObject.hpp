@@ -41,4 +41,4 @@ namespace fury
     std::optional<Texture2D> m_texture;
     std::optional<Texture2DMS> m_texture_ms;
   };
-}
+} // namespace fury

@@ -4,23 +4,23 @@
 
 namespace fury
 {
-	class Scene;
+  class Scene;
 
-	struct OpenFileExplorerContext
-	{
-		bool save_scene = false;
-		bool load_scene = false;
-		bool import_asset = false;
-		bool select_texture = false;
-	};
+  struct OpenFileExplorerContext
+  {
+    bool save_scene = false;
+    bool load_scene = false;
+    bool import_asset = false;
+    bool select_texture = false;
+  };
 
-	class MenuBar : public UiComponent
-	{
-	public:
-		MenuBar(Scene* scene);
-		void tick(float) override;
-		const float get_height() const { return m_height; }
-	private:
-		float m_height = 0;
-	};
-}
+  class MenuBar : public UiComponent
+  {
+  public:
+    MenuBar(Scene* scene);
+    void tick(float) override;
+    const float get_height() const { return m_height; }
+  private:
+    float m_height = 0;
+  };
+} // namespace fury

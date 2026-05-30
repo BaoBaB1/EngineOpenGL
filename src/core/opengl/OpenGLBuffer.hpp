@@ -24,4 +24,4 @@ namespace fury
     size_t m_size = 0;
     int m_type = -1; // GL_ARRAY_BUFFER | GL_ELEMENT_BUFFER ...
   };
-}
+} // namespace fury

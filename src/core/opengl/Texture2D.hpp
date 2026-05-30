@@ -26,4 +26,4 @@ namespace fury
     int m_fmt = -1;
     int m_pixel_data_type = -1;
   };
-}
+} // namespace fury

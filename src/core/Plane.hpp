@@ -4,8 +4,9 @@
 
 namespace fury
 {
-  struct Plane {
+  struct Plane
+  {
     glm::vec3 normal;
     float distance = 0.f;
   };
-}
+} // namespace fury

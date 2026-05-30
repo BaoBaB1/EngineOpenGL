@@ -154,7 +154,8 @@ namespace fury
     void update_bbox_data();
     void update_lines_data();
   private:
-    struct LineVertex {
+    struct LineVertex
+    {
       glm::vec3 pos;
       glm::vec4 color;
     };
@@ -175,4 +176,4 @@ namespace fury
     // Normals
   };
 
-}
+} // namespace fury

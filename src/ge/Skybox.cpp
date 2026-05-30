@@ -3,6 +3,7 @@
 
 namespace
 {
+  // clang-format off
   constexpr float skyboxVertices[] =
   {
     // positions          
@@ -48,7 +49,8 @@ namespace
     -1.0f, -1.0f,  1.0f,
      1.0f, -1.0f,  1.0f
   };
-}
+  // clang-format on
+} // namespace
 
 namespace fury
 {
@@ -65,4 +67,4 @@ namespace fury
     BindChainFIFO bind_chain({ &m_vao, &m_cubemap });
     glDrawArrays(GL_TRIANGLES, 0, 36);
   }
-}
+} // namespace fury

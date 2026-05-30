@@ -17,4 +17,4 @@ namespace fury
     void calc_max_extent(const aiNode* root, const aiScene* scene);
     float m_max_extent = 0.f;
   };
-}
+} // namespace fury

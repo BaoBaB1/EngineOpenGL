@@ -27,7 +27,8 @@ namespace fury
     config.path = AssetManager::get_assets_folder().string();
 
     // display in the middle of the screen
-    ImGui::SetNextWindowPos(ImVec2(window->width() * 0.5f, window->height() * 0.5f), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowPos(ImVec2(window->width() * 0.5f, window->height() * 0.5f), ImGuiCond_Appearing,
+                            ImVec2(0.5f, 0.5f));
     constexpr ImVec2 min_size(700, 300), max_size(1280, 650);
     auto& dlg = *ImGuiFileDialog::Instance();
     dlg.OpenDialog("FileExplorer", m_title, m_file_extensions.data(), config);
@@ -67,4 +68,4 @@ namespace fury
     }
     show();
   }
-}
+} // namespace fury

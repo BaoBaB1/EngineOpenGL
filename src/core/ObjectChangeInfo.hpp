@@ -14,4 +14,4 @@ namespace fury
     bool is_shading_mode_change = false;
     bool is_color_change = false;
   };
-}
+} // namespace fury

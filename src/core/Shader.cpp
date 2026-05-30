@@ -9,7 +9,7 @@
 #include <exception>
 #include <filesystem>
 
-static bool read_shader_file_content(const char* const file, std::string& content) 
+static bool read_shader_file_content(const char* const file, std::string& content)
 {
   if (!std::filesystem::exists(file))
   {
@@ -19,7 +19,8 @@ static bool read_shader_file_content(const char* const file, std::string& conten
   content.clear();
   std::ifstream in;
   in.open(file, std::ios_base::binary);
-  if (in.is_open()) {
+  if (in.is_open())
+  {
     in.seekg(0, std::ios::end);
     size_t sz = in.tellg();
     content.resize(sz);
@@ -129,4 +130,4 @@ namespace fury
   {
     glDeleteProgram(m_id);
   }
-}
+} // namespace fury

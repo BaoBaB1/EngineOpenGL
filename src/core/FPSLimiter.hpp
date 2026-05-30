@@ -20,4 +20,4 @@ namespace fury
     std::chrono::nanoseconds m_start = {};
     std::chrono::nanoseconds m_frametime = {};
   };
-}
+} // namespace fury

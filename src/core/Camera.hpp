@@ -50,6 +50,7 @@ namespace fury
     void add_to_yaw_and_pitch(float x_offset, float y_offset);
     void update_camera_vectors();
     void look_at(const glm::vec3& position);
+    // clang-format off
     FURY_DECLARE_SERIALIZABLE_FIELDS(
       FURY_SERIALIZABLE_FIELD(1, &Camera::m_pitch),
       FURY_SERIALIZABLE_FIELD(2, &Camera::m_yaw),
@@ -61,6 +62,7 @@ namespace fury
       FURY_SERIALIZABLE_FIELD(9, &Camera::m_screen_size),
       FURY_SERIALIZABLE_FIELD(10, &Camera::m_mode)
     )
+    // clang-format on
   private:
     std::array<glm::mat4, 2> m_projection_mat = {};
     mutable glm::mat4 m_cached_viewmatrix;
@@ -69,7 +71,7 @@ namespace fury
     glm::vec3 m_target;
     glm::vec2 m_screen_size;
     glm::vec2 m_near_far = { 0.1f, 1000.f };
-    float m_pitch;  // how much we are looking up or down
+    float m_pitch; // how much we are looking up or down
     float m_yaw;   // magnitute of looking left or right
     float m_speed; // speed from ctor
     float m_sensivity;
@@ -79,4 +81,4 @@ namespace fury
     mutable bool m_dirty = true;
   };
 
-};
+}; // namespace fury

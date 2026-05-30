@@ -31,4 +31,4 @@ namespace fury
     int m_height;
     GLFWwindow* m_window;
   };
-}
+} // namespace fury

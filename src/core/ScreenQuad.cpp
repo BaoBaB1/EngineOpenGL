@@ -3,6 +3,7 @@
 #include "Shader.hpp"
 #include "ShaderStorage.hpp"
 
+// clang-format off
 static constexpr std::array screen_quad_vertices =
 { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
   // positions   // texCoords
@@ -14,6 +15,7 @@ static constexpr std::array screen_quad_vertices =
    1.0f, -1.0f,  1.0f, 0.0f,
    1.0f,  1.0f,  1.0f, 1.0f
 };
+// clang-format on
 
 namespace fury
 {
@@ -53,4 +55,4 @@ namespace fury
     glBindTexture(GL_TEXTURE_2D, m_tex_id);
     glDrawArrays(GL_TRIANGLES, 0, 6);
   }
-}
+} // namespace fury

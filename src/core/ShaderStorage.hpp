@@ -31,4 +31,4 @@ namespace fury
   private:
     static std::map<ShaderType, Shader> shaders;
   };
-}
+} // namespace fury

@@ -4,9 +4,10 @@
 
 namespace fury
 {
-	class Pyramid : public Object3D {
-	public:
-		FURY_REGISTER_DERIVED_CLASS(Pyramid, Object3D)
-		Pyramid();
-	};
-}
+  class Pyramid : public Object3D
+  {
+  public:
+    FURY_REGISTER_DERIVED_CLASS(Pyramid, Object3D)
+    Pyramid();
+  };
+} // namespace fury

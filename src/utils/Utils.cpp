@@ -28,12 +28,13 @@ namespace
     }
     if (!found)
     {
-      fury::Logger::critical("Could not find project root directory from exe path {}.", fury::utils::get_exe_path().string());
+      fury::Logger::critical("Could not find project root directory from exe path {}.",
+                             fury::utils::get_exe_path().string());
       throw std::runtime_error("Could not find project root directory");
     }
     return path;
   }
-}
+} // namespace
 
 namespace fury
 {
@@ -57,14 +58,18 @@ namespace fury
       char szPath[PATH_MAX];
       uint32_t bufsize = PATH_MAX;
       if (!_NSGetExecutablePath(szPath, &bufsize))
-        return std::filesystem::path{ szPath }.parent_path() / ""; // to finish the folder path with (back)slash
-      return {};  // some error
+      {
+        return std::filesystem::path { szPath }.parent_path() / ""; // to finish the folder path with (back)slash
+      }
+      return {}; // some error
 #else
       // Linux specific
       char szPath[PATH_MAX];
       ssize_t count = readlink("/proc/self/exe", szPath, PATH_MAX);
       if (count < 0 || count >= PATH_MAX)
+      {
         return {}; // some error
+      }
       szPath[count] = '\0';
       return std::filesystem::path(szPath);
 #endif
@@ -118,5 +123,5 @@ namespace fury
       }
       return str;
     }
-  } // utils namespace
-} // fury namespace
+  } // namespace utils
+} // namespace fury

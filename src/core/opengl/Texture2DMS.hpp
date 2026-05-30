@@ -20,4 +20,4 @@ namespace fury
     int m_format = -1;
     int m_samples = 0;
   };
-}
+} // namespace fury

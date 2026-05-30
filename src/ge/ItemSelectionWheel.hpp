@@ -48,4 +48,4 @@ namespace fury
     int m_window_size[2] = {};
     bool m_is_visible = false;
   };
-}
+} // namespace fury

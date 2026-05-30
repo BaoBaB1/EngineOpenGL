@@ -21,9 +21,9 @@ namespace fury
     void init(Scene* scene);
     void tick(float dt) override;
     UiComponent* get_component(const std::string& name);
-    template<typename T> 
+    template<typename T>
     T* get_component(const std::string& name);
   private:
     std::map<std::string, std::unique_ptr<UiComponent>> m_components;
   };
-}
+} // namespace fury

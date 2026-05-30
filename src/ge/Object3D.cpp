@@ -62,15 +62,15 @@ namespace fury
   {
     m_color = color;
     auto apply_color = [](std::vector<Mesh>& meshes, const glm::vec4& color)
+    {
+      for (auto& mesh : meshes)
       {
-        for (auto& mesh : meshes)
+        for (auto& vertex : mesh.vertices())
         {
-          for (auto& vertex : mesh.vertices())
-          {
-            vertex.color = color;
-          }
+          vertex.color = color;
         }
-      };
+      }
+    };
 
     // set color of current mesh
     apply_color(*m_meshes, color);
@@ -116,7 +116,9 @@ namespace fury
   void Object3D::apply_shading(ShadingProcessor::ShadingMode mode)
   {
     if (get_flag(IS_FIXED_SHADING) || !has_surface())
+    {
       return;
+    }
     if (mode != m_shading_mode)
     {
       // if current mesh is not cached
@@ -142,4 +144,4 @@ namespace fury
       m_shading_mode = mode;
     }
   }
-}
+} // namespace fury

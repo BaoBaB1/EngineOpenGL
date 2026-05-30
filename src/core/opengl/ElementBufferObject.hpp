@@ -4,10 +4,10 @@
 
 namespace fury
 {
-	class ElementBufferObject : public OpenGLBuffer
-	{
-	public:
-		ElementBufferObject();
-		ElementBufferObject(size_t size);
-	};
-}
+  class ElementBufferObject : public OpenGLBuffer
+  {
+  public:
+    ElementBufferObject();
+    ElementBufferObject(size_t size);
+  };
+} // namespace fury

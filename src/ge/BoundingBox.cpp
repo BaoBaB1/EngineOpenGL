@@ -21,7 +21,7 @@ namespace fury
   std::array<glm::vec3, 8> BoundingBox::get_points() const
   {
     // llc - left lower corner, rtc - right top corner ...
-    // front quad (llc -> rlc -> rtc -> ltc) 
+    // front quad (llc -> rlc -> rtc -> ltc)
     std::array<glm::vec3, 8> points;
     points[0] = m_min;
     points[1] = glm::vec3(m_max.x, m_min.y, m_min.z);
@@ -37,9 +37,8 @@ namespace fury
 
   bool BoundingBox::contains(const glm::vec3& point) const
   {
-    return (point.x >= m_min.x && point.x <= m_max.x) &&
-      (point.y >= m_min.y && point.y <= m_max.y) &&
-      (point.z >= m_min.z && point.z <= m_max.z);
+    return (point.x >= m_min.x && point.x <= m_max.x) && (point.y >= m_min.y && point.y <= m_max.y) &&
+           (point.z >= m_min.z && point.z <= m_max.z);
   }
 
   void BoundingBox::init(const glm::vec3& min, const glm::vec3& max)
@@ -58,4 +57,4 @@ namespace fury
   {
     init(glm::vec3(fury::constants::fmax), glm::vec3(fury::constants::fmin));
   }
-}
+} // namespace fury

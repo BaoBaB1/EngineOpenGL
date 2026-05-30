@@ -18,15 +18,13 @@ namespace
     // children node ids
     std::vector<uint32_t> children_ids;
 
-    FURY_DECLARE_SERIALIZABLE_FIELDS(
-      FURY_SERIALIZABLE_FIELD(1, &NodeSerializationInfo::id),
-      FURY_SERIALIZABLE_FIELD(2, &NodeSerializationInfo::type_id),
-      FURY_SERIALIZABLE_FIELD(3, &NodeSerializationInfo::entity_id),
-      FURY_SERIALIZABLE_FIELD(4, &NodeSerializationInfo::parent_id),
-      FURY_SERIALIZABLE_FIELD(5, &NodeSerializationInfo::children_ids)
-    )
+    FURY_DECLARE_SERIALIZABLE_FIELDS(FURY_SERIALIZABLE_FIELD(1, &NodeSerializationInfo::id),
+                                     FURY_SERIALIZABLE_FIELD(2, &NodeSerializationInfo::type_id),
+                                     FURY_SERIALIZABLE_FIELD(3, &NodeSerializationInfo::entity_id),
+                                     FURY_SERIALIZABLE_FIELD(4, &NodeSerializationInfo::parent_id),
+                                     FURY_SERIALIZABLE_FIELD(5, &NodeSerializationInfo::children_ids))
   };
-}
+} // namespace
 
 namespace fury
 {
@@ -94,7 +92,7 @@ namespace fury
       id_to_node_map[info.id] = node;
       Entity* owner = EntityManager::get_entity(info.entity_id);
       owner->attach_node(node);
-      //SceneGraphManager::attach_node_to_entity(owner->get_id(), node);
+      // SceneGraphManager::attach_node_to_entity(owner->get_id(), node);
     }
     // resolve parent/child references
     for (auto& [node, info] : nodes_serialization_map)
@@ -109,4 +107,4 @@ namespace fury
       }
     }
   }
-}
+} // namespace fury

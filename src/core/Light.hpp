@@ -36,7 +36,7 @@ namespace fury
 
     int32_t type = -1;
     int32_t pad;
-    //int32_t shadow_matrix_buffer_index = -1;
+    // int32_t shadow_matrix_buffer_index = -1;
   };
   static_assert(sizeof(LightDescription) % 16 == 0);
 
@@ -56,12 +56,10 @@ namespace fury
     void enable() { m_enabled = true; }
     bool is_enabled() const { return m_enabled; }
     LightType get_type() const { return static_cast<LightType>(m_desc.type); }
-    FURY_DECLARE_SERIALIZABLE_FIELDS(
-      FURY_SERIALIZABLE_FIELD(1, &Light::m_desc),
-      FURY_SERIALIZABLE_FIELD(2, &Light::m_enabled)
-    )
+    FURY_DECLARE_SERIALIZABLE_FIELDS(FURY_SERIALIZABLE_FIELD(1, &Light::m_desc),
+                                     FURY_SERIALIZABLE_FIELD(2, &Light::m_enabled))
   private:
     LightDescription m_desc;
     bool m_enabled = true;
   };
-}
+} // namespace fury

@@ -18,12 +18,12 @@ namespace fury
   {
     if (offset + size_in_bytes > m_size)
     {
-      Logger::error("Could not set VBO data. Allocated size {}, trying to set {} at offset {}.", m_size, size_in_bytes, offset);
+      Logger::error("Could not set VBO data. Allocated size {}, trying to set {} at offset {}.", m_size, size_in_bytes,
+                    offset);
       return;
     }
     glBufferSubData(m_type, offset, size_in_bytes, data);
   }
-
 
   void OpenGLBuffer::resize(size_t new_size)
   {
@@ -34,7 +34,9 @@ namespace fury
   void OpenGLBuffer::resize_if_smaller(size_t new_size)
   {
     if (m_size < new_size)
+    {
       resize(new_size);
+    }
   }
 
   void OpenGLBuffer::bind() const
@@ -56,4 +58,4 @@ namespace fury
   {
     glDeleteBuffers(1, id_ref());
   }
-}
+} // namespace fury

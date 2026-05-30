@@ -4,10 +4,10 @@
 
 namespace fury
 {
-	class SSBO : public OpenGLBuffer
-	{
-	public:
-		SSBO();
-		SSBO(size_t size);
-	};
-}
+  class SSBO : public OpenGLBuffer
+  {
+  public:
+    SSBO();
+    SSBO(size_t size);
+  };
+} // namespace fury

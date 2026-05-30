@@ -15,4 +15,4 @@ namespace fury
     void subdivide_triangles(int subdivision_level, const Vertex& a, const Vertex& b, const Vertex& c);
     void allocate_memory_before_subdivision(int subdivision_depth, int face_count);
   };
-}
+} // namespace fury

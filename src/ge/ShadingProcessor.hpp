@@ -24,10 +24,7 @@ namespace fury
   private:
     struct WrappedVertex
     {
-      explicit WrappedVertex(const Vertex& vertex)
-      {
-        this->vertex = vertex;
-      }
+      explicit WrappedVertex(const Vertex& vertex) { this->vertex = vertex; }
       bool operator==(const WrappedVertex& other) const { return other.vertex.position == this->vertex.position; }
       Vertex vertex;
     };
@@ -36,24 +33,19 @@ namespace fury
       size_t operator()(const WrappedVertex& wrapped) const
       {
         std::hash<float> hasher;
-        return hasher(wrapped.vertex.position.x) + hasher(wrapped.vertex.position.y) ^ hasher(wrapped.vertex.position.z);
+        return hasher(wrapped.vertex.position.x) + hasher(wrapped.vertex.position.y) ^
+               hasher(wrapped.vertex.position.z);
       }
     };
     struct VertexFinder
     {
       using iter = std::unordered_map<WrappedVertex, GLuint, VertexHasher, std::equal_to<WrappedVertex>>::iterator;
       iter end() { return m_map_vert.end(); }
-      iter find_vertex(const Vertex& v)
-      {
-        return m_map_vert.find(WrappedVertex(v));
-      }
-      void add_vertex(const Vertex& v, GLuint index)
-      {
-        m_map_vert.insert(std::make_pair(WrappedVertex(v), index));
-      }
+      iter find_vertex(const Vertex& v) { return m_map_vert.find(WrappedVertex(v)); }
+      void add_vertex(const Vertex& v, GLuint index) { m_map_vert.insert(std::make_pair(WrappedVertex(v), index)); }
       std::unordered_map<WrappedVertex, GLuint, VertexHasher, std::equal_to<WrappedVertex>> m_map_vert; // vertex, index
     };
   private:
     static VertexFinder vertex_finder;
   };
-}
+} // namespace fury

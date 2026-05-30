@@ -13,4 +13,4 @@ namespace fury
     void bind() const override;
     void unbind() const override;
   };
-}
+} // namespace fury

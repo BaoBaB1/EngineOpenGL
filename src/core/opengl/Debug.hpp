@@ -35,9 +35,10 @@ namespace fury
     {
       std::string error_msg(512, '\0');
       glGetProgramInfoLog(program, 512, &actual_error_msg_len, error_msg.data());
-      Logger::error("GL_VALIDATE_STATUS failure for shader {}. Error: {}", name, error_msg.substr(0, actual_error_msg_len));
+      Logger::error("GL_VALIDATE_STATUS failure for shader {}. Error: {}", name,
+                    error_msg.substr(0, actual_error_msg_len));
       ok = false;
     }
     return ok;
   }
-}
+} // namespace fury

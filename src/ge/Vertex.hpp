@@ -4,7 +4,8 @@
 
 namespace fury
 {
-  struct Vertex {
+  struct Vertex
+  {
     Vertex() = default;
     Vertex(const glm::vec3& position);
     Vertex(float x, float y, float z);
@@ -14,4 +15,4 @@ namespace fury
     glm::vec4 color = glm::vec4(1.f);
     glm::vec2 uv = {};
   };
-}
+} // namespace fury

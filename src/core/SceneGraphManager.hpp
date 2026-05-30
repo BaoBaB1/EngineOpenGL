@@ -11,14 +11,10 @@ namespace fury
   class SceneGraphManager
   {
   public:
-
     static void write(std::ofstream& ofs);
     static void read(std::ifstream& ifs);
 
-    static void add_dirty_node(SceneNode* node)
-    {
-      m_dirty_nodes2.insert(node);
-    }
+    static void add_dirty_node(SceneNode* node) { m_dirty_nodes2.insert(node); }
 
     static void remove_dirty_node(SceneNode* node)
     {
@@ -39,10 +35,7 @@ namespace fury
       m_dirty_nodes = std::move(m_dirty_nodes2);
     }
 
-    static std::set<SceneNode*>& get_dirty_nodes()
-    {
-      return m_dirty_nodes;
-    }
+    static std::set<SceneNode*>& get_dirty_nodes() { return m_dirty_nodes; }
 
     static bool remove_entity_nodes(uint32_t id, bool verbose = true)
     {
@@ -123,4 +116,4 @@ namespace fury
     inline static std::set<SceneNode*> m_dirty_nodes;
     inline static std::set<SceneNode*> m_dirty_nodes2;
   };
-}
+} // namespace fury

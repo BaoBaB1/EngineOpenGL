@@ -3,9 +3,11 @@
 namespace fury
 {
   template<typename T>
-  class Singleton {
+  class Singleton
+  {
   public:
-    static T& instance() {
+    static T& instance()
+    {
       static T inst;
       return inst;
     }
@@ -17,4 +19,4 @@ namespace fury
   protected:
     Singleton() = default;
   };
-}
+} // namespace fury

@@ -4,10 +4,10 @@
 
 namespace fury
 {
-	class VertexBufferObject : public OpenGLBuffer
-	{
-	public:
-		VertexBufferObject();
-		VertexBufferObject(size_t size);
-	};
-}
+  class VertexBufferObject : public OpenGLBuffer
+  {
+  public:
+    VertexBufferObject();
+    VertexBufferObject(size_t size);
+  };
+} // namespace fury

@@ -19,25 +19,20 @@
 
 namespace
 {
-	void set_default_vertex_attributes(fury::VertexArrayObject& vao)
-	{
-		vao.link_attrib(0, 3, GL_FLOAT, sizeof(fury::Vertex), nullptr);                        // position
-		vao.link_attrib(1, 3, GL_FLOAT, sizeof(fury::Vertex), (void*)(sizeof(GLfloat) * 3));   // normal
-		vao.link_attrib(2, 4, GL_FLOAT, sizeof(fury::Vertex), (void*)(sizeof(GLfloat) * 6));   // color
-		vao.link_attrib(3, 2, GL_FLOAT, sizeof(fury::Vertex), (void*)(sizeof(GLfloat) * 10));  // texture
-	}
-  constexpr static GLuint cube_lines_indices[24] = {
-      0, 1, 1, 2, 2, 3, 3, 0, // front
-      4, 5, 5, 6, 6, 7, 7, 4, // back
-      0, 4, 3, 7, 1, 5, 2, 6
-  };
-
-  constexpr static float unit_cube[24] =
+  void set_default_vertex_attributes(fury::VertexArrayObject& vao)
   {
-    -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5,
-    -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, -0.5
-  };
-}
+    vao.link_attrib(0, 3, GL_FLOAT, sizeof(fury::Vertex), nullptr);                       // position
+    vao.link_attrib(1, 3, GL_FLOAT, sizeof(fury::Vertex), (void*)(sizeof(GLfloat) * 3));  // normal
+    vao.link_attrib(2, 4, GL_FLOAT, sizeof(fury::Vertex), (void*)(sizeof(GLfloat) * 6));  // color
+    vao.link_attrib(3, 2, GL_FLOAT, sizeof(fury::Vertex), (void*)(sizeof(GLfloat) * 10)); // texture
+  }
+  constexpr static GLuint cube_lines_indices[24] = { 0, 1, 1, 2, 2, 3, 3, 0, // front
+                                                     4, 5, 5, 6, 6, 7, 7, 4, // back
+                                                     0, 4, 3, 7, 1, 5, 2, 6 };
+
+  constexpr static float unit_cube[24] = { -0.5, -0.5, 0.5,  0.5, -0.5, 0.5,  0.5, 0.5, 0.5,  -0.5, 0.5, 0.5,
+                                           -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, -0.5 };
+} // namespace
 
 namespace fury
 {
@@ -57,7 +52,8 @@ namespace fury
     SceneInfo* scene_info_component = scene->get_ui().get_component<SceneInfo>("SceneInfo");
     Gizmo* gizmo_component = scene->get_ui().get_component<Gizmo>("Gizmo");
     global_state::g_on_object_change += new InstanceListener(this, &GeometryPass::handle_object_change);
-    scene_info_component->light_visibility_toggle += new FunctionListener(std::function([this](const Light*, bool) { update_lights_data(); }));
+    scene_info_component->light_visibility_toggle +=
+        new FunctionListener(std::function([this](const Light*, bool) { update_lights_data(); }));
   }
 
   void GeometryPass::on_new_scene_object(Object3D* obj)
@@ -102,7 +98,8 @@ namespace fury
     m_lights_data_ssbo.set_binding_point(2);
     for (size_t i = 0; i < lights.size(); i++)
     {
-      m_lights_data_ssbo.set_data(&lights[i]->get_description(), sizeof(LightDescription), i * sizeof(LightDescription));
+      m_lights_data_ssbo.set_data(&lights[i]->get_description(), sizeof(LightDescription),
+                                  i * sizeof(LightDescription));
     }
     m_lights_data_ssbo.unbind();
   }
@@ -187,7 +184,9 @@ namespace fury
       if (i == 0)
       {
         if (m_objects_indices_rendering_mode.empty())
+        {
           continue;
+        }
         m_vao_indices.bind();
         size = m_objects_indices_rendering_mode.size();
         ppobj = m_objects_indices_rendering_mode.data();
@@ -195,7 +194,9 @@ namespace fury
       else
       {
         if (m_objects_arrays_rendering_mode.empty())
+        {
           continue;
+        }
         m_vao_arrays.bind();
         size = m_objects_arrays_rendering_mode.size();
         ppobj = m_objects_arrays_rendering_mode.data();
@@ -225,7 +226,7 @@ namespace fury
             continue;
           }
         }
-        
+
         shader->set_matrix4f("modelMatrix", node->get_world_mat());
         shader->set_bool("applyShading", obj->shading_mode() != Object3D::ShadingMode::NO_SHADING);
 
@@ -272,11 +273,13 @@ namespace fury
 
           if (render_config.use_indices)
           {
-            glDrawElementsBaseVertex(render_config.mode, mesh.faces_as_indices().size(), GL_UNSIGNED_INT, (void*)mesh_offsets.ebo_offset, mesh_offsets.basev);
+            glDrawElementsBaseVertex(render_config.mode, mesh.faces_as_indices().size(), GL_UNSIGNED_INT,
+                                     (void*)mesh_offsets.ebo_offset, mesh_offsets.basev);
           }
           else
           {
-            glDrawArrays(render_config.mode, static_cast<GLint>(mesh_offsets.vbo_arrays_offset), static_cast<GLsizei>(mesh.vertices().size()));
+            glDrawArrays(render_config.mode, static_cast<GLint>(mesh_offsets.vbo_arrays_offset),
+                         static_cast<GLsizei>(mesh.vertices().size()));
           }
           // disable stencil buffer writing
           glStencilFunc(GL_ALWAYS, 0, 0xFF);
@@ -295,13 +298,13 @@ namespace fury
     Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::OUTLINING);
     shader->bind();
 
-    //glDisable(GL_DEPTH_TEST);
+    // glDisable(GL_DEPTH_TEST);
     glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
     glStencilMask(0x00);
 
     // TODO: think about better implementation.
-    // we can store selected drawables inside split_objects() function, but then there is no convenient way to update them.
-    // calling update() each time for that is wasteful since it updates many internal states.
+    // we can store selected drawables inside split_objects() function, but then there is no convenient way to update
+    // them. calling update() each time for that is wasteful since it updates many internal states.
 
     for (Object3D* obj : m_scene->get_selected_objects())
     {
@@ -323,12 +326,14 @@ namespace fury
           if (render_config.use_indices)
           {
             BindGuard bg(m_vao_indices);
-            glDrawElementsBaseVertex(render_config.mode, mesh.faces_as_indices().size(), GL_UNSIGNED_INT, (void*)mesh_offsets.ebo_offset, mesh_offsets.basev);
+            glDrawElementsBaseVertex(render_config.mode, mesh.faces_as_indices().size(), GL_UNSIGNED_INT,
+                                     (void*)mesh_offsets.ebo_offset, mesh_offsets.basev);
           }
           else
           {
             BindGuard bg(m_vao_arrays);
-            glDrawArrays(render_config.mode, static_cast<GLint>(mesh_offsets.vbo_arrays_offset), static_cast<GLsizei>(mesh.vertices().size()));
+            glDrawArrays(render_config.mode, static_cast<GLint>(mesh_offsets.vbo_arrays_offset),
+                         static_cast<GLsizei>(mesh.vertices().size()));
           }
         }
       }
@@ -343,7 +348,7 @@ namespace fury
   {
     if (m_scene->get_drawables().empty())
     {
-      // clear struct in case if all objects from scene have been deleted, 
+      // clear struct in case if all objects from scene have been deleted,
       // because shadow map pass uses same structs for it's pass
       m_render_offsets.clear();
       m_objects_arrays_rendering_mode.clear();
@@ -412,12 +417,13 @@ namespace fury
         Light* light = static_cast<Light*>(node->get_owner());
         if (light->is_enabled())
         {
-          //Logger::info("Dirty light type {}", light->get_description().type);
+          // Logger::info("Dirty light type {}", light->get_description().type);
           TransformationSceneNode* transform_node = static_cast<TransformationSceneNode*>(node);
           light->get_description().position = glm::vec4(transform_node->get_world_mat()[3]);
           glm::vec3 dir = -glm::normalize(glm::vec3(transform_node->get_world_mat()[2]));
           light->get_description().dir = glm::vec4(dir, 0);
-          //Logger::info("Updating lights data. New pos {}, new dir {}", light->get_description().position, light->get_description().dir);
+          // Logger::info("Updating lights data. New pos {}, new dir {}", light->get_description().position,
+          // light->get_description().dir);
           lights_need_update = true;
         }
       }
@@ -435,8 +441,10 @@ namespace fury
     // TODO: remove listener in dctor
     SceneInfo* scene_info_component = scene->get_ui().get_component<SceneInfo>("SceneInfo");
     Gizmo* gizmo_component = scene->get_ui().get_component<Gizmo>("Gizmo");
-    scene_info_component->on_visible_normals_button_pressed += new InstanceListener(this, &NormalsPass::handle_visible_normals_toggle);
-    global_state::g_on_object_change += new InstanceListener(this, &NormalsPass::handle_object_change);;
+    scene_info_component->on_visible_normals_button_pressed +=
+        new InstanceListener(this, &NormalsPass::handle_visible_normals_toggle);
+    global_state::g_on_object_change += new InstanceListener(this, &NormalsPass::handle_object_change);
+    ;
     BindChainFIFO bc({ &m_vao, &m_vbo });
     ::set_default_vertex_attributes(m_vao);
     m_model_matrices_ssbo.set_binding_point(1);
@@ -458,11 +466,9 @@ namespace fury
     BindChainFIFO bc({ &m_vao, &m_vbo });
 
     size_t vbo_size = 0;
-    std::for_each(drawables.begin(), drawables.end(),
-      [&](const std::unique_ptr<Object3D>& obj)
-      {
-        vbo_size += obj->is_normals_visible() * obj->get_geometry_metadata().vert_count_total * sizeof(Vertex);
-      });
+    std::for_each(
+        drawables.begin(), drawables.end(), [&](const std::unique_ptr<Object3D>& obj)
+        { vbo_size += obj->is_normals_visible() * obj->get_geometry_metadata().vert_count_total * sizeof(Vertex); });
     m_vbo.resize_if_smaller(vbo_size);
 
     size_t vbo_offset = 0;
@@ -470,9 +476,12 @@ namespace fury
     for (const auto& obj : drawables)
     {
       if (!obj->is_normals_visible())
+      {
         continue;
+      }
       m_objects_with_visible_normals.insert(obj.get());
-      m_model_matrices.emplace_back(SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id())->get_world_mat());
+      m_model_matrices.emplace_back(
+          SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id())->get_world_mat());
       ObjectGeometryMetadata meta = obj->get_geometry_metadata();
       ObjectRenderOffsets& obj_offsets = m_object_offsets[obj.get()];
       m_voffsets.push_back(vbo_offset / sizeof(Vertex));
@@ -495,12 +504,15 @@ namespace fury
   void NormalsPass::tick(float)
   {
     if (m_objects_with_visible_normals.empty())
+    {
       return;
+    }
     Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::NORMALS);
     shader->bind();
     shader->set_vec3("normalColor", glm::vec3(0, 1, 1));
     BindGuard bg(m_vao);
-    glMultiDrawArrays(GL_POINTS, m_voffsets.data(), m_vcounts.data(), static_cast<GLsizei>(m_objects_with_visible_normals.size()));
+    glMultiDrawArrays(GL_POINTS, m_voffsets.data(), m_vcounts.data(),
+                      static_cast<GLsizei>(m_objects_with_visible_normals.size()));
     shader->unbind();
   }
 
@@ -533,7 +545,8 @@ namespace fury
         ObjectRenderOffsets& obj_info = m_object_offsets[obj];
         m_voffsets.push_back(obj_info.vbo_offset_vtx_count);
         m_vcounts.push_back(obj_info.vcount);
-        m_model_matrices.push_back(SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id())->get_world_mat());
+        m_model_matrices.push_back(
+            SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id())->get_world_mat());
         obj_info.internal_idx = idx++;
       }
       m_model_matrices_ssbo.bind();
@@ -548,13 +561,14 @@ namespace fury
     // if we have already rendered normals for this object
     if (m_object_offsets.count(obj) != 0)
     {
-      // if we moved object 
+      // if we moved object
       if (info.new_transform)
       {
         // update model matrix
         ObjectRenderOffsets& offset_info = m_object_offsets.at(obj);
         m_model_matrices_ssbo.bind();
-        m_model_matrices_ssbo.set_data(glm::value_ptr(info.new_transform->get_world_mat()), sizeof(glm::mat4), offset_info.internal_idx * sizeof(glm::mat4));
+        m_model_matrices_ssbo.set_data(glm::value_ptr(info.new_transform->get_world_mat()), sizeof(glm::mat4),
+                                       offset_info.internal_idx * sizeof(glm::mat4));
         m_model_matrices_ssbo.unbind();
       }
       // shading mode has changed
@@ -589,7 +603,9 @@ namespace fury
       if (i == 0)
       {
         if (m_gp->m_objects_indices_rendering_mode.empty())
+        {
           continue;
+        }
         m_gp->m_vao_indices.bind();
         size = m_gp->m_objects_indices_rendering_mode.size();
         ppobj = m_gp->m_objects_indices_rendering_mode.data();
@@ -597,7 +613,9 @@ namespace fury
       else
       {
         if (m_gp->m_objects_arrays_rendering_mode.empty())
+        {
           continue;
+        }
         m_gp->m_vao_arrays.bind();
         size = m_gp->m_objects_arrays_rendering_mode.size();
         ppobj = m_gp->m_objects_arrays_rendering_mode.data();
@@ -606,7 +624,8 @@ namespace fury
       for (size_t obj_i = 0; obj_i < size; obj_i++)
       {
         const Object3D* obj = ppobj[obj_i];
-        shader->set_matrix4f("modelMatrix", SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id())->get_world_mat());
+        shader->set_matrix4f(
+            "modelMatrix", SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id())->get_world_mat());
 
         const auto& render_config = obj->get_render_config();
         const size_t mesh_count = obj->mesh_count();
@@ -618,11 +637,13 @@ namespace fury
           const Mesh& mesh = obj->get_mesh(mesh_i);
           if (render_config.use_indices)
           {
-            glDrawElementsBaseVertex(render_config.mode, mesh.faces_as_indices().size(), GL_UNSIGNED_INT, (void*)mesh_offsets.ebo_offset, mesh_offsets.basev);
+            glDrawElementsBaseVertex(render_config.mode, mesh.faces_as_indices().size(), GL_UNSIGNED_INT,
+                                     (void*)mesh_offsets.ebo_offset, mesh_offsets.basev);
           }
           else
           {
-            glDrawArrays(render_config.mode, static_cast<GLint>(mesh_offsets.vbo_arrays_offset), static_cast<GLsizei>(mesh.vertices().size()));
+            glDrawArrays(render_config.mode, static_cast<GLint>(mesh_offsets.vbo_arrays_offset),
+                         static_cast<GLsizei>(mesh.vertices().size()));
           }
         }
       }
@@ -641,21 +662,24 @@ namespace fury
     Scene& scene = Scene::instance();
 
     global_state::g_on_object_change += new FunctionListener(std::function(
-      [this](const ObjectChangeInfo& info) {
-        if (info.new_transform) {
-          if (info.object->is_bbox_visible()) {
-            // pop existing bbox and push transformed version
-            handle_visible_bbox_toggle(info.object, false);
-            handle_visible_bbox_toggle(info.object, true);
+        [this](const ObjectChangeInfo& info)
+        {
+          if (info.new_transform)
+          {
+            if (info.object->is_bbox_visible())
+            {
+              // pop existing bbox and push transformed version
+              handle_visible_bbox_toggle(info.object, false);
+              handle_visible_bbox_toggle(info.object, true);
+            }
+            // if scene's bbox is visible
+            if (m_scene_bbox_matrix.has_value())
+            {
+              handle_scene_visible_bbox_toggle(false);
+              handle_scene_visible_bbox_toggle(true);
+            }
           }
-          // if scene's bbox is visible
-          if (m_scene_bbox_matrix.has_value()) {
-            handle_scene_visible_bbox_toggle(false);
-            handle_scene_visible_bbox_toggle(true);
-          }
-        }
-      }
-    ));
+        }));
 
     // Lines
     {
@@ -668,8 +692,10 @@ namespace fury
     {
       SceneInfo* scene_info_component = scene.get_ui().get_component<SceneInfo>("SceneInfo");
       Gizmo* gizmo_component = scene.get_ui().get_component<Gizmo>("Gizmo");
-      scene_info_component->on_visible_bbox_button_pressed += new InstanceListener(this, &DebugPass::handle_visible_bbox_toggle);
-      scene_info_component->on_show_scene_bbox += new InstanceListener(this, &DebugPass::handle_scene_visible_bbox_toggle);
+      scene_info_component->on_visible_bbox_button_pressed +=
+          new InstanceListener(this, &DebugPass::handle_visible_bbox_toggle);
+      scene_info_component->on_show_scene_bbox +=
+          new InstanceListener(this, &DebugPass::handle_scene_visible_bbox_toggle);
 
       m_vao_bbox.bind();
       m_vbo_bbox.bind();
@@ -692,7 +718,8 @@ namespace fury
       {
         if (drawable->is_bbox_visible())
         {
-          const glm::mat4& model_mat = SceneGraphManager::get_entity_node<TransformationSceneNode>(drawable->get_id())->get_world_mat();
+          const glm::mat4& model_mat =
+              SceneGraphManager::get_entity_node<TransformationSceneNode>(drawable->get_id())->get_world_mat();
           add_bbox(drawable->get_bbox(), model_mat);
           m_objects_with_visible_bboxes.push_back(drawable->get_id());
         }
@@ -739,8 +766,8 @@ namespace fury
 
   void DebugPass::add_line(const glm::vec3& a, const glm::vec3& b, const glm::vec4& color)
   {
-    m_lines.emplace_back(LineVertex{ a, color });
-    m_lines.emplace_back(LineVertex{ b, color });
+    m_lines.emplace_back(LineVertex { a, color });
+    m_lines.emplace_back(LineVertex { b, color });
     m_dirty_lines_data = true;
   }
 
@@ -756,7 +783,8 @@ namespace fury
     if (is_visible)
     {
       m_objects_with_visible_bboxes.push_back(obj->get_id());
-      const glm::mat4& model_mat = SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id())->get_world_mat();
+      const glm::mat4& model_mat =
+          SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id())->get_world_mat();
       add_bbox(obj->get_bbox(), model_mat);
     }
     else
@@ -765,14 +793,16 @@ namespace fury
       for (uint32_t id : m_objects_with_visible_bboxes)
       {
         if (id == obj->get_id())
+        {
           break;
+        }
         idx++;
       }
       // Swap item to be removed with last and pop it
       std::iter_swap(m_objects_with_visible_bboxes.begin() + idx,
-        m_objects_with_visible_bboxes.begin() + (m_objects_with_visible_bboxes.size() - 1));
+                     m_objects_with_visible_bboxes.begin() + (m_objects_with_visible_bboxes.size() - 1));
       std::iter_swap(m_bbox_instance_matrices.begin() + idx,
-        m_bbox_instance_matrices.begin() + (m_bbox_instance_matrices.size() - 1));
+                     m_bbox_instance_matrices.begin() + (m_bbox_instance_matrices.size() - 1));
       m_objects_with_visible_bboxes.pop_back();
       m_bbox_instance_matrices.pop_back();
       m_dirty_bbox_data = true;
@@ -792,7 +822,6 @@ namespace fury
     {
       m_scene_bbox_matrix.reset();
     }
-
   }
 
   void DebugPass::update_bbox_data()
@@ -800,10 +829,12 @@ namespace fury
     const bool include_scene_bbox = m_scene_bbox_matrix.has_value();
     m_vbo_instance_bbox.bind();
     m_vbo_instance_bbox.resize_if_smaller((m_bbox_instance_matrices.size() + include_scene_bbox) * sizeof(glm::mat4));
-    m_vbo_instance_bbox.set_data(m_bbox_instance_matrices.data(), sizeof(glm::mat4) * m_bbox_instance_matrices.size(), 0);
+    m_vbo_instance_bbox.set_data(m_bbox_instance_matrices.data(), sizeof(glm::mat4) * m_bbox_instance_matrices.size(),
+                                 0);
     if (include_scene_bbox)
     {
-      m_vbo_instance_bbox.set_data(glm::value_ptr(m_scene_bbox_matrix.value()), sizeof(glm::mat4), sizeof(glm::mat4) * m_bbox_instance_matrices.size());
+      m_vbo_instance_bbox.set_data(glm::value_ptr(m_scene_bbox_matrix.value()), sizeof(glm::mat4),
+                                   sizeof(glm::mat4) * m_bbox_instance_matrices.size());
     }
     m_vbo_instance_bbox.unbind();
     m_dirty_bbox_data = false;
@@ -831,7 +862,7 @@ namespace fury
     // approximated AABB if transform has rotation
     out_mat = glm::translate(out_mat, center_world) * glm::scale(out_mat, extents_world);
     // OBB
-    //out_mat = transform * (glm::translate(out_mat, center) * glm::scale(out_mat, extents));
+    // out_mat = transform * (glm::translate(out_mat, center) * glm::scale(out_mat, extents));
     m_dirty_bbox_data = true;
   }
 
@@ -863,15 +894,19 @@ namespace fury
     for (const auto& slot : slots)
     {
       if (slot.icon)
+      {
         m_slots_with_icons.push_back(&slot);
+      }
       for (int i = 0; i < num_arc_points; i++)
       {
-        // 1 point from inner circle and 1 from outer, so that we can use TRIANGLE_STRIP mode and draw segment with triangles
+        // 1 point from inner circle and 1 from outer, so that we can use TRIANGLE_STRIP mode and draw segment with
+        // triangles
         slot_tri_strip_data[2 * i] = slot.arcs_data[i];
         slot_tri_strip_data[2 * i + 1] = slot.arcs_data[num_arc_points + i];
       }
       m_vbo.set_data(slot_tri_strip_data.data(), slot_tri_strip_data.size() * sizeof(glm::vec2), vbo_bytes_offset);
-      slot_closing_lines.insert(slot_closing_lines.end(), slot.arcs_closing_lines_data, slot.arcs_closing_lines_data + 4);
+      slot_closing_lines.insert(slot_closing_lines.end(), slot.arcs_closing_lines_data,
+                                slot.arcs_closing_lines_data + 4);
       vbo_bytes_offset += slot_tri_strip_data.size() * sizeof(glm::vec2);
     }
     m_vbo.set_data(slot_closing_lines.data(), slot_closing_lines.size() * sizeof(glm::vec2), vbo_bytes_offset);
@@ -920,7 +955,9 @@ namespace fury
   void SelectionWheelPass::tick(float dt)
   {
     if (!m_wheel->is_visible())
+    {
       return;
+    }
     Shader* shader = &ShaderStorage::get(ShaderStorage::ShaderType::SELECTION_WHEEL);
     shader->bind();
     shader->set_vec3("color", glm::vec3(1, 0, 0));
@@ -977,4 +1014,4 @@ namespace fury
     glDrawArrays(GL_TRIANGLES, 0, 6);
   }
 
-}
+} // namespace fury

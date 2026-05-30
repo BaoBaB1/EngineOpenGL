@@ -22,10 +22,8 @@ namespace fury
     Node* attach_node();
     uint32_t get_id() const { return m_id; }
     virtual ~Entity();
-    FURY_DECLARE_SERIALIZABLE_FIELDS(
-      FURY_SERIALIZABLE_FIELD(1, &Entity::m_id),
-      FURY_SERIALIZABLE_FIELD(2, &Entity::m_name)
-    )
+    FURY_DECLARE_SERIALIZABLE_FIELDS(FURY_SERIALIZABLE_FIELD(1, &Entity::m_id),
+                                     FURY_SERIALIZABLE_FIELD(2, &Entity::m_name))
   protected:
     Entity(const char* name = nullptr);
     void release();
@@ -41,4 +39,4 @@ namespace fury
   {
     return static_cast<Node*>(attach_node(new Node));
   }
-}
+} // namespace fury

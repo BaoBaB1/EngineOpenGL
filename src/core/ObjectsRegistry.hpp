@@ -16,14 +16,19 @@ namespace fury
     {
       if constexpr (std::is_default_constructible_v<T>)
       {
-        if (type_map.count(cls_id) != 0) {
+        if (type_map.count(cls_id) != 0)
+        {
           Logger::warn("Type {} has already been registered! Trying to register classes with same names?", T::cls_name);
           return -1;
         }
-        type_map.insert({ T::cls_id, []() { return new T; } });
+        type_map.insert({ T::cls_id, []()
+                          {
+                            return new T;
+                          } });
         return 0;
       }
-      else {
+      else
+      {
         return -1;
       }
     }
@@ -41,6 +46,6 @@ namespace fury
     }
 
   private:
-    inline static std::unordered_map<uint32_t, std::function<void* ()>> type_map;
+    inline static std::unordered_map<uint32_t, std::function<void*()>> type_map;
   };
-}
+} // namespace fury

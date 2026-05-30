@@ -27,12 +27,14 @@ namespace fury
   void FPSLimiter::wait()
   {
     if (!has_limit())
+    {
       return;
+    }
     while (std::chrono::steady_clock::now().time_since_epoch() < m_start + m_frametime)
     {
       std::this_thread::yield();
     }
-    //m_start += m_frametime;
+    // m_start += m_frametime;
     m_start = std::chrono::steady_clock::now().time_since_epoch();
   }
-}
+} // namespace fury

@@ -13,7 +13,7 @@ namespace fury
       {
         vertex_finder.m_map_vert.clear();
         std::array<GLuint, 3> indices = {};
-        std::vector<Face>& faces = mesh.faces(), new_faces;
+        std::vector<Face>&faces = mesh.faces(), new_faces;
         assert(faces.size() > 0);
         for (const auto& face : faces)
         {
@@ -49,7 +49,7 @@ namespace fury
       {
         vertex_finder.m_map_vert.clear();
         std::vector<GLuint> indices(3);
-        std::vector<Vertex>& vertices = mesh.vertices(), unique_vertices;
+        std::vector<Vertex>&vertices = mesh.vertices(), unique_vertices;
         std::vector<Face>& faces = mesh.faces();
         assert(faces.size() > 0);
         for (auto& face : faces)
@@ -86,7 +86,9 @@ namespace fury
       vert.normal = glm::vec3(0.f);
     }
     if (mode == ShadingMode::NO_SHADING)
+    {
       return;
+    }
     const std::vector<Face>& faces = mesh.faces();
     for (auto& face : faces)
     {
@@ -114,7 +116,11 @@ namespace fury
       }
     }
     for (Vertex& v : vertices)
+    {
       if (v.normal != glm::vec3())
+      {
         v.normal = glm::normalize(v.normal);
+      }
+    }
   }
-}
+} // namespace fury

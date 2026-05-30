@@ -69,8 +69,8 @@ namespace fury
     m_texture_data.height = h;
     bind();
     glTexImage2D(GL_TEXTURE_2D, 0, m_internal_fmt, w, h, 0, m_fmt, m_pixel_data_type, nullptr);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, /*GL_NEAREST*/GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, /*GL_NEAREST*/GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, /*GL_NEAREST*/ GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, /*GL_NEAREST*/ GL_LINEAR);
     unbind();
   }
 
@@ -121,4 +121,4 @@ namespace fury
     return sizeof(TextureType) + sizeof(path_len) + path_len;
   }
 
-}
+} // namespace fury

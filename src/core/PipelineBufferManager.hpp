@@ -10,18 +10,18 @@
 
 namespace fury
 {
-	template<typename T>
-	class PipelineBuffersManager
-	{
-	public:
-		static T& get(const std::string& name) { return records[name]; }
-	private:
-		inline static std::unordered_map<std::string, T> records;
-	};
+  template<typename T>
+  class PipelineBuffersManager
+  {
+  public:
+    static T& get(const std::string& name) { return records[name]; }
+  private:
+    inline static std::unordered_map<std::string, T> records;
+  };
 
-	using PipelineVAOManager = PipelineBuffersManager<VertexArrayObject>;
-	using PipelineVBOManager = PipelineBuffersManager<VertexBufferObject>;
-	using PipelineEBOManager = PipelineBuffersManager<ElementBufferObject>;
-	using PipelineSSBOManager = PipelineBuffersManager<SSBO>;
-	using PipelineUBOManager = PipelineBuffersManager<UniformBuffer>;
-}
+  using PipelineVAOManager = PipelineBuffersManager<VertexArrayObject>;
+  using PipelineVBOManager = PipelineBuffersManager<VertexBufferObject>;
+  using PipelineEBOManager = PipelineBuffersManager<ElementBufferObject>;
+  using PipelineSSBOManager = PipelineBuffersManager<SSBO>;
+  using PipelineUBOManager = PipelineBuffersManager<UniformBuffer>;
+} // namespace fury

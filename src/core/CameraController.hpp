@@ -22,4 +22,4 @@ namespace fury
   private:
     Camera* m_camera = nullptr;
   };
-}
+} // namespace fury

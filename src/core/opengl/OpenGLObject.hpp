@@ -48,4 +48,4 @@ namespace fury
     GLuint* id_ref() { return &m_id.id; }
     OpenGLIdWrapper<GLuint> m_id;
   };
-}
+} // namespace fury

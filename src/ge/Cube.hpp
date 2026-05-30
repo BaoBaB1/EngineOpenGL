@@ -4,10 +4,10 @@
 
 namespace fury
 {
-	class Cube : public Object3D
-	{
-	public:
-		Cube();
-		FURY_REGISTER_DERIVED_CLASS(Cube, Object3D)
-	};
-}
+  class Cube : public Object3D
+  {
+  public:
+    Cube();
+    FURY_REGISTER_DERIVED_CLASS(Cube, Object3D)
+  };
+} // namespace fury

@@ -38,4 +38,4 @@ namespace fury
   {
     glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
   }
-}
+} // namespace fury

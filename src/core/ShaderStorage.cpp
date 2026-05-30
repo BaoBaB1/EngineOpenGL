@@ -8,7 +8,7 @@ namespace
     fury::ShaderStorage::ShaderType shader_type;
   };
   const std::filesystem::path GLSL_FOLDER = fury::utils::get_project_root_dir() / "src" / "glsl";
-}
+} // namespace
 
 namespace fury
 {
@@ -30,7 +30,7 @@ namespace fury
       }
       {
         ShaderDescriptionInternal d;
-        d.sources.push_back({ ShaderStage::VERTEX,  GLSL_FOLDER / "outlining.vert" });
+        d.sources.push_back({ ShaderStage::VERTEX, GLSL_FOLDER / "outlining.vert" });
         d.sources.push_back({ ShaderStage::FRAGMENT, GLSL_FOLDER / "outlining.frag" });
         d.shader_type = ShaderStorage::ShaderType::OUTLINING;
         d.name = "Outlining";
@@ -137,8 +137,10 @@ namespace fury
     for (auto& item : shaders)
     {
       if (item.second.id() == id)
+      {
         return &(item.second);
+      }
     }
     return nullptr;
   }
-}
+} // namespace fury

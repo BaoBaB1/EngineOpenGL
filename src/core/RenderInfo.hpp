@@ -7,4 +7,4 @@ namespace fury
     float frame_time = 0.f;
     int fps = 0;
   };
-}
+} // namespace fury

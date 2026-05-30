@@ -73,4 +73,4 @@ namespace fury
     glDeleteFramebuffers(1, id_ref());
     glDeleteRenderbuffers(1, &m_render_buffer_id.id);
   }
-}
+} // namespace fury

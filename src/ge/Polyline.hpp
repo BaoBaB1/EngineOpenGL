@@ -5,7 +5,8 @@
 
 namespace fury
 {
-  class Polyline : public Object3D {
+  class Polyline : public Object3D
+  {
   public:
     FURY_REGISTER_DERIVED_CLASS(Polyline, Object3D)
     Polyline();
@@ -14,4 +15,4 @@ namespace fury
     void add(const Vertex& point);
     const std::vector<Vertex>& get_points() const { return get_mesh(0).vertices(); }
   };
-}
+} // namespace fury

@@ -45,4 +45,4 @@ namespace fury
   {
     Scene::instance().render();
   }
-}
+} // namespace fury

@@ -41,4 +41,4 @@ namespace fury
   private:
     void load(const ShaderDescription& description);
   };
-}
+} // namespace fury

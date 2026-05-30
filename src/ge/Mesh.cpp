@@ -8,7 +8,8 @@ namespace fury
     m_faces = faces;
   }
 
-  size_t Mesh::append_vertex(const Vertex& vertex) {
+  size_t Mesh::append_vertex(const Vertex& vertex)
+  {
     m_vertices.push_back(vertex);
     return m_vertices.size() - 1;
   }
@@ -42,4 +43,4 @@ namespace fury
     }
     return m_faces_indices;
   }
-}
+} // namespace fury

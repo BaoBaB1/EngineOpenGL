@@ -20,4 +20,4 @@ namespace fury
   private:
     inline static std::unordered_map<uint32_t, Entity*> m_entities;
   };
-}
+} // namespace fury

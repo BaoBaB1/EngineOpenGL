@@ -15,4 +15,4 @@ namespace fury
     m_start_pnt = start;
     m_end_pnt = end;
   }
-};
+}; // namespace fury

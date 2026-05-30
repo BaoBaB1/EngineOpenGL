@@ -26,4 +26,4 @@ namespace fury
     m_texture_data.pixels.reset(
         stbi_load(file.c_str(), &m_texture_data.width, &m_texture_data.height, &m_texture_data.channels, 0));
   }
-}
+} // namespace fury

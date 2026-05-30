@@ -61,17 +61,23 @@ namespace fury
   void ItemSelectionWheel::handle_cursor_position_change(double newx, double newy, double oldx, double oldy)
   {
     if (!m_is_visible)
+    {
       return;
+    }
     const glm::vec2 pos = { newx, newy };
     const glm::vec2 center = { m_window_size[0] / 2.f, m_window_size[1] / 2.f };
     if (pos == center)
+    {
       return;
+    }
     const glm::vec2 dir = glm::normalize(pos - center);
     float angle = std::atan2(-dir.y, dir.x);
     float offset = glm::radians(m_config.slots_spacing_deg);
     // angle += glm::radians(m_config.slots_spacing_deg);
     if (angle < 0)
+    {
       angle += constants::PI2_F;
+    }
 
     int slot = -1;
     // last slot's end is always > 2Pi because of slot spacings (if spacing > 0)

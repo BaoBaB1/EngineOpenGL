@@ -16,4 +16,4 @@ namespace fury
   private:
     WindowGLFW m_window;
   };
-};
+}; // namespace fury

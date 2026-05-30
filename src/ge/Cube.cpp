@@ -7,7 +7,8 @@ namespace fury
     auto& mesh = emplace_mesh();
     mesh.vertices().reserve(24);
     mesh.faces().reserve(12);
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 3; ++i)
+    {
       mesh.append_vertex(Vertex(-0.5f, -0.5f, 0.5f));
       mesh.append_vertex(Vertex(0.5f, -0.5f, 0.5f));
       mesh.append_vertex(Vertex(0.5f, 0.5f, 0.5f));
@@ -62,4 +63,4 @@ namespace fury
       cnt++;
     }
   }
-}
+} // namespace fury
