@@ -1,20 +1,26 @@
 #include "MenuBar.hpp"
+#include "FileExplorer.hpp"
 #include "core/Scene.hpp"
 #include "core/WindowGLFW.hpp"
-#include "ge/Pyramid.hpp"
-#include "ge/Icosahedron.hpp"
-#include "ge/Cube.hpp"
 #include "core/ModelLoader.hpp"
-#include "core/SceneGraphManager.hpp"
 #include "core/ThreadPool.hpp"
-#include "FileExplorer.hpp"
+#include "core/AssetManager.hpp"
+#include "core/GeometryFactory.hpp"
+#include "core/ecs/components/ObjectParametersComponent.hpp"
+#include "core/ecs/components/TransformComponent.hpp"
+#include "core/ecs/components/DrawableComponent.hpp"
+#include "core/ecs/components/DirtyEntityTagComponent.hpp"
 
 #include <imgui.h>
+#include <variant>
 
 namespace fury
 {
-  MenuBar::MenuBar(Scene* scene) : UiComponent(scene)
+  void MenuBar::init(Scene* scene)
   {
+    UiComponent::init(scene);
+    m_frame_padding = 7;
+    m_height = ImGui::GetFontSize() + 2 * m_frame_padding - 1;
     m_is_visible = true;
   }
 
@@ -24,34 +30,35 @@ namespace fury
     {
       return;
     }
-    static constexpr ImVec2 menubar_frame_padding = ImVec2(0, 10);
-    static constexpr ImVec2 menubar_item_spacing = ImVec2(29, 10);
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, menubar_frame_padding);
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, menubar_item_spacing);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(ImGui::GetStyle().FramePadding.x, m_frame_padding));
     if (ImGui::BeginMainMenuBar())
     {
-      m_height = ImGui::GetWindowHeight();
       if (ImGui::BeginMenu("File"))
       {
         if (ImGui::MenuItem("Import"))
         {
-          auto callback = [scene = this->m_scene](const std::string& file)
+          auto callback = [this](const std::string& file)
           {
             // Load model in a separate thread
             auto fut = ThreadPool::instance().enqueue(
-                [file]() -> std::unique_ptr<Object3D>
+                [file, this]()
                 {
-                  ModelLoader loader;
-                  const unsigned int assimp_flags = aiProcess_Triangulate | aiProcess_FlipUVs |
-                                                    aiProcess_JoinIdenticalVertices |
-                                                    aiProcess_GenBoundingBoxes /*| aiProcess_GenSmoothNormals*/;
-                  return loader.load(file, assimp_flags);
+                  ModelLoader l;
+                  std::vector<MeshNode> read_nodes = l.load(file);
+                  // Only main thread can create OpenGL entities, so at this point texture data
+                  // will be read but OpenGL texture must be created by the main thread
+                  m_scene->enqueue_job_from_async_thread(
+                      [scene = m_scene, nodes = std::move(read_nodes)]()
+                      {
+                        auto [entity, drawable_component, transform_component] = scene->add_entity(nodes, true);
+                        drawable_component.name = "Loaded model";
+                        drawable_component.shading_mode = ShadingMode::PREDEFINED;
+                      });
                 });
-            scene->add_async_task(std::move(fut), DeferredCommandContext::ADD_OBJECT);
           };
           OpenFileExplorerContext ctx;
           ctx.import_asset = true;
-          m_scene->get_ui().get_component<FileExplorer>("FileExplorer")->open(ctx, callback);
+          m_scene->get_ui().get_file_explorer().open(ctx, callback);
         }
         ImGui::EndMenu();
       }
@@ -66,7 +73,7 @@ namespace fury
           };
           OpenFileExplorerContext ctx;
           ctx.save_scene = true;
-          m_scene->get_ui().get_component<FileExplorer>("FileExplorer")->open(ctx, callback);
+          m_scene->get_ui().get_file_explorer().open(ctx, callback);
         }
 
         if (ImGui::MenuItem("Load"))
@@ -77,42 +84,80 @@ namespace fury
           };
           OpenFileExplorerContext ctx;
           ctx.load_scene = true;
-          m_scene->get_ui().get_component<FileExplorer>("FileExplorer")->open(ctx, callback);
+          m_scene->get_ui().get_file_explorer().open(ctx, callback);
         }
 
         if (ImGui::BeginMenu("Add object"))
         {
-          bool clicked = false;
-          std::unique_ptr<Object3D> obj;
+          std::string clicked_item_name;
           if (ImGui::MenuItem("Cube"))
           {
-            obj = std::make_unique<Cube>();
-            clicked = true;
+            clicked_item_name = "Cube";
           }
           if (ImGui::MenuItem("Pyramid"))
           {
-            obj = std::make_unique<Pyramid>();
-            clicked = true;
+            clicked_item_name = "Pyramid";
           }
           if (ImGui::MenuItem("Icosahedron"))
           {
-            obj = std::make_unique<Icosahedron>();
-            clicked = true;
+            clicked_item_name = "Icosahedron";
           }
           ImGui::EndMenu();
 
-          if (clicked)
+          if (!clicked_item_name.empty())
           {
-            TransformationSceneNode* transform =
-                SceneGraphManager::get_entity_node<TransformationSceneNode>(obj->get_id());
-            auto ray =
+            const ShadingMode default_shading_mode = ShadingMode::FLAT_SHADING;
+            AssetHandle<Mesh> mesh;
+            std::variant<ecs::CubeParametersComponent, ecs::PyramidParametersComponent,
+                         ecs::IcosahedronParametersComponent>
+                params_variant;
+
+            if (clicked_item_name == "Cube")
+            {
+              ecs::CubeParametersComponent params;
+              const std::string lookup_name =
+                  utils::generate_asset_lookup_name(clicked_item_name, default_shading_mode);
+              mesh = MeshManager::get_or_create(lookup_name, [&]()
+                                                { return GeometryFactory::create_cube(params, default_shading_mode); });
+              params_variant = params;
+            }
+            else if (clicked_item_name == "Pyramid")
+            {
+              ecs::PyramidParametersComponent params;
+              const std::string lookup_name =
+                  utils::generate_asset_lookup_name(clicked_item_name, default_shading_mode);
+              mesh = MeshManager::get_or_create(
+                  lookup_name, [&]() { return GeometryFactory::create_pyramid(params, default_shading_mode); });
+              params_variant = params;
+            }
+            else if (clicked_item_name == "Icosahedron")
+            {
+              ecs::IcosahedronParametersComponent params;
+              const std::string lookup_name = utils::generate_asset_lookup_name(
+                  clicked_item_name, default_shading_mode, params.subdivisiton_depth, params.project_points_on_sphere);
+              mesh = MeshManager::get_or_create(
+                  lookup_name, [&]() { return GeometryFactory::create_icosahedron(params, default_shading_mode); });
+              params_variant = params;
+            }
+            else
+            {
+              Logger::error("[MenuBar]. Add object: unknown clicked item.");
+              return;
+            }
+
+            auto [entity, drawable_component, transform_component] =
+                m_scene->add_entity({ MeshNode { mesh } }, true);
+            std::visit([scene = m_scene, entity](auto&& params)
+                       { scene->get_component_manager().add_component(entity, params); }, params_variant);
+            const Ray ray =
                 m_scene->get_camera().cast_ray(m_scene->get_window()->width() / 2, m_scene->get_window()->height() / 2);
-            static constexpr float spawn_distance = 2.5f;
+            constexpr float spawn_distance = 2.5f;
             // spawn in front of camera
             auto spawn_pos = ray.get_origin() + spawn_distance * ray.get_direction();
-            transform->set_translation(spawn_pos);
-            transform->set_scale(glm::vec3(0.5f));
-            m_scene->add_object(std::move(obj));
+            drawable_component.shading_mode = default_shading_mode;
+            transform_component.transform_node.set_translation(spawn_pos);
+            transform_component.transform_node.set_scale(glm::vec3(0.5f));
+            utils::set_flag(drawable_component.flags, DrawableFlags::HAS_SURFACE);
           }
         }
 
@@ -121,16 +166,15 @@ namespace fury
           m_scene->create_default_scene();
         }
 
-        if (ImGui::MenuItem("Clear"))
+        if (ImGui::MenuItem("Clear geometry"))
         {
-          m_scene->clear();
+          m_scene->clear_geometry();
         }
 
         ImGui::EndMenu();
       }
       ImGui::EndMainMenuBar();
     }
-    ImGui::PopStyleVar();
     ImGui::PopStyleVar();
   }
 } // namespace fury

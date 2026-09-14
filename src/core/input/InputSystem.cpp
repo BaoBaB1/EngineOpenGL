@@ -5,7 +5,7 @@
 
 namespace fury
 {
-  std::map<int, InputCode> mapped_inputs = {
+  static std::map<int, InputCode> mapped_inputs = {
     { GLFW_KEY_W, InputCode::FURY_KEY_W },
     { GLFW_KEY_A, InputCode::FURY_KEY_A },
     { GLFW_KEY_S, InputCode::FURY_KEY_S },
@@ -37,13 +37,13 @@ namespace fury
     init_keyboard_input(window);
     init_mouse_input(window);
     setup_callbacks(window);
-    m_contexts.reserve(std::size(input_context_names));
-    for (std::string_view context_name : input_context_names)
+    m_contexts.reserve(static_cast<size_t>(InputContextType::LAST_ITEM));
+    for (int i = InputContextType::FIRST_ITEM + 1; i < InputContextType::LAST_ITEM; i++)
     {
       InputContext& input_context = m_contexts.emplace_back();
-      input_context.name = context_name;
-      create_default_bindings(context_name, input_context);
-      if (context_name == "FreeCam")
+      input_context.type = static_cast<InputContextType>(i);
+      create_default_bindings(input_context.type, input_context);
+      if (input_context.type == InputContextType::FREECAM)
       {
         // Initially we are in free camera mode
         m_context_stack.push(&input_context);
@@ -51,12 +51,17 @@ namespace fury
     }
   }
 
-  void InputSystem::push_context(std::string_view name)
+  uint32_t InputSystem::get_input_context_stack_size() const
+  {
+    return m_context_stack.size();
+  }
+
+  void InputSystem::push_context(InputContextType ctx_type)
   {
     bool ok = false;
     for (InputContext& ctx : m_contexts)
     {
-      if (ctx.name == name)
+      if (ctx.type == ctx_type)
       {
         ok = true;
         m_context_stack.push(&ctx);
@@ -65,7 +70,7 @@ namespace fury
     }
     if (!ok)
     {
-      Logger::warn("Failed to find and push input context with name {}", name);
+      Logger::warn("Failed to find and push input context {}", static_cast<int>(ctx_type));
     }
   }
 
@@ -87,7 +92,6 @@ namespace fury
   float InputSystem::get_axis_value(const std::string& action) const
   {
     InputContext* context = m_context_stack.top();
-    auto it = context->actions.find(action);
     float value = 0;
     if (auto it = context->actions.find(action); it != context->actions.end())
     {
@@ -223,14 +227,15 @@ namespace fury
     }
   }
 
-  void InputSystem::create_default_bindings(std::string_view context_name, InputContext& context)
+  void InputSystem::create_default_bindings(InputContextType ctx_type, InputContext& context)
   {
     context.actions.clear();
-    if (context_name == "FreeCam")
+    if (ctx_type == InputContextType::FREECAM)
     {
-      for (std::string_view action_name : movement_action_names)
+      for (std::string_view action_name : g_movement_action_names)
       {
-        Action& action = context.actions[std::string(action_name)];
+        auto [it, _] = context.actions.emplace(action_name, Action {});
+        Action& action = it->second;
         action.name = action_name;
         if (action.name == "MoveForward")
         {
@@ -266,7 +271,7 @@ namespace fury
         }
       }
     }
-    else if (context_name == "UI")
+    else if (ctx_type == InputContextType::SCENE_EDITING_MODE)
     {
     }
   }

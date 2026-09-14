@@ -46,8 +46,6 @@ namespace fury
       pos -= speed * up;
     }
 
-    // set position only if position actually changed, since
-    // Camera::set_position internally updates dirty flag
     if (pos != m_camera->get_position())
     {
       m_camera->set_position(pos);

@@ -1,5 +1,3 @@
-#version 440 core
-
 out uvec4 FragColor;
   
 uniform uint objectIndex;

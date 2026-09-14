@@ -8,6 +8,7 @@
 #include <fstream>
 #include <exception>
 #include <filesystem>
+#include <algorithm>
 
 static bool read_shader_file_content(const char* const file, std::string& content)
 {
@@ -58,32 +59,57 @@ namespace fury
 
     for (const auto& [stage, source] : description.sources)
     {
-      std::string content;
+      std::string src = "#version 460 core\n", content;
+      if (!description.defines.empty())
+      {
+        std::for_each(description.defines.begin(), description.defines.end(),
+                      [&](const std::string& def) { src += "#define " + def + "\n"; });
+      }
+
       if (!read_shader_file_content(source.string().c_str(), content))
       {
         throw std::runtime_error(fmt::format("Error reading shader file {}.", source.string()));
       }
+      src += std::move(content);
+
       GLuint shader = glCreateShader(static_cast<int>(stage));
-      auto data = content.data();
-      glShaderSource(shader, 1, &data, NULL);
-      glCompileShader(shader);
-      if (opengl_check_error(fmt::format("glCompileShader failed with source {}", source.string())))
+      if (shader == 0)
       {
-        return;
+        Logger::error("Failed to create shader stage {} from source {}", static_cast<int>(stage), source);
+        continue;
+      }
+      utils::ScopeGuard scope_guard([shader]() { glDeleteShader(shader); });
+      auto data = src.data();
+      glShaderSource(shader, 1, &data, NULL);
+      GLenum error = opengl_check_error();
+      if (error != GL_NO_ERROR)
+      {
+        Logger::error("glShaderSource failed with source {}", source);
+        continue;
+      }
+      glCompileShader(shader);
+      error = opengl_check_error();
+      if (error != GL_NO_ERROR)
+      {
+        Logger::error("glCompileShader failed with source {}", source);
+        continue;
       }
       glAttachShader(m_id, shader);
-      if (opengl_check_error(fmt::format("glAttachShader failed with source  {}", source.string())))
+      error = opengl_check_error();
+      if (error != GL_NO_ERROR)
       {
-        return;
+        Logger::error("glAttachShader failed with source {}", source);
+        continue;
       }
       glLinkProgram(m_id);
-      if (opengl_check_error(fmt::format("glLinkProgram failed with source {}", source.string())))
+      error = opengl_check_error();
+      if (error != GL_NO_ERROR)
       {
-        return;
+        Logger::error("glLinkProgram failed with source {}", source);
+        continue;
       }
-      glDeleteShader(shader);
     }
-    check_shader(m_id.id, description.name);
+    opengl_check_shader(m_id.id, description);
   }
 
   void Shader::set_matrix4f(const char* uniform_name, const glm::mat4& value)
@@ -94,6 +120,11 @@ namespace fury
   void Shader::set_vec3(const char* uniform_name, const glm::vec3& value)
   {
     glUniform3fv(glGetUniformLocation(m_id, uniform_name), 1, glm::value_ptr(value));
+  }
+
+  void Shader::set_vec4(const char* uniform_name, const glm::vec4& value)
+  {
+    glUniform4fv(glGetUniformLocation(m_id, uniform_name), 1, glm::value_ptr(value));
   }
 
   void Shader::set_bool(const char* uniform_name, bool value)

@@ -1,9 +1,11 @@
 cmake_minimum_required(VERSION 3.13.0)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(PROJECT_NAME "FuryEngine")
 project(${PROJECT_NAME})
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+option(FURY_BUILD_TESTS "Build fury engine tests" OFF)
 
 add_subdirectory(libs)
 
@@ -28,5 +30,17 @@ if (WIN32)
 endif()
 target_compile_definitions(${PROJECT_NAME} PRIVATE GLM_FORCE_CTOR_INIT)
 
-add_subdirectory(tests)
+# For debugging
+# if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+#     target_compile_options(${PROJECT_NAME} PRIVATE
+#         -fsanitize=address
+#         -fno-omit-frame-pointer
+#         -g
+#     )
+#     target_link_options(${PROJECT_NAME} PRIVATE -fsanitize=address)
+# endif()
+
+if (FURY_BUILD_TESTS)
+	add_subdirectory(tests)
+endif()
 

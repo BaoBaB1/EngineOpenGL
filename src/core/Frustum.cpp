@@ -1,5 +1,5 @@
 #include "Frustum.hpp"
-#include "ge/BoundingBox.hpp"
+#include "BoundingBox.hpp"
 
 namespace fury
 {

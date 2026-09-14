@@ -44,6 +44,7 @@ namespace fury
     virtual void bind() const = 0;
     virtual void unbind() const = 0;
     GLuint id() const { return m_id; }
+    bool is_valid() const { return id() > 0; }
   protected:
     GLuint* id_ref() { return &m_id.id; }
     OpenGLIdWrapper<GLuint> m_id;

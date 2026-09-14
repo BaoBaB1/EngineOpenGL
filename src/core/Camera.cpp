@@ -1,36 +1,22 @@
 #include "Camera.hpp"
 #include "Frustum.hpp"
-#include "core/SceneGraphManager.hpp"
-#include "core/IdGenerator.hpp"
+#include "Scene.hpp"
+#include "WindowGLFW.hpp"
+#include "core/ecs/components/TransformComponent.hpp"
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
-#include "RenderPass.hpp"
 
 namespace fury
 {
-  const glm::vec3 world_up = glm::vec3(0, 1, 0);
-
-  Camera::Camera() : Entity("Camera")
-  {
-    m_speed = 5.f;
-    m_sensivity = 0.2f;
-    m_yaw = -90.f;
-    m_pitch = 0.f;
-    m_up = world_up;
-    m_target = glm::vec3(0.f);
-    m_freezed = false;
-  }
+  constexpr glm::vec3 world_up = glm::vec3(0, 1, 0);
 
   const glm::vec3& Camera::get_position() const
   {
-    return SceneGraphManager::get_entity_node<TransformationSceneNode>(m_id)->get_translation();
+    return m_transform.transform_node.get_translation();
   }
-
+  
   void Camera::set_position(const glm::vec3& position)
   {
-    SceneGraphManager::get_entity_node<TransformationSceneNode>(m_id)->set_translation(position);
-    m_dirty = true;
+    m_transform.transform_node.set_translation(position);
   }
 
   void Camera::set_screen_size(const glm::vec2& screen_size)
@@ -44,25 +30,9 @@ namespace fury
         glm::ortho(-ortho_wh.x, ortho_wh.x, -ortho_wh.y, ortho_wh.y, 0.1f, 100.f);
   }
 
-  const glm::mat4& Camera::get_view_matrix() const
+  glm::mat4 Camera::get_view_matrix() const
   {
-    return const_cast<Camera*>(this)->get_view_matrix();
-  }
-
-  glm::mat4& Camera::get_view_matrix()
-  {
-    if (m_dirty)
-    {
-      auto node = SceneGraphManager::get_entity_node<TransformationSceneNode>(m_id);
-      const glm::vec3& pos = node->get_translation();
-      m_cached_viewmatrix = glm::lookAt(pos, pos + m_target, world_up);
-      m_right = glm::normalize(glm::cross(m_target, world_up));
-      m_up = glm::cross(m_right, m_target);
-      glm::quat q(glm::inverse(m_cached_viewmatrix));
-      node->set_rotation(q);
-      m_dirty = false;
-    }
-    return m_cached_viewmatrix;
+    return glm::inverse(m_transform.transform_node.get_world_mat());
   }
 
   Frustum Camera::get_frustum() const
@@ -70,7 +40,6 @@ namespace fury
     Frustum fr;
     const float zfar = get_zfar();
     const float znear = get_znear();
-    // float zfar = 10;
     const float fov = glm::radians(m_fovy);
     // tg = a / b => a = tg * b
     // aspect = w / h => w = aspect * h
@@ -210,20 +179,15 @@ namespace fury
 
   void Camera::update_camera_vectors()
   {
+    m_pitch = std::clamp(m_pitch, -89.f, 89.f);
     glm::vec3 dir;
-    if (m_pitch > 89.0f)
-    {
-      m_pitch = 89.0f;
-    }
-    if (m_pitch < -89.0f)
-    {
-      m_pitch = -89.0f;
-    }
     dir.x = cos(glm::radians(m_yaw)) * cos(glm::radians(m_pitch));
     dir.y = -sin(glm::radians(m_pitch)); // -sin ?
     dir.z = sin(glm::radians(m_yaw)) * cos(glm::radians(m_pitch));
     m_target = glm::normalize(dir);
-    m_dirty = true;
+    m_right = glm::normalize(glm::cross(m_target, world_up));
+    m_up = glm::cross(m_right, m_target);
+    m_transform.transform_node.set_rotation(glm::quatLookAt(m_target, m_up));
   }
 
   void Camera::look_at(const glm::vec3& target)
@@ -236,6 +200,6 @@ namespace fury
     m_yaw = glm::degrees(m_yaw);
     m_pitch = glm::degrees(m_pitch);
     m_target = camera_dir;
-    m_dirty = true;
+    update_camera_vectors();
   }
 }; // namespace fury

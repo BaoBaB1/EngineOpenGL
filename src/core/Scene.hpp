@@ -3,168 +3,158 @@
 #include "Camera.hpp"
 #include "opengl/FrameBufferObject.hpp"
 #include "opengl/UniformBuffer.hpp"
+#include "opengl/SSBO.hpp"
 #include "input/InputSystem.hpp"
 #include "CameraController.hpp"
 #include "ui/Ui.hpp"
 #include "ScreenQuad.hpp"
 #include "ITickable.hpp"
-#include "ge/Skybox.hpp"
-#include "ge/BoundingBox.hpp"
+#include "Skybox.hpp"
+#include "BoundingBox.hpp"
 #include "FPSLimiter.hpp"
-#include "ge/ItemSelectionWheel.hpp"
-#include "Light.hpp"
+#include "Mesh.hpp"
 #include "Serialization.hpp"
-#include "ge/Object3D.hpp"
-#include "core/ObjectController.hpp"
 #include "Singleton.hpp"
-#include "RenderInfo.hpp"
+#include "FrameInfo.hpp"
+#include "RenderPass.hpp"
+#include "ecs/ComponentManager.hpp"
+#include "ecs/EntityManager.hpp"
 #include <vector>
 #include <memory>
 #include <string>
 #include <map>
-#include <future>
 #include <mutex>
+#include <tuple>
 
 namespace fury
 {
-  class Skybox;
-  struct ObjectChangeInfo;
-  class ObjectController;
-  class RenderPass;
-  class ShadowsPass;
+  class SceneNode;
 
-  enum class DeferredCommandContext
+  namespace ecs
   {
-    ADD_OBJECT
+    struct DrawableComponent;
+    struct TransformComponent;
+  } // namespace ecs
+
+  struct SceneOptions
+  {
+    // < 0 - no cap, 0 - vsync, > 0 set cap
+    int fps_cap = 0;
+    bool fill_polygons = true;
+    bool show_scene_bbox = false;
+    bool use_msaa = true;
+    bool is_vsync_enabled = true;
+    bool show_grid = false;
+    bool is_frustum_culling_enabled = true;
+    bool show_shadow_map = false;
   };
 
-  class Scene : public ITickable, public Singleton<Scene>
+  class Scene : public ITickable
   {
   public:
-    FURY_REGISTER_BASE_CLASS(Scene)
+    Scene();
     ~Scene();
-    template<typename T>
-    void add_async_task(std::future<T> future, DeferredCommandContext ctx)
-    {
-      std::lock_guard lg(m_async_tasks_vec_mutex);
-      if (ctx == DeferredCommandContext::ADD_OBJECT)
-      {
-        auto wrapped_fut = std::make_shared<decltype(future)>(std::move(future));
-        auto sp = std::make_shared<std::function<bool()>>(
-            [=]() mutable
-            {
-              // Return true if future is ready and false otherwise, so that if future is not ready yet
-              // main thread won't wait and will proceed rendering current frame and recheck condition on the next one
-              if (wrapped_fut->wait_for(std::chrono::seconds(0)) == std::future_status::ready)
-              {
-                std::unique_ptr<Object3D> obj = wrapped_fut->get();
-                for (Mesh& m : obj->get_meshes())
-                {
-                  for (int i = 0; i < static_cast<int>(TextureType::LAST); i++)
-                  {
-                    if (auto tex = m.get_texture(static_cast<TextureType>(i)))
-                    {
-                      if (!tex->is_created())
-                      {
-                        // At this point texture data should be read (done in other thread)
-                        // but OpenGL texture is not created via glTex* calls yet.
-                        assert(tex->is_initialized());
-                        tex->create();
-                      }
-                    }
-                  }
-                }
-                add_object(std::move(obj));
-                return true;
-              }
-              return false;
-            });
-        m_async_tasks.emplace_back([sp]() { return (*sp)(); });
-      }
-    }
     void tick(float dt) override;
     void init(WindowGLFW* window);
-    void add_object(std::unique_ptr<Object3D> object);
-    void remove_object(Object3D* obj);
-    void remove_object(uint32_t id);
-    const RenderInfo& get_render_info() const { return m_render_info; }
+    std::tuple<EntityId, ecs::DrawableComponent&, ecs::TransformComponent&>
+    add_entity(const std::vector<MeshNode>& mesh_nodes, bool has_surface);
+    void remove_entity(EntityId entity);
+    const FrameInfo& get_frame_info() const { return m_frame_info; }
     const Camera& get_camera() const { return m_camera; }
-    const std::vector<Object3D*>& get_selected_objects() const { return m_selected_objects; }
-    const std::vector<std::unique_ptr<Object3D>>& get_drawables() { return m_drawables; }
+    Camera& get_camera() { return m_camera; }
+    EntityId get_selected_entity() const { return m_selected_entity; }
+    const std::set<EntityId>& get_entities_with_visible_normals() const { return m_entities_with_visible_normals; }
+    const std::set<EntityId>& get_entities_with_visible_bboxes() const { return m_entities_with_visible_bboxes; }
+    const std::unordered_map<EntityId, uint32_t>& get_entity_transform_ssbo_idx_map() const
+    {
+      return m_entity_transform_ssbo_idx_map;
+    }
+    const std::unordered_map<EntityId, uint32_t>& get_entity_light_ssbo_idx_map() const
+    {
+      return m_entity_light_ssbo_idx_map;
+    }
+    SSBO& get_transforms_ssbo() { return m_transforms_ssbo; }
+    SSBO& get_lights_ssbo() { return m_lights_ssbo; }
+    uint32_t get_fps() const { return m_fps; }
+    SceneOptions& get_options() { return m_scene_options; }
+    const SceneOptions& get_options() const { return m_scene_options; }
+    ecs::EntityManager& get_entity_manager() { return m_entity_manager; }
+    ecs::ComponentManager& get_component_manager() { return m_component_manager; }
     BoundingBox& get_bbox() { return m_bbox; }
     WindowGLFW* get_window() { return m_window; }
     Ui& get_ui() { return m_ui; }
-    std::vector<const Light*> get_active_lights() const;
-    std::vector<Light>& get_lights() { return m_lights; }
-    std::vector<Light*> get_lights(LightType type);
     void create_default_scene();
     void render();
-    void save(const std::string& file) const;
-    void load(const std::string& file);
+    void save(const std::filesystem::path& file) const;
+    void load(const std::filesystem::path& file);
     void clear();
+    void clear_geometry();
     void set_fps_limit(uint32_t fps) { m_fps_limiter.set_limit(fps); }
+    void enqueue_job_from_async_thread(std::move_only_function<void()> job);
     uint32_t get_fps_limit() const { return m_fps_limiter.get_limit(); }
-    Event<Object3D*> on_new_object_added;
-    Event<Object3D*> on_object_about_be_deleted;
-    // These have to be complete types...
+    //  These have to be complete types...
     // clang-format off
     FURY_DECLARE_SERIALIZABLE_FIELDS(
       FURY_SERIALIZABLE_FIELD(1, &Scene::m_camera),
-      FURY_SERIALIZABLE_FIELD(2, &Scene::m_polygon_mode),
-      FURY_SERIALIZABLE_FIELD(3, &Scene::m_drawables),
-      FURY_SERIALIZABLE_FIELD(4, &Scene::m_lights),
-      FURY_SERIALIZABLE_FIELD(5, &Scene::m_controllers)
+      FURY_SERIALIZABLE_FIELD(2, &Scene::m_scene_options),
+      FURY_SERIALIZABLE_FIELD(3, &Scene::m_entities_with_visible_bboxes),
+      FURY_SERIALIZABLE_FIELD(4, &Scene::m_entities_with_visible_normals)
     )
     // clang-format on
   private:
-    Scene();
-    friend class Singleton<Scene>;
-  private:
+    void init_ui_components();
     void prepare_scene_for_rendering();
     void process_async_results();
-    void select_object(
-        Object3D* obj,
-        bool click_from_menu_item); // temporary function. remove when selection of multiple elements is supported
+    void select_object(EntityId entity, bool click_from_menu_item);
     void render_skybox();
     void handle_mouse_click(InputCode, int x, int y);
     void handle_window_size_change(int width, int height);
     void handle_keyboard_button_click(InputCode input_code);
-    void change_polygon_mode(int new_mode);
-    void handle_object_change(const ObjectChangeInfo& info);
+    void update_transforms_ssbo();
+    void update_transform_ssbo_entry(EntityId entity);
+    void update_lights_ssbo();
+    void update_light_ssbo_entry(EntityId entity);
     void calculate_scene_bbox();
     void update_shadow_map();
     void handle_ui_component_opening();
     void handle_ui_component_closing();
-    void handle_msaa_button_toggle(bool enabled);
-    void cleanup();
-    void setup_directional_light(Light* light);
+    void on_entity_normals_visibility_toggle(EntityId entity, bool visible_normals);
+    void on_entity_bbox_visibility_toggle(EntityId entity, bool visible_bbox);
     void create_default_lights();
-    friend class SceneInfo;
+    void update_geometry_pipeline();
+    friend class SceneInfoWindow;
   private:
     Camera m_camera;
     Skybox m_skybox;
-    std::mutex m_async_tasks_vec_mutex;
+    std::mutex m_async_tasks_mutex;
+    ecs::ComponentManager m_component_manager;
+    ecs::EntityManager m_entity_manager;
     ScreenQuad m_screen_quad;
     ScreenQuad m_shadow_map_quad;
-    ItemSelectionWheel m_selection_wheel;
-    // store pointers to make virtual methods work
-    std::vector<std::unique_ptr<Object3D>> m_drawables;
-    std::vector<Object3D*> m_selected_objects;
-    std::vector<std::unique_ptr<RenderPass>> m_render_passes;
-    std::unique_ptr<ShadowsPass> m_shadows_pass;
-    std::vector<Light> m_lights;
-    std::vector<std::unique_ptr<ObjectController>> m_controllers;
-    std::vector<std::function<bool()>> m_async_tasks;
+    std::vector<std::move_only_function<void()>> m_async_tasks;
+    std::vector<RenderPass*> m_render_passes;
+    std::unordered_map<EntityId, uint32_t> m_entity_transform_ssbo_idx_map;
+    std::unordered_map<EntityId, uint32_t> m_entity_light_ssbo_idx_map;
+    EntityId m_selected_entity = g_invalid_entity_id;
+    std::set<EntityId> m_entities_with_visible_bboxes;
+    std::set<EntityId> m_entities_with_visible_normals;
     std::map<std::string, FrameBufferObject> m_fbos;
+    GeometryPass m_geometry_pass;
+    ShadowsPass m_shadows_pass;
+    InfiniteGridPass m_grid_pass;
+    DebugPass m_debug_pass;
+    SelectionWheelPass m_selection_wheel_pass;
     UniformBuffer m_camera_data_ubo;
+    SSBO m_transforms_ssbo;
+    SSBO m_lights_ssbo;
     Ui m_ui;
     BoundingBox m_bbox;
     FPSLimiter m_fps_limiter;
     CameraController m_cam_controller;
-    RenderInfo m_render_info;
+    FrameInfo m_frame_info;
+    SceneOptions m_scene_options;
     WindowGLFW* m_window = nullptr;
-    GLint m_polygon_mode = GL_FILL;
-    bool m_show_shadow_map = false;
-    bool m_MSAA_enabled = true;
+    uint32_t m_fps = 0;
+    bool m_update_geometry_pipeline = false;
   };
 } // namespace fury

@@ -1,10 +1,8 @@
-#version 440 core
-
 out vec4 FragColor;
   
 in vec2 TexCoords;
 
-uniform sampler2D screenTexture;
+layout(binding = 0) uniform sampler2D screenTexture;
 uniform bool isSingleChannel;
 
 void main()

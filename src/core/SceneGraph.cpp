@@ -1,22 +1,123 @@
 #include "SceneGraph.hpp"
-#include "SceneGraphManager.hpp"
-#include "Entity.hpp"
 #include "Logger.hpp"
 #include <glm/gtx/quaternion.hpp>
 #include <algorithm>
+#include <unordered_map>
 
 namespace fury
 {
+  void SceneGraphBuilder::build(const std::vector<NodeDeserializationData>& nodes_data)
+  {
+    std::unordered_map<uint64_t, SceneNode*> id_node_map;
+    for (const auto& data : nodes_data)
+    {
+      id_node_map.insert({ data.node_id, data.node_ptr });
+    }
+    for (const auto& data : nodes_data)
+    {
+      data.node_ptr->set_entity(data.entity);
+      if (data.parent_node_id != 0)
+      {
+        const auto it = id_node_map.find(data.parent_node_id);
+        if (it == id_node_map.end())
+        {
+          Logger::error("Failed to set parent node. Parent node with id {} not found!", data.parent_node_id);
+        }
+        else
+        {
+          data.node_ptr->set_parent(it->second);
+        }
+      }
+      for (uint64_t child_id : data.children_node_ids)
+      {
+        const auto it = id_node_map.find(child_id);
+        if (it == id_node_map.end())
+        {
+          Logger::error("Failed to add child node. Child node with id {} not found!", child_id);
+        }
+        else
+        {
+          data.node_ptr->add_child(it->second);
+        }
+      }
+    }
+    for (const auto& data : nodes_data)
+    {
+      data.node_ptr->mark_dirty();
+    }
+  }
+
   SceneNode::SceneNode(SceneNode* parent) : m_parent(parent)
   {
   }
 
+  SceneNode::SceneNode(SceneNode&& other) noexcept
+  {
+    for (SceneNode* child : other.m_children)
+    {
+      if (child->get_parent() == &other)
+      {
+        child->m_parent = this;
+      }
+    }
+    if (other.m_parent)
+    {
+      other.m_parent->remove_child(&other);
+      other.m_parent->add_child(this);
+    }
+    m_children = std::move(other.m_children);
+    m_parent = other.m_parent;
+    m_dirty = other.m_dirty;
+    m_owner = other.m_owner;
+    other.m_parent = nullptr;
+    other.m_owner = 0;
+    other.m_dirty = false;
+  }
+
+  SceneNode& SceneNode::operator=(SceneNode&& other) noexcept
+  {
+    if (this != &other)
+    {
+      for (SceneNode* child : other.m_children)
+      {
+        if (child->get_parent() == &other)
+        {
+          child->m_parent = this;
+        }
+      }
+      if (other.m_parent)
+      {
+        other.m_parent->remove_child(&other);
+        other.m_parent->add_child(this);
+      }
+
+      m_children = std::move(other.m_children);
+      m_parent = other.m_parent;
+      m_dirty = other.m_dirty;
+      m_owner = other.m_owner;
+
+      other.m_parent = nullptr;
+      other.m_owner = 0;
+      other.m_dirty = false;
+    }
+    return *this;
+  }
+
   void SceneNode::set_parent(SceneNode* parent)
   {
-    assert(parent);
-    assert(!m_parent);
     m_parent = parent;
-    parent->add_child(this);
+    if (parent)
+    {
+      parent->add_child(this);
+    }
+  }
+
+  void SceneNode::remove_children()
+  {
+    for (SceneNode* child : m_children)
+    {
+      remove_child(child);
+    }
   }
 
   void SceneNode::remove_child(SceneNode* child)
@@ -25,6 +126,7 @@ namespace fury
     {
       if (m_children[i] == child)
       {
+        assert(m_children[i]->m_parent == this);
         m_children.erase(m_children.begin() + i);
         return;
       }
@@ -51,11 +153,13 @@ namespace fury
 
   void SceneNode::mark_dirty()
   {
-    m_dirty = true;
-    SceneGraphManager::add_dirty_node(this);
-    for (SceneNode* node : m_children)
+    if (!m_dirty)
     {
-      node->mark_dirty();
+      m_dirty = true;
+      for (SceneNode* node : m_children)
+      {
+        node->mark_dirty();
+      }
     }
   }
 
@@ -78,6 +182,10 @@ namespace fury
 
   void SceneNode::update()
   {
+    if (m_parent)
+    {
+      m_parent->update();
+    }
     for (SceneNode* child : m_children)
     {
       child->update();
@@ -87,11 +195,6 @@ namespace fury
   SceneNode::~SceneNode()
   {
     release();
-  }
-
-  TransformationSceneNode::TransformationSceneNode(const glm::mat4& local_mat, const glm::mat4& world_mat)
-      : m_local_mat(local_mat), m_world_mat(world_mat)
-  {
   }
 
   void TransformationSceneNode::update()
@@ -157,4 +260,61 @@ namespace fury
       mark_dirty();
     }
   }
+
+  SerializableSizeT BinarySerializerSpec<SceneNode>::write(std::ofstream& ofs, const SceneNode* node)
+  {
+    if (!node) [[unlikely]]
+    {
+      return 0;
+    }
+    SerializableSizeT bytes_written = 0;
+    const uint64_t node_id = reinterpret_cast<uint64_t>(node);
+    const EntityId owner = node->get_entity();
+    const uint32_t num_children = static_cast<uint32_t>(node->get_children().size());
+    const bool has_parent = node->has_parent();
+    bytes_written += BinarySerializer::write(ofs, &node_id);
+    bytes_written += BinarySerializer::write(ofs, &has_parent);
+    bytes_written += BinarySerializer::write(ofs, &owner);
+    bytes_written += BinarySerializer::write(ofs, &num_children);
+    if (has_parent)
+    {
+      const uint64_t parent_node_id = reinterpret_cast<uint64_t>(node->get_parent());
+      bytes_written += BinarySerializer::write(ofs, &parent_node_id);
+    }
+    for (SceneNode* child : node->get_children())
+    {
+      const uint64_t child_node_id = reinterpret_cast<uint64_t>(child);
+      bytes_written += BinarySerializer::write(ofs, &child_node_id);
+    }
+    return bytes_written;
+  }
+
+  SerializableSizeT BinarySerializerSpec<SceneNode>::read(std::ifstream& ifs, SceneNode* node)
+  {
+    if (!node) [[unlikely]]
+    {
+      return 0;
+    }
+    SerializableSizeT bytes_read = 0;
+    NodeDeserializationData data;
+    uint32_t num_children = 0;
+    bool has_parent = false;
+    data.node_ptr = node;
+    bytes_read += BinarySerializer::read(ifs, &data.node_id);
+    bytes_read += BinarySerializer::read(ifs, &has_parent);
+    bytes_read += BinarySerializer::read(ifs, &data.entity);
+    bytes_read += BinarySerializer::read(ifs, &num_children);
+    if (has_parent)
+    {
+      bytes_read += BinarySerializer::read(ifs, &data.parent_node_id);
+    }
+    data.children_node_ids.resize(num_children);
+    for (uint32_t i = 0; i < num_children; i++)
+    {
+      bytes_read += BinarySerializer::read(ifs, &data.children_node_ids[i]);
+    }
+    on_node_read_completed.notify(data);
+    return bytes_read;
+  }
+
 } // namespace fury

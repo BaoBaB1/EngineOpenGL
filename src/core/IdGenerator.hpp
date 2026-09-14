@@ -4,8 +4,8 @@
 
 namespace fury
 {
-  template<typename T, typename IdType = uint32_t>
-  class IdGeneratorT
+  template<typename IdType = uint32_t>
+  class IdGenerator
   {
   public:
     using IdT = IdType;

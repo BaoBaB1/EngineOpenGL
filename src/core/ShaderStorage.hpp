@@ -1,7 +1,8 @@
 #pragma once
 
-#include "./core/Shader.hpp"
-#include <map>
+#include "Shader.hpp"
+#include <vector>
+#include <span>
 
 namespace fury
 {
@@ -26,9 +27,17 @@ namespace fury
       LAST_ITEM
     };
     static void init();
-    static Shader& get(ShaderType type) { return shaders[type]; }
-    static Shader* get(unsigned int id);
+    static void create_shader(const ShaderDescription& desc, ShaderType type, bool do_defines_permutations);
+    static Shader* get(ShaderType type, std::span<std::string> defines = {});
   private:
-    static std::map<ShaderType, Shader> shaders;
+    struct ShaderEntry
+    {
+      // ShaderDescription desc;
+      Shader shader;
+      std::vector<std::string> defines;
+      fury::ShaderStorage::ShaderType shader_type;
+    };
+  private:
+    inline static std::vector<ShaderEntry> shader_entries;
   };
 } // namespace fury

@@ -9,7 +9,7 @@ namespace fury
   class Gizmo : public UiComponent
   {
   public:
-    Gizmo(Scene* scene);
+    Gizmo();
     void tick(float) override;
   private:
     uint16_t m_gizmo_operation;

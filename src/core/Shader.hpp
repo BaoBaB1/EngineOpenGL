@@ -20,6 +20,7 @@ namespace fury
   {
     std::vector<std::pair<fury::ShaderStage, std::filesystem::path>> sources;
     std::string name;
+    std::vector<std::string> defines;
   };
 
   class Shader : public OpenGLObject
@@ -32,6 +33,7 @@ namespace fury
     void init(const ShaderDescription& description);
     void set_matrix4f(const char* uniform_name, const glm::mat4& value);
     void set_vec3(const char* uniform_name, const glm::vec3& value);
+    void set_vec4(const char* uniform_name, const glm::vec4& value);
     void set_bool(const char* uniform_name, bool value);
     void set_uint(const char* uniform_name, unsigned int value);
     void set_float(const char* uniform_name, float value);

@@ -3,8 +3,21 @@
 
 namespace fury
 {
-  UiComponent::UiComponent(Scene* scene) : m_scene(scene)
+  void UiComponent::init(Scene* scene)
   {
+    m_scene = scene;
+  }
+
+  void UiComponent::toggle_visibility()
+  {
+    if (m_is_visible)
+    {
+      hide();
+    }
+    else
+    {
+      show();
+    }
   }
 
   void UiComponent::show()

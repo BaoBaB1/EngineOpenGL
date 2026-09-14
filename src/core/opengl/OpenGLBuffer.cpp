@@ -25,17 +25,17 @@ namespace fury
     glBufferSubData(m_type, offset, size_in_bytes, data);
   }
 
-  void OpenGLBuffer::resize(size_t new_size)
+  void OpenGLBuffer::resize(size_t size_in_bytes)
   {
-    glBufferData(m_type, new_size, nullptr, GL_STATIC_DRAW);
-    m_size = new_size;
+    glBufferData(m_type, size_in_bytes, nullptr, GL_STATIC_DRAW);
+    m_size = size_in_bytes;
   }
 
-  void OpenGLBuffer::resize_if_smaller(size_t new_size)
+  void OpenGLBuffer::resize_if_smaller(size_t size_in_bytes)
   {
-    if (m_size < new_size)
+    if (m_size < size_in_bytes)
     {
-      resize(new_size);
+      resize(size_in_bytes);
     }
   }
 
@@ -47,11 +47,6 @@ namespace fury
   void OpenGLBuffer::unbind() const
   {
     glBindBuffer(m_type, 0);
-  }
-
-  void OpenGLBuffer::set_binding_point(int point) const
-  {
-    glBindBufferBase(m_type, point, id());
   }
 
   OpenGLBuffer::~OpenGLBuffer()

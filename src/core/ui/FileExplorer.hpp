@@ -1,19 +1,17 @@
 #pragma once
 
 #include "UiComponent.hpp"
-#include "core/Event.hpp"
 #include <string>
 #include <functional>
 
 namespace fury
 {
-  class Scene;
   struct OpenFileExplorerContext;
 
   class FileExplorer : public UiComponent
   {
   public:
-    FileExplorer(Scene* scene);
+    FileExplorer() = default;
     void open(const OpenFileExplorerContext& ctx, std::function<void(const std::string&)> callback);
     void tick(float) override;
   private:

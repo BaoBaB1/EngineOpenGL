@@ -4,6 +4,7 @@
 #include <spdlog/spdlog.h>
 #include <string_view>
 #include <string>
+#include <filesystem>
 
 template<>
 struct fmt::formatter<glm::vec3> : fmt::formatter<std::string>
@@ -33,6 +34,15 @@ struct fmt::formatter<glm::mat4> : fmt::formatter<std::string>
                           "[{:.8f} {:.8f} {:.8f} {:.8f}]\n[{:.8f} {:.8f} {:.8f} {:.8f}]",
                           mat[0][0], mat[1][0], mat[2][0], mat[3][0], mat[0][1], mat[1][1], mat[2][1], mat[3][1],
                           mat[0][2], mat[1][2], mat[2][2], mat[3][2], mat[0][3], mat[1][3], mat[2][3], mat[3][3]);
+  }
+};
+
+template<>
+struct fmt::formatter<std::filesystem::path> : fmt::formatter<std::string>
+{
+  auto format(const std::filesystem::path& path, format_context& ctx) const -> decltype(ctx.out())
+  {
+    return fmt::format_to(ctx.out(), "{}", path.string());
   }
 };
 
