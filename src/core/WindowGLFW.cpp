@@ -14,26 +14,21 @@ namespace fury
     vertical = info->height;
   }
 
-  WindowGLFW::WindowGLFW(int width, int height, const char* title)
+  WindowGLFW::WindowGLFW()
   {
-    init(width, height, title);
-  }
-
-  void WindowGLFW::init(int width, int height, const char* title)
-  {
-    m_width = width;
-    m_height = height;
-    m_title = title;
-    // Tell GLFW what version of OpenGL we are using
+    if (glfwInit() != GLFW_TRUE)
+    {
+      Logger::critical("Failed to init glfw");
+      throw std::runtime_error("Failed to init glfw");
+    }
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
-    // Tell GLFW we are using the CORE profile (only modern functions)
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_SAMPLES, 4);
-    m_window = glfwCreateWindow(width, height, title, nullptr, glfwGetCurrentContext());
+    m_window = glfwCreateWindow(m_width, m_height, m_title, nullptr, glfwGetCurrentContext());
     if (m_window == nullptr)
     {
-      Logger::critical("Failed to create GLFW window. Make sure your driver supports at least OpenGL 4.4");
+      Logger::critical("Failed to create GLFW window. Make sure your driver supports at least OpenGL 4.6");
       return;
     }
     glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -45,7 +40,7 @@ namespace fury
     glfwSetWindowUserPointer(m_window, this);
     auto window_size_change_callback = [](GLFWwindow* window, int width, int height)
     {
-      static_cast<WindowGLFW*>(glfwGetWindowUserPointer(window))->on_window_size_change.notify(width, height);
+      static_cast<WindowGLFW*>(glfwGetWindowUserPointer(window))->window_size_changed.notify(width, height);
     };
     auto window_focus_change_callback = [](GLFWwindow* window, int focused)
     {

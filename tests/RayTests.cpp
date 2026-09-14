@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
-#include "ge/Ray.hpp"
-#include "ge/BoundingBox.hpp"
+#include "core/Ray.hpp"
+#include "core/BoundingBox.hpp"
 
 using namespace fury;
 

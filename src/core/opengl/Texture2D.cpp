@@ -1,77 +1,45 @@
 #include "Texture2D.hpp"
 #include "core/AssetManager.hpp"
+#include <stdexcept>
+#include <memory>
 
 namespace fury
 {
-  const Texture2D& Texture2D::get_placeholder()
+  AssetHandle<Texture2D> Texture2D::get_placeholder()
   {
-    static Texture2D placeholder;
-    static bool once = false;
-    if (!once)
-    {
-      placeholder.init(AssetManager::get_absolute_from_relative("textures/placeholder.png").value());
-      placeholder.create();
-      once = true;
-    }
-    return placeholder;
+    static AssetHandle<Texture2D> tex = TextureManager::load(utils::get_textures_folder() / "placeholder.png");
+    return tex;
   }
 
-  void Texture2D::create()
+  std::pair<std::unique_ptr<unsigned char, StbDeleter>, ImageData>
+  Texture2D::read_image(const std::filesystem::path& file, bool flip_vertically)
   {
-    if (!is_initialized())
-    {
-      Logger::error("[Texture2D::create]: Tried to create uninitialized texture.");
-      return;
-    }
-    else
-    {
-      // This can happen if texture was created and initialized in other thread
-      if (m_id == 0)
-      {
-        glGenTextures(1, id_ref());
-        if (m_id == 0)
-        {
-          Logger::error("[Texture2D::create] Texture id is 0.");
-          return;
-        }
-      }
-      m_pixel_data_type = GL_UNSIGNED_BYTE;
-      m_disabled = false;
-      m_internal_fmt = m_fmt = (m_texture_data.channels == 3 ? GL_RGB : GL_RGBA);
-      bind();
-      glTexImage2D(GL_TEXTURE_2D, 0, m_internal_fmt, m_texture_data.width, m_texture_data.height, 0, m_fmt,
-                   GL_UNSIGNED_BYTE, m_texture_data.pixels.get());
-      // texture wrapping around x,y axes
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-      // filtering methods
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, /*GL_LINEAR_MIPMAP_LINEAR*/ GL_NEAREST);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glGenerateMipmap(GL_TEXTURE_2D);
-      unbind();
-      // No more holding pixels in RAM
-      m_texture_data.pixels.reset();
-    }
+    std::unique_ptr<unsigned char, StbDeleter> pixels;
+    ImageData idata;
+    stbi_set_flip_vertically_on_load(flip_vertically);
+    idata.file = file;
+    pixels.reset(stbi_load(file.string().c_str(), &idata.width, &idata.height, &idata.channels, 0));
+    return { std::move(pixels), idata };
   }
 
-  void Texture2D::init(int w, int h, int internal_format, int format, int pixel_type)
+  Texture2D::Texture2D(int w, int h, int internal_format, int format, int pixel_type)
   {
-    m_fmt = format;
-    m_internal_fmt = internal_format;
-    m_pixel_data_type = pixel_type;
-    m_texture_data.width = w;
-    m_texture_data.height = h;
+    create(w, h, internal_format, format, pixel_type);
   }
 
-  void Texture2D::resize(int w, int h)
+  Texture2D::Texture2D(const std::unique_ptr<unsigned char, StbDeleter>& pixels, const ImageData& image_data)
   {
-    m_texture_data.width = w;
-    m_texture_data.height = h;
-    bind();
-    glTexImage2D(GL_TEXTURE_2D, 0, m_internal_fmt, w, h, 0, m_fmt, m_pixel_data_type, nullptr);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, /*GL_NEAREST*/ GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, /*GL_NEAREST*/ GL_LINEAR);
-    unbind();
+    create(pixels, image_data);
+  }
+
+  Texture2D::Texture2D(const std::filesystem::path& file, bool flip_vertically)
+  {
+    create(file, flip_vertically);
+  }
+
+  Texture2D::~Texture2D()
+  {
+    glDeleteTextures(1, id_ref());
   }
 
   void Texture2D::bind() const
@@ -84,41 +52,85 @@ namespace fury
     glBindTexture(GL_TEXTURE_2D, 0);
   }
 
-  uint64_t Texture2D::write(std::ofstream& ofs) const
+  void Texture2D::create(const std::unique_ptr<unsigned char, StbDeleter>& pixels, const ImageData& image_data)
   {
-    TextureType type = get_type();
-    // path relative to assets folder
-    const std::string path = AssetManager::get_relative_from_absolute(get_file()).value().string();
-    const uint16_t path_len = path.size();
-    ofs.write(reinterpret_cast<const char*>(&type), sizeof(TextureType));
-    ofs.write(reinterpret_cast<const char*>(&path_len), sizeof(path_len));
-    ofs.write(path.data(), path_len);
-    return sizeof(TextureType) + sizeof(path_len) + path_len;
+    if (!pixels) [[unlikely]]
+    {
+      Logger::error("[Texture2D::create] Pixels are empty.");
+      return;
+    }
+
+    if (m_id != 0)
+    {
+      Logger::error("[Texture2D::create] Texture already created.");
+      return;
+    }
+
+    glGenTextures(1, id_ref());
+    static_cast<ImageData&>(m_texture_data) = image_data;
+
+    m_texture_data.pixel_data_type = GL_UNSIGNED_BYTE;
+    m_texture_data.internal_fmt = m_texture_data.fmt = (m_texture_data.channels == 3 ? GL_RGB : GL_RGBA);
+    bind();
+    glTexImage2D(GL_TEXTURE_2D, 0, m_texture_data.internal_fmt, m_texture_data.width, m_texture_data.height, 0,
+                 m_texture_data.fmt, GL_UNSIGNED_BYTE, pixels.get());
+    // texture wrapping around x,y axes
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    // filtering methods
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, /*GL_LINEAR_MIPMAP_LINEAR*/ GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    unbind();
   }
 
-  uint64_t Texture2D::read(std::ifstream& ifs)
+  void Texture2D::create(const std::filesystem::path& file, bool flip_vertically)
   {
-    TextureType type;
-    uint16_t path_len;
-    std::string path;
-    ifs.read(reinterpret_cast<char*>(&type), sizeof(TextureType));
-    ifs.read(reinterpret_cast<char*>(&path_len), sizeof(path_len));
-    path.resize(path_len);
-    ifs.read(path.data(), path_len);
-    auto full_path = AssetManager::get_absolute_from_relative(path).value_or("");
-    if (full_path.empty())
+    auto [pixels, image_data] = Texture2D::read_image(file, flip_vertically);
+    create(std::move(pixels), image_data);
+  }
+
+  void Texture2D::resize(int w, int h)
+  {
+    m_texture_data.width = w;
+    m_texture_data.height = h;
+    bind();
+    glTexImage2D(GL_TEXTURE_2D, 0, m_texture_data.internal_fmt, w, h, 0, m_texture_data.fmt,
+                 m_texture_data.pixel_data_type, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, /*GL_NEAREST*/ GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, /*GL_NEAREST*/ GL_LINEAR);
+    unbind();
+  }
+
+  void Texture2D::create(int w, int h, int internal_format, int format, int pixel_type)
+  {
+    if (m_id != 0)
     {
-      Logger::error("Failed to get absolute path from relative {} during Texture2D reading", path);
+      Logger::error("[Texture2D::create] Texture already created.");
+      return;
     }
-    else
-    {
-      set_type(type);
-      init(full_path.string());
-      create();
-    }
-    // TODO: fixme. creates multiple texture instance for same file ...
-    // texture and asset managers don't know about it???
-    return sizeof(TextureType) + sizeof(path_len) + path_len;
+    glGenTextures(1, id_ref());
+    m_texture_data.fmt = format;
+    m_texture_data.internal_fmt = internal_format;
+    m_texture_data.pixel_data_type = pixel_type;
+    m_texture_data.width = w;
+    m_texture_data.height = h;
+    resize(w, h);
+  }
+
+  uint32_t BinarySerializerSpec<Texture2D>::write(std::ofstream& ofs, const Texture2D* t)
+  {
+    uint32_t bytes_written = 0;
+    bytes_written += BinarySerializer::write(ofs, &t->get_texture_data().file);
+    return bytes_written;
+  }
+
+  uint32_t BinarySerializerSpec<Texture2D>::read(std::ifstream& ifs, Texture2D* t)
+  {
+    std::filesystem::path file;
+    uint32_t bytes_read = BinarySerializer::read(ifs, &file);
+    t->create(file);
+    return bytes_read;
   }
 
 } // namespace fury

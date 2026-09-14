@@ -1,5 +1,6 @@
-#include "gtest/gtest.h"
 #include "core/Macros.hpp"
+#include "core/Serialization.hpp"
+#include <gtest/gtest.h>
 #include <vector>
 #include <filesystem>
 
@@ -59,13 +60,13 @@ TEST(SerializationTest, DefaultSerialization)
   obj.vec = { 1, 2, 3, 4 };
   std::ofstream ofs;
   ::create_test_file_and_open_stream(ofs);
-  uint64_t bytes_written = Serializer<SimpleClass>::write(ofs, &obj);
+  uint64_t bytes_written = BinarySerializer::write(ofs, &obj);
   ofs.close();
 
   SimpleClass obj2;
   std::ifstream ifs;
   ifs.open(test_file, std::ios_base::binary);
-  uint64_t bytes_read = Serializer<SimpleClass>::read(ifs, &obj2);
+  uint64_t bytes_read = BinarySerializer::read(ifs, &obj2);
   ifs.close();
   std::filesystem::remove(test_file);
 
@@ -82,7 +83,7 @@ TEST(SerializationTest, SerializationWithFieldSkip)
   obj.vec = { 1, 2, 3, 4 };
   std::ofstream ofs;
   ::create_test_file_and_open_stream(ofs);
-  uint64_t bytes_written = Serializer<SimpleClass>::write(ofs, &obj);
+  uint64_t bytes_written = BinarySerializer::write(ofs, &obj);
   ofs.close();
 
   // DIRTY HACKS COMING
@@ -98,7 +99,7 @@ TEST(SerializationTest, SerializationWithFieldSkip)
   SimpleClass obj2;
   std::ifstream ifs;
   ifs.open(test_file, std::ios_base::binary);
-  uint64_t bytes_read = Serializer<SimpleClass>::read(ifs, &obj2);
+  uint64_t bytes_read = BinarySerializer::read(ifs, &obj2);
   ifs.close();
 
   EXPECT_TRUE(bytes_read == bytes_written);
@@ -114,13 +115,13 @@ TEST(SerializationTest, DerivedClassSerialization)
   d.base_field = 12.12;
   std::ofstream ofs;
   ::create_test_file_and_open_stream(ofs);
-  uint64_t bytes_written = Serializer<Derived>::write(ofs, &d);
+  uint64_t bytes_written = BinarySerializer::write(ofs, &d);
   ofs.close();
 
   Derived d2;
   std::ifstream ifs;
   ifs.open(test_file, std::ios_base::binary);
-  uint64_t bytes_read = Serializer<Derived>::read(ifs, &d2);
+  uint64_t bytes_read = BinarySerializer::read(ifs, &d2);
   ifs.close();
 
   EXPECT_TRUE(bytes_read == bytes_written);
@@ -128,32 +129,4 @@ TEST(SerializationTest, DerivedClassSerialization)
   EXPECT_TRUE(d2.derived_field == 100);
   EXPECT_FLOAT_EQ(d2.base_field, 12.12);
   std::filesystem::remove(test_file);
-}
-
-TEST(SerializationTest, SerializationViaBasePointer)
-{
-  Base* d = new Derived;
-  d->base_field = 12.12;
-  static_cast<Derived*>(d)->derived_field = 100;
-  std::ofstream ofs;
-  ::create_test_file_and_open_stream(ofs);
-  // dynamic dispatch. resolved to Serializer<Derived>::write
-  uint64_t bytes_written = d->write(ofs);
-  ofs.close();
-
-  Base* d2 = new Derived;
-  std::ifstream ifs;
-  ifs.open(test_file, std::ios_base::binary);
-  // dynamic dispatch. resolved to Serializer<Derived>::read
-  uint64_t bytes_read = d2->read(ifs);
-  ifs.close();
-
-  EXPECT_TRUE(bytes_read == bytes_written);
-  // we read both derived and base part
-  EXPECT_TRUE(d2->base_field == d->base_field);
-  EXPECT_TRUE(static_cast<Derived*>(d)->derived_field == static_cast<Derived*>(d)->derived_field);
-
-  std::filesystem::remove(test_file);
-  delete d;
-  delete d2;
 }

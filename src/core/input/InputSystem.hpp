@@ -13,14 +13,18 @@ struct GLFWwindow;
 namespace fury
 {
   // clang-format off
-  constexpr static std::string_view movement_action_names[] = {
+  constexpr static std::string_view g_movement_action_names[] = {
       "MoveForward", "MoveBackward", "MoveLeft", "MoveRight", "MoveUp", "MoveDown", "SpeedUp"
   };
-    
-  constexpr static std::string_view input_context_names[] = {
-      "FreeCam", "UI"
-  };
   // clang-format on
+
+  enum InputContextType
+  {
+    FIRST_ITEM,
+    FREECAM,
+    SCENE_EDITING_MODE,
+    LAST_ITEM
+  };
 
   enum InputCode
   {
@@ -68,7 +72,7 @@ namespace fury
 
   struct InputContext
   {
-    std::string name;
+    InputContextType type;
     std::unordered_map<std::string, Action> actions;
   };
 
@@ -79,7 +83,8 @@ namespace fury
   public:
     void init(fury::WindowGLFW* window);
     const InputContext* get_active_input_context() const { return m_context_stack.top(); }
-    void push_context(std::string_view name);
+    uint32_t get_input_context_stack_size() const;
+    void push_context(InputContextType ctx_type);
     void pop_context();
     bool is_action_active(const std::string& action) const;
     float get_axis_value(const std::string& action) const;
@@ -97,7 +102,7 @@ namespace fury
     void mouse_click_callback(GLFWwindow* window, int button, int action, int mods);
     void cursor_move_callback(GLFWwindow* window, double xpos, double ypos);
     void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
-    void create_default_bindings(std::string_view context_name, InputContext& context);
+    void create_default_bindings(InputContextType ctx_type, InputContext& context);
   private:
     std::unordered_map<InputCode, float> m_input_states;
     std::vector<InputContext> m_contexts;

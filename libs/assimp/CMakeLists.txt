@@ -4,7 +4,7 @@ FetchContent_Declare(
   assimp
   GIT_REPOSITORY https://github.com/assimp/assimp.git
   GIT_SHALLOW TRUE
-  GIT_TAG        v5.4.3
+  GIT_TAG        v6.0.5
 )
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)

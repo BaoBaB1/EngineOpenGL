@@ -1,5 +1,3 @@
-#version 440 core
-
 const int g_directionalLightType = 0;
 const int g_pointLightType = 1;
 const int g_spotLightType = 2;
@@ -35,32 +33,41 @@ struct LightInfo
 
 	// 0 - directional, 1 - point, 2 - spot
 	int type;
+	int is_active;
 };
 
-layout (std430, binding = 2) buffer Lights
+layout (std430, binding = 2) readonly buffer Lights
 {
 	LightInfo lightInfos[];
 };
 
 out vec4 fragColor;
 
-in vec3 normal;
-in vec4 color;
-in vec3 fragment;
-in vec2 uv;
-in vec4 fragPosDirectionalLightSpace;
+layout(location = 0) in vec3 normal;
+layout(location = 1) in vec4 color;
+layout(location = 2) in vec3 fragment;
+layout(location = 3) in vec2 uv;
+#ifdef APPLY_LIGHTING
+	layout(location = 4) in vec4 fragPosDirectionalLightSpace;
+#endif
 
-uniform bool applyShading;
-uniform bool hasAmbientTex;
-uniform bool hasDiffuseTex;
-uniform bool hasSpecularTex;
-uniform vec3 viewPos;
-uniform sampler2D ambientTex;
-uniform sampler2D diffuseTex;
-uniform sampler2D specularTex;
-uniform sampler2D shadowMap;
-uniform Material material;
+#ifdef HAS_AMBIENT_TEXTURE
+	layout(binding = 0) uniform sampler2D ambientTex;
+#endif
+#ifdef HAS_DIFFUSE_TEXTURE
+	layout(binding = 1) uniform sampler2D diffuseTex;
+#endif
+#ifdef HAS_SPECULAR_TEXTURE
+	layout(binding = 2) uniform sampler2D specularTex;
+#endif
+#ifdef APPLY_LIGHTING
+	layout(binding = 3) uniform sampler2D shadowMap;
+#endif
+
 uniform int numLights;
+uniform Material material;
+uniform vec3 viewPos;
+uniform vec4 overrideColor;
 
 //vec2 poissonDisk[4] = vec2[](
 //  vec2( -0.94201624, -0.39906216 ),
@@ -77,6 +84,7 @@ uniform int numLights;
 //}
 
 
+#ifdef APPLY_LIGHTING
 float CalculateShadowValue(vec3 directionalLightDir)
 {
 	// perform perspective divide and scale coord to [-1, 1] range
@@ -108,48 +116,67 @@ float CalculateShadowValue(vec3 directionalLightDir)
 	}
 	return shadow / total_texels;
 }
+#endif
 
 void main()
 {
+#ifdef USE_VERTEX_COLOR
 	fragColor = color;
-	if (hasDiffuseTex) {
-		fragColor *= texture(diffuseTex, uv);
-	}
+#else 
+  fragColor = overrideColor;
+#endif
 
-	if (applyShading && numLights > 0)
+#ifdef HAS_DIFFUSE_TEXTURE
+	fragColor *= texture(diffuseTex, uv);
+#endif
+
+#ifdef APPLY_LIGHTING
+	if (numLights > 0)
 	{
-		vec3 ambientColor = hasAmbientTex ? texture(ambientTex, uv).rgb : material.ambient;
-		vec3 specularColor = hasSpecularTex ? texture(specularTex, uv).rgb : material.specular;
+	#ifdef HAS_AMBIENT_TEXTURE
+		vec3 ambientColor = texture(ambientTex, uv).rgb;
+	#else 
+		vec3 ambientColor = material.ambient;
+	#endif
+	#ifdef HAS_SPECULAR_TEXTURE
+		vec3 specularColor = texture(specularTex, uv).rgb;
+	#else
+		vec3 specularColor = material.specular;
+	#endif
 		float shininess = material.shininess;
 		float alpha = material.alpha;
 
 		// Phong shading model
 		vec4 lightColor = vec4(0);
+		int numActiveLights = 0;
 		for (int i = 0; i < numLights; i++)
 		{
 			LightInfo lightInfo = lightInfos[i];
+			if (!bool(lightInfo.is_active))
+				continue;
+			numActiveLights++;
 			vec3 ambientLightColor = lightInfo.ambient.rgb;
 			vec3 diffuseLightColor = lightInfo.diffuse.rgb;
 			vec3 specularLightColor = lightInfo.specular.rgb;
-
+		
 			// ambient light
 			// more lights - less ambient impact
 			float ambientStrength = (1 / numLights) * 0.1;
 			vec3 ambient = ambientStrength * ambientLightColor * ambientColor;
-
+		
 			//diffuse light
 			vec3 norm = normalize(normal);
 			vec3 lightDir = normalize(lightInfo.pos.rgb - fragment);
 			float diffuseValue = max(dot(norm, lightDir), 0.0);
 			vec3 diffuse = diffuseValue * diffuseLightColor * material.diffuse;
-
+		
 			// specular light
 			float specularStrength = 0.5f;
 			vec3 viewDir = normalize(viewPos - fragment);
 			vec3 reflectedDir = reflect(-lightDir, norm);
 			float specValue = pow(max(dot(viewDir, reflectedDir), 0.0), shininess);
 			vec3 specular = specularStrength * specValue * specularLightColor * specularColor;
-
+		
 			if (lightInfo.type == g_directionalLightType)
 			{
 				float shadow = CalculateShadowValue(vec3(lightInfo.dir));
@@ -195,6 +222,9 @@ void main()
 				lightColor += vec4((ambient + diffuse + specular), 1.0);
 			}
 		}
-		fragColor *= lightColor;
+		// No active lights - no impact on fragment color
+		if (numActiveLights > 0)
+			fragColor *= lightColor;
 	}
+#endif
 }

@@ -1,5 +1,3 @@
-#version 440 core
-
 layout (std140, binding = 0) uniform CameraData
 {
   mat4 viewMatrix;

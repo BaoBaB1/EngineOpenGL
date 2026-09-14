@@ -1,20 +1,20 @@
 #pragma once
 
-#include <assimp/postprocess.h>
-#include <assimp/scene.h>
+#include "ecs/components/DrawableComponent.hpp"
 #include <filesystem>
-#include <memory>
+#include <vector>
+
+struct aiScene;
+struct aiNode;
 
 namespace fury
 {
-  class Object3D;
   class ModelLoader
   {
   public:
-    std::unique_ptr<Object3D> load(const std::string& file, unsigned int flags);
+    [[nodiscard]] std::vector<MeshNode> load(const std::filesystem::path& file);
   private:
-    void process(const aiNode* root, const aiScene* scene, const std::filesystem::path& file, Object3D* model);
-    void calc_max_extent(const aiNode* root, const aiScene* scene);
-    float m_max_extent = 0.f;
+    void process(const aiNode* root, const aiScene* scene, const std::filesystem::path& file,
+                 std::vector<MeshNode>& mesh_nodes, float vertex_scale, const float vertex_offset[3]);
   };
 } // namespace fury

@@ -1,19 +1,11 @@
 #include "FileExplorer.hpp"
 #include "core/WindowGLFW.hpp"
 #include "core/Scene.hpp"
-#include "core/AssetManager.hpp"
-#include "MenuBar.hpp"
 
 #include <ImGuiFileDialog.h>
-#include <GLFW/glfw3.h>
-#include <glad/glad.h>
 
 namespace fury
 {
-  FileExplorer::FileExplorer(Scene* scene) : UiComponent(scene)
-  {
-  }
-
   void FileExplorer::tick(float)
   {
     if (!m_is_visible)
@@ -24,7 +16,7 @@ namespace fury
     WindowGLFW* window = m_scene->get_window();
     // create file dialog
     IGFD::FileDialogConfig config;
-    config.path = AssetManager::get_assets_folder().string();
+    config.path = utils::get_assets_folder().string();
 
     // display in the middle of the screen
     ImGui::SetNextWindowPos(ImVec2(window->width() * 0.5f, window->height() * 0.5f), ImGuiCond_Appearing,

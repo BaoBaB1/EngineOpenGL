@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Logger.hpp"
+#include "utils/Utils.hpp"
 #include <functional>
 #include <unordered_map>
 #include <type_traits>
@@ -14,23 +15,40 @@ namespace fury
     template<typename T>
     static int register_type(uint32_t cls_id)
     {
-      if constexpr (std::is_default_constructible_v<T>)
+      if constexpr (!std::is_abstract_v<T>)
       {
         if (type_map.count(cls_id) != 0)
         {
-          Logger::warn("Type {} has already been registered! Trying to register classes with same names?", T::cls_name);
+          Logger::warn("Type {} has already been registered! Trying to register classes with same names?",
+                       utils::get_cls_name_helper<T>());
           return -1;
         }
-        type_map.insert({ T::cls_id, []()
+        type_map.insert({ cls_id, []()
                           {
                             return new T;
                           } });
-        return 0;
       }
-      else
+      return 0;
+    }
+
+    template<template<typename> typename Class, typename T>
+    static int register_template_class(uint32_t cls_id)
+    {
+      if constexpr (!std::is_abstract_v<T>)
       {
-        return -1;
+        if (type_map.count(cls_id) != 0)
+        {
+          Logger::warn("[ObjectsRegistry::register_template_class]: Template class {} with type {} has already been "
+                       "registered! Trying to register instantiated template with same type?",
+                       utils::get_cls_name_helper<Class<T>>(), utils::get_cls_name_helper<T>());
+          return -1;
+        }
+        type_map.insert({ cls_id, []()
+                          {
+                            return new Class<T>;
+                          } });
       }
+      return 0;
     }
 
     static bool contains(uint32_t cls_id) { return type_map.count(cls_id) != 0; }

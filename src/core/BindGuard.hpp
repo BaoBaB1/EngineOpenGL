@@ -1,7 +1,7 @@
 #pragma once
 
 #include "opengl/OpenGLObject.hpp"
-#include <initializer_list>
+#include <vector>
 
 namespace fury
 {
@@ -32,7 +32,7 @@ namespace fury
   class BindChainFIFO
   {
   public:
-    BindChainFIFO(std::initializer_list<OpenGLObject*> bindables)
+    BindChainFIFO(const std::vector<OpenGLObject*>& bindables)
     {
       m_bindables = bindables;
       for (const auto bindable : bindables)
@@ -48,6 +48,6 @@ namespace fury
       }
     }
   private:
-    std::initializer_list<OpenGLObject*> m_bindables;
+    std::vector<OpenGLObject*> m_bindables;
   };
 } // namespace fury

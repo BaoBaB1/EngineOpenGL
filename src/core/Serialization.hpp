@@ -1,8 +1,11 @@
 #pragma once
 
+#include "Common.hpp"
 #include "Logger.hpp"
-#include "EntityManager.hpp"
+#include "TypeTraits.hpp"
 #include "ObjectsRegistry.hpp"
+#include "utils/Utils.hpp"
+
 #include <fstream>
 #include <tuple>
 #include <array>
@@ -12,10 +15,20 @@
 #include <map>
 #include <set>
 #include <utility>
+#include <algorithm>
 
 #define FURY_SERIALIZER_MAJOR_VERSION = 1
 #define FURY_SERIALIZER_MINOR_VERSION = 0
 #define FURY_SERIALIZER_PATCH_VERSION = 0
+
+#define FURY_SERIALIZABLE_FIELD(tag, ptr) std::make_tuple<uint16_t, decltype(ptr)>(tag, ptr)
+
+#define FURY_DECLARE_SERIALIZABLE_FIELDS(...) \
+  static const auto& get_serializable_fields() \
+  { \
+    static auto fields = std::make_tuple(__VA_ARGS__); \
+    return fields; \
+  }
 
 namespace fury
 {
@@ -34,234 +47,119 @@ namespace fury
   } // namespace serializer
 
   template<typename T>
-  struct FieldPointerTraits;
-
-  template<typename T, typename U>
-  struct FieldPointerTraits<T U::*>
-  {
-    using FieldType = T;
-    using ClassType = U;
-  };
-
-  template<typename T, typename = void>
-  struct IsRegisteredClass : std::false_type
-  {
+  concept HasSpecializedSerializer = requires(std::ofstream& ofs, const T* t) {
+    { BinarySerializerSpec<T>::write(ofs, t) } -> std::same_as<SerializableSizeT>;
   };
 
   template<typename T>
-  struct IsRegisteredClass<T, std::void_t<decltype(T::cls_name)>> : std::true_type
-  {
+  concept HasSpecializedDeserializer = requires(std::ifstream& ifs, T* t) {
+    { BinarySerializerSpec<T>::read(ifs, t) } -> std::same_as<SerializableSizeT>;
   };
 
-  template<typename T, typename = void>
-  struct HasAnySerializableField : std::false_type
+  struct BinarySerializer
   {
-  };
-
-  template<typename T>
-  struct HasAnySerializableField<T, std::void_t<decltype(T::get_serializable_fields())>> : std::true_type
-  {
-  };
-
-  template<typename T, typename = void>
-  struct HasWriteMethod : std::false_type
-  {
-  };
-
-  template<typename T>
-  struct HasWriteMethod<T, std::void_t<decltype(std::declval<const T&>().write(std::declval<std::ofstream&>()))>>
-      : std::true_type
-  {
-  };
-
-  template<typename T, typename = void>
-  struct HasReadMethod : std::false_type
-  {
-  };
-
-  template<typename T>
-  struct HasReadMethod<T, std::void_t<decltype(std::declval<T&>().read(std::declval<std::ifstream&>()))>>
-      : std::true_type
-  {
-  };
-
-  template<typename T, typename = void>
-  struct HasBaseClass : std::false_type
-  {
-  };
-
-  template<typename T>
-  struct HasBaseClass<T, std::void_t<typename T::BaseCls>> : std::true_type
-  {
-  };
-
-  template<typename T>
-  struct IsStdVector : std::false_type
-  {
-  };
-
-  template<typename T>
-  struct IsStdVector<std::vector<T>> : std::true_type
-  {
-  };
-
-  template<typename T>
-  constexpr bool IsStdVector_v = IsStdVector<T>::value;
-
-  template<typename T>
-  struct IsStdArray : std::false_type
-  {
-  };
-
-  template<typename T, size_t N>
-  struct IsStdArray<std::array<T, N>> : std::true_type
-  {
-  };
-
-  template<typename T>
-  constexpr bool IsStdArray_v = IsStdArray<T>::value;
-
-  template<typename T>
-  struct IsStdUniquePointer : std::false_type
-  {
-  };
-
-  template<typename T>
-  struct IsStdUniquePointer<std::unique_ptr<T>> : std::true_type
-  {
-  };
-
-  template<typename T>
-  struct IsStdSharedPointer : std::false_type
-  {
-  };
-
-  template<typename T>
-  struct IsStdSharedPointer<std::shared_ptr<T>> : std::true_type
-  {
-  };
-
-  template<typename T>
-  constexpr bool IsStdSharedPointer_v = IsStdSharedPointer<T>::value;
-
-  template<typename T>
-  constexpr bool IsStdUniquePointer_v = IsStdUniquePointer<T>::value;
-
-  template<typename T>
-  constexpr bool HasSerializableFields()
-  {
-    if constexpr (!HasAnySerializableField<T>::value)
+  public:
+    template<typename T>
+    static SerializableSizeT write(std::ofstream& ofs, const T* obj)
     {
-      return false;
-    }
-    if constexpr (HasBaseClass<T>::value)
-    {
-      if constexpr (HasAnySerializableField<typename T::BaseCls>::value)
+      SerializableSizeT total_bytes_written = 0;
+      if constexpr (HasAnySerializableField<T>::value)
       {
-        return !std::is_same_v<decltype(T::get_serializable_fields()), decltype(T::BaseCls::get_serializable_fields())>;
-      }
-    }
-    return true;
-  }
+        // Logger::debug("Writing {}", T::cls_name);
 
-  template<typename T>
-  constexpr bool HasBaseClassSerializableFields()
-  {
-    if constexpr (HasBaseClass<T>::value)
-    {
-      return HasSerializableFields<typename T::BaseCls>();
-    }
-    return false;
-  }
-
-  template<typename T>
-  struct Serializer
-  {
-    static uint64_t write(std::ofstream& ofs, const T* obj)
-    {
-      if constexpr (!HasAnySerializableField<T>::value)
-      {
-        Logger::warn("Trying to call Serializer<T>::write for class without serializable fields.");
-        return 0;
-      }
-
-      // Logger::debug("Writing {}", T::cls_name);
-
-      uint64_t total_bytes_written = 0;
-      if constexpr (HasSerializableFields<T>())
-      {
-        const uint8_t serializable_name_len = static_cast<uint8_t>(T::cls_name.size());
-        ofs.write(reinterpret_cast<const char*>(&serializable_name_len), sizeof(uint8_t));
-        ofs.write(T::cls_name.data(), serializable_name_len);
-        // total size
         size_t pos_total_bytes = ofs.tellp();
         // write dummy value and then overwrite it
-        ofs.write(reinterpret_cast<const char*>(&total_bytes_written), sizeof(uint64_t));
-        total_bytes_written += sizeof(uint8_t) + serializable_name_len + sizeof(uint64_t);
+        ofs.write(reinterpret_cast<const char*>(&total_bytes_written), sizeof(total_bytes_written));
+        total_bytes_written += sizeof(total_bytes_written);
+
+        if constexpr (IsRegisteredClass<T>::value)
+        {
+          const uint8_t serializable_name_len = static_cast<uint8_t>(T::cls_name.size());
+          ofs.write(reinterpret_cast<const char*>(&serializable_name_len), sizeof(serializable_name_len));
+          ofs.write(T::cls_name.data(), serializable_name_len);
+          total_bytes_written += sizeof(serializable_name_len) + serializable_name_len;
+          if constexpr (HasBaseClass<T>::value)
+          {
+            //  Logger::debug("Writing base class {} of {}", T::BaseCls::cls_name, T::cls_name);
+            total_bytes_written += BinarySerializer::write<typename T::BaseCls>(ofs, obj);
+          }
+        }
 
         auto write_field = [&](std::ofstream& ofs, const T* obj, const auto& tup) -> uint32_t
         {
-          uint16_t tag = std::get<0>(tup);
+          SerializableSizeT bytes_written = 0;
+          const uint16_t tag = std::get<0>(tup);
+          const size_t field_size_pos = ofs.tellp();
+          ofs.write(reinterpret_cast<const char*>(&bytes_written), sizeof(bytes_written));
           ofs.write(reinterpret_cast<const char*>(&tag), sizeof(tag));
+          bytes_written += sizeof(tag) + sizeof(bytes_written);
           // Logger::debug("Writing tag {} of entity {}", tag, T::cls_name);
-          // optional<func>
-          if (auto write_func = std::get<3>(tup))
-          {
-            return sizeof(tag) + (*write_func)(obj, ofs);
-          }
           auto member_field_ptr = std::get<1>(tup);
           const auto& field = obj->*member_field_ptr;
-          return sizeof(tag) + write_helper(ofs, field);
+          bytes_written += write_helper(ofs, field);
+          // Write field size in bytes
+          const size_t tmp_cur_pos = ofs.tellp();
+          ofs.seekp(field_size_pos, std::ios_base::beg);
+          ofs.write(reinterpret_cast<const char*>(&bytes_written), sizeof(bytes_written));
+          ofs.seekp(tmp_cur_pos, std::ios_base::beg);
+          return bytes_written;
         };
 
         std::apply([&](auto&&... args) { ((total_bytes_written += write_field(ofs, obj, args)), ...); },
                    T::get_serializable_fields());
 
-        size_t tmp = ofs.tellp();
-        ofs.seekp(pos_total_bytes, std::ios_base::beg);
-        ofs.write(reinterpret_cast<const char*>(&total_bytes_written), sizeof(uint64_t));
-        ofs.seekp(tmp, std::ios_base::beg);
+        const size_t cur_pos_tmp = ofs.tellp();
+        ofs.seekp(pos_total_bytes);
+        ofs.write(reinterpret_cast<const char*>(&total_bytes_written), sizeof(total_bytes_written));
+        ofs.seekp(cur_pos_tmp);
+      }
+      else
+      {
+        total_bytes_written += write_helper(ofs, *obj);
       }
 
-      if constexpr (HasBaseClass<T>::value)
+      if (total_bytes_written == 0)
       {
-        if constexpr (HasAnySerializableField<typename T::BaseCls>::value)
-        {
-          // Logger::debug("Writing base class {} of {}", T::BaseCls::cls_name, T::cls_name);
-          total_bytes_written += Serializer<typename T::BaseCls>::write(ofs, obj);
-        }
+        Logger::warn("BinarySerializer<T>::write is called for class {} without serializable fields.",
+                     utils::get_cls_name_helper<T>());
       }
       return total_bytes_written;
     }
 
-    static uint64_t read(std::ifstream& ifs, T* obj)
+    template<typename T>
+    static SerializableSizeT read(std::ifstream& ifs, T* obj)
     {
-      if constexpr (!HasAnySerializableField<T>::value)
+      SerializableSizeT read_bytes_total = 0;
+      if constexpr (HasAnySerializableField<T>::value)
       {
-        Logger::warn("Trying to call Serializer<T>::read for class without serializable fields.");
-        return 0;
-      }
+        // Logger::debug("Reading {}", T::cls_name);
 
-      // Logger::debug("Reading {}", T::cls_name);
-      uint64_t read_bytes = 0;
-      if constexpr (HasSerializableFields<T>())
-      {
-        uint8_t serializable_name_len = 0;
-        ifs.read(reinterpret_cast<char*>(&serializable_name_len), sizeof(uint8_t));
-        std::string serializable_name(serializable_name_len, ' ');
-        ifs.read(serializable_name.data(), serializable_name_len);
-        uint64_t chunk_size;
-        ifs.read(reinterpret_cast<char*>(&chunk_size), sizeof(uint64_t));
-        read_bytes += sizeof(uint8_t) + serializable_name_len + sizeof(uint64_t);
-        // TODO: Synonyms/aliases system to be able to deal with the issue when class name has changed
-        // but class layout/fields remain the same.
-        if (serializable_name != T::cls_name)
+        SerializableSizeT chunk_size;
+        ifs.read(reinterpret_cast<char*>(&chunk_size), sizeof(chunk_size));
+        read_bytes_total += sizeof(chunk_size);
+
+        if constexpr (IsRegisteredClass<T>::value)
         {
-          Logger::error("Expected serializable chunk {}, got {} instead.", T::cls_name, serializable_name.c_str());
-          // skip chunk remaining bytes
-          ifs.seekg(static_cast<uint64_t>(ifs.tellg()) + chunk_size);
-          // read the whole chunk
-          return chunk_size;
+          uint8_t serializable_name_len = 0;
+          ifs.read(reinterpret_cast<char*>(&serializable_name_len), sizeof(serializable_name_len));
+          std::string serializable_name(serializable_name_len, ' ');
+          ifs.read(serializable_name.data(), serializable_name_len);
+          read_bytes_total += serializable_name_len + sizeof(uint8_t);
+          // TODO: Synonyms/aliases system to be able to deal with the issue when class name has changed
+          // but class layout/fields remain the same.
+          if (serializable_name != T::cls_name)
+          {
+            Logger::error("Expected serializable chunk {}, got {} instead.", T::cls_name, serializable_name.c_str());
+            // skip chunk remaining bytes
+            ifs.seekg(static_cast<uint64_t>(ifs.tellg()) + chunk_size);
+            // read the whole chunk
+            return chunk_size;
+          }
+          if constexpr (HasBaseClass<T>::value)
+          {
+            //  Logger::debug("Reading base class {}", T::BaseCls::cls_name);
+            read_bytes_total += BinarySerializer::read<typename T::BaseCls>(ifs, obj);
+          }
         }
 
         const auto& fields = T::get_serializable_fields();
@@ -270,48 +168,51 @@ namespace fury
 
         // now reading actual chunk data
         const size_t ifs_start_pos = ifs.tellg();
-        while (read_bytes < chunk_size)
+        while (read_bytes_total < chunk_size)
         {
-          uint16_t tag;
+          SerializableSizeT field_bytes = 0;
+          SerializableTagT tag = 0;
+          ifs.read(reinterpret_cast<char*>(&field_bytes), sizeof(field_bytes));
           ifs.read(reinterpret_cast<char*>(&tag), sizeof(tag));
-          read_bytes += sizeof(tag);
+          const SerializableSizeT field_size = field_bytes - sizeof(tag) - sizeof(field_bytes);
+          read_bytes_total += sizeof(tag) + sizeof(field_bytes);
           // Logger::debug("Reading tag {} of entity {}", tag, T::cls_name);
           // no such field. skip it
           if (std::find(present_tags.begin(), present_tags.end(), tag) == present_tags.end())
           {
             // size (uint32) + field bytes
-            uint32_t field_size;
-            ifs.read(reinterpret_cast<char*>(&field_size), sizeof(field_size));
-            if (read_bytes + field_size <= chunk_size)
+            if (read_bytes_total + field_size <= chunk_size)
             {
-              read_bytes += field_size;
-              // -4 because we already read field size
-              ifs.seekg(field_size - 4, std::ios_base::cur);
-              Logger::info("Skipping tag {} for class {}. Bytes skipped {}.", tag, T::cls_name, field_size);
+              ifs.seekg(field_size, std::ios_base::cur);
+              read_bytes_total += field_size;
+              Logger::info("Skipping tag {} for class {}. Bytes skipped {}.", tag, utils::get_cls_name_helper<T>(),
+                           field_size);
               continue;
             }
             else
             {
               Logger::error("Can't skip tag {} for class {}. Read_bytes + field_size > chunk_size. \
                 Read bytes {}, field size {}, chunk size {}.",
-                            tag, T::cls_name, read_bytes, field_size, chunk_size);
+                            tag, utils::get_cls_name_helper<T>(), read_bytes_total, field_size, chunk_size);
               break;
             }
           }
 
-          auto read_field = [=, &ifs, &read_bytes](auto&& tuple) -> bool
+          auto read_field = [=, &ifs, &read_bytes_total](auto&& tuple) -> bool
           {
+            SerializableSizeT read_field_bytes = 0;
             // find serializable field with that tag among other fields in tuple of tuples
             if (std::get<0>(tuple) == tag)
             {
-              if (auto read_func = std::get<2>(tuple))
+              auto field_ptr = std::get<1>(tuple);
+              read_field_bytes += read_helper(ifs, obj->*field_ptr);
+              read_bytes_total += read_field_bytes;
+              if (read_field_bytes != field_size)
               {
-                read_bytes += (*read_func)(obj, ifs);
-              }
-              else
-              {
-                auto field_ptr = std::get<1>(tuple);
-                read_bytes += read_helper(ifs, obj->*field_ptr, tag);
+                Logger::critical(
+                    "Failed to read field with tag {} of object {}. Field size read from file {}, read bytes {}.", tag,
+                    utils::get_cls_name_helper<T>(), field_size, read_bytes_total);
+                throw std::runtime_error("Deserialization critical error");
               }
               // Logger::debug("Read field bytes {}.", field_size);
               return true;
@@ -322,58 +223,66 @@ namespace fury
           std::apply([&](auto&&... tup) { ((read_field(tup)) || ...); }, fields);
         }
 
-        if (read_bytes != chunk_size)
+        if (read_bytes_total != chunk_size)
         {
-          Logger::error("Failed to read object {}. Chunk size ({}) != read bytes ({}). Skipping chunk...", T::cls_name,
-                        chunk_size, read_bytes);
+          Logger::error("Failed to read object {}. Chunk size ({}) != read bytes ({}). Skipping chunk...",
+                        utils::get_cls_name_helper<T>(), chunk_size, read_bytes_total);
           ifs.seekg(ifs_start_pos + chunk_size, std::ios_base::beg);
         }
       }
-
-      if constexpr (HasBaseClass<T>::value)
+      // Otherwise endless recursion
+      else
       {
-        if constexpr (HasAnySerializableField<typename T::BaseCls>::value)
-        {
-          // Logger::debug("Reading base class {}", T::BaseCls::cls_name);
-          read_bytes += Serializer<typename T::BaseCls>::read(ifs, obj);
-        }
+        read_bytes_total += read_helper(ifs, *obj);
       }
-
-      // TODO: better approach ?
-      if constexpr (std::is_base_of_v<Entity, T>)
+      if (read_bytes_total == 0)
       {
-        if (!EntityManager::has_entity(obj->m_id))
-        {
-          EntityManager::add_entity(obj);
-        }
+        Logger::warn("BinarySerializer<T>::read is called for class {} without serializable fields.",
+                     utils::get_cls_name_helper<T>());
       }
-      return read_bytes;
+      return read_bytes_total;
     }
 
   private:
     template<typename Field>
-    static uint32_t write_helper(std::ofstream& ofs, const Field& field)
+    static SerializableSizeT write_helper(std::ofstream& ofs, const Field& field)
     {
-      uint32_t written_bytes = 0;
-      size_t pos_written_bytes = ofs.tellp();
-      ofs.write(reinterpret_cast<const char*>(&written_bytes), sizeof(written_bytes));
-      written_bytes += sizeof(written_bytes);
-
-      if constexpr (IsRegisteredClass<Field>::value)
+      SerializableSizeT written_bytes = 0;
+      if constexpr (HasSpecializedSerializer<Field>)
       {
-        // dynamic disptach to exact type
-        written_bytes += uint32_t(field.write(ofs));
+        written_bytes += BinarySerializerSpec<Field>::write(ofs, &field);
+      }
+      else if constexpr (IsRegisteredClass<Field>::value)
+      {
+        written_bytes += BinarySerializer::write(ofs, &field);
       }
       else if constexpr (IsStdVector_v<Field>)
       {
         const uint32_t num_elems = static_cast<uint32_t>(field.size());
-        ofs.write(reinterpret_cast<const char*>(&num_elems), 4);
-        written_bytes += 4;
+        ofs.write(reinterpret_cast<const char*>(&num_elems), sizeof(num_elems));
+        written_bytes += sizeof(num_elems);
         std::for_each(field.begin(), field.end(), [&](const auto& item) { written_bytes += write_helper(ofs, item); });
       }
       else if constexpr (IsStdArray_v<Field>)
       {
         // fixed size array, we already know num of elements
+        std::for_each(field.begin(), field.end(), [&](const auto& item) { written_bytes += write_helper(ofs, item); });
+      }
+      else if constexpr (IsStdUnorderedMap<Field>::value || IsStdMap<Field>::value)
+      {
+        const uint32_t map_size = static_cast<uint32_t>(field.size());
+        written_bytes += write_helper(ofs, map_size);
+        std::for_each(field.begin(), field.end(),
+                      [&](const auto& item)
+                      {
+                        written_bytes += write_helper(ofs, item.first);
+                        written_bytes += write_helper(ofs, item.second);
+                      });
+      }
+      else if constexpr (IsStdSet_v<Field> || IsStdUnorderedSet_v<Field>)
+      {
+        const uint32_t set_size = static_cast<uint32_t>(field.size());
+        written_bytes += write_helper(ofs, set_size);
         std::for_each(field.begin(), field.end(), [&](const auto& item) { written_bytes += write_helper(ofs, item); });
       }
       else if constexpr (IsStdUniquePointer_v<Field>)
@@ -417,10 +326,14 @@ namespace fury
       else if constexpr (std::is_same_v<Field, std::string>)
       {
         const uint32_t size = static_cast<uint32_t>(field.size());
-        ofs.write(reinterpret_cast<const char*>(&size), 4);
+        ofs.write(reinterpret_cast<const char*>(&size), sizeof(size));
         ofs.write(reinterpret_cast<const char*>(field.c_str()), size);
-        written_bytes += 4;
+        written_bytes += sizeof(size);
         written_bytes += static_cast<uint32_t>(field.size());
+      }
+      else if constexpr (std::is_same_v<Field, std::filesystem::path>)
+      {
+        written_bytes += write_helper(ofs, field.string());
       }
       else if constexpr (std::is_trivially_copyable_v<Field>)
       {
@@ -445,48 +358,67 @@ namespace fury
           }
         }
       }
-      else if constexpr (HasWriteMethod<Field>::value)
+      else if constexpr (HasAnySerializableField<Field>::value)
       {
-        written_bytes += field.write(ofs);
+        written_bytes += static_cast<uint32_t>(BinarySerializer::write(ofs, &field));
       }
       else
       {
         // output Field type
         // Field::nothing;
-        static_assert(sizeof(Field) && 0, "Not supported serialization type");
+        static_assert(utils::always_false<Field>, "Not supported serialization type");
       }
-      size_t tmp = ofs.tellp();
-      ofs.seekp(pos_written_bytes, std::ios_base::beg);
-      ofs.write(reinterpret_cast<const char*>(&written_bytes), 4);
-      ofs.seekp(tmp, std::ios_base::beg);
       return written_bytes;
     }
 
     template<typename Field>
-    static uint32_t read_helper(std::ifstream& ifs, Field& field, uint16_t tag)
+    static SerializableSizeT read_helper(std::ifstream& ifs, Field& field)
     {
-      uint32_t read_bytes = 0;
-      uint32_t field_size = 0;
-      ifs.read(reinterpret_cast<char*>(&field_size), sizeof(field_size));
-      read_bytes += sizeof(field_size);
-
-      if constexpr (IsRegisteredClass<Field>::value)
+      SerializableSizeT read_bytes = 0;
+      if constexpr (HasSpecializedDeserializer<Field>)
       {
-        // dynamic dispatch
-        read_bytes += uint32_t(field.read(ifs));
+        read_bytes += static_cast<uint32_t>(BinarySerializerSpec<Field>::read(ifs, &field));
+      }
+      else if constexpr (IsRegisteredClass<Field>::value)
+      {
+        read_bytes += static_cast<uint32_t>(BinarySerializer::read(ifs, &field));
       }
       else if constexpr (IsStdVector_v<Field>)
       {
         uint32_t num_elems;
         ifs.read(reinterpret_cast<char*>(&num_elems), sizeof(uint32_t));
-        read_bytes += 4;
+        read_bytes += sizeof(num_elems);
         field.resize(num_elems);
-        std::for_each(field.begin(), field.end(), [&](auto& item) { read_bytes += read_helper(ifs, item, tag); });
+        std::for_each(field.begin(), field.end(), [&](auto& item) { read_bytes += read_helper(ifs, item); });
+      }
+      else if constexpr (IsStdUnorderedMap<Field>::value || IsStdMap<Field>::value)
+      {
+        uint32_t map_size;
+        read_bytes += read_helper(ifs, map_size);
+        for (uint32_t i = 0; i < map_size; i++)
+        {
+          typename Field::key_type key {};
+          typename Field::mapped_type value {};
+          read_bytes += read_helper(ifs, key);
+          read_bytes += read_helper(ifs, value);
+          field[key] = std::move(value);
+        }
+      }
+      else if constexpr (IsStdSet_v<Field> || IsStdUnorderedSet_v<Field>)
+      {
+        uint32_t set_size;
+        read_bytes += read_helper(ifs, set_size);
+        for (uint32_t i = 0; i < set_size; i++)
+        {
+          typename Field::key_type value {};
+          read_bytes += read_helper(ifs, value);
+          field.insert(std::move(value));
+        }
       }
       // If array size will ever change, then it will break serialization!!!
       else if constexpr (IsStdArray_v<Field>)
       {
-        std::for_each(field.begin(), field.end(), [&](auto& elem) { read_bytes += read_helper(ifs, elem, tag); });
+        std::for_each(field.begin(), field.end(), [&](auto& elem) { read_bytes += read_helper(ifs, elem); });
       }
       else if constexpr (IsStdUniquePointer_v<Field>)
       {
@@ -503,7 +435,7 @@ namespace fury
         {
           field = std::make_unique<typename Field::element_type>();
         }
-        read_bytes += read_helper(ifs, *field, tag);
+        read_bytes += read_helper(ifs, *field);
       }
       else if constexpr (IsStdSharedPointer_v<Field>)
       {
@@ -531,7 +463,7 @@ namespace fury
               field = std::make_shared<typename Field::element_type>();
             }
             // read into shared pointer directly
-            read_bytes += read_helper(ifs, *field, tag);
+            read_bytes += read_helper(ifs, *field);
             deserialized_sps.insert({ shared_resource_tag, &field });
           }
           else
@@ -549,6 +481,12 @@ namespace fury
         field.resize(len);
         ifs.read(field.data(), len);
         read_bytes += len;
+      }
+      else if constexpr (std::is_same_v<Field, std::filesystem::path>)
+      {
+        std::string path;
+        read_bytes += read_helper(ifs, path);
+        field = path;
       }
       else if constexpr (std::is_trivially_copyable_v<Field>)
       {
@@ -572,31 +510,15 @@ namespace fury
           }
         }
       }
-      else if constexpr (HasReadMethod<Field>::value)
+      else if constexpr (HasAnySerializableField<Field>::value)
       {
-        read_bytes += field.read(ifs);
+        read_bytes += static_cast<uint32_t>(BinarySerializer::read(ifs, &field));
       }
       else
       {
         // output Field type
-        // Field::nothing;
-        static_assert(sizeof(Field) && 0, "Not supported deserialization type");
-      }
-
-      if (read_bytes != field_size)
-      {
-        const char* name = nullptr;
-        if constexpr (IsRegisteredClass<Field>::value)
-        {
-          name = Field::cls_name.data();
-        }
-        else
-        {
-          name = T::cls_name.data();
-        }
-        Logger::critical("Failed to read field with tag {} of object {}. Field size {}, read bytes {}.", tag, name,
-                         field_size, read_bytes);
-        throw std::runtime_error("Deserialization critical error");
+        Field::nothing;
+        static_assert(utils::always_false<Field>, "Not supported deserialization type");
       }
       return read_bytes;
     }

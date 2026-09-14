@@ -1,11 +1,11 @@
 #pragma once
 
+#include "Common.hpp"
 #include "ITickable.hpp"
 #include "opengl/VertexArrayObject.hpp"
 #include "opengl/VertexBufferObject.hpp"
 #include "opengl/ElementBufferObject.hpp"
 #include "opengl/SSBO.hpp"
-#include "Singleton.hpp"
 #include "glm/glm.hpp"
 #include "glad/glad.h"
 #include <vector>
@@ -16,16 +16,17 @@
 namespace fury
 {
   class Scene;
-  struct ObjectChangeInfo;
   class ItemSelectionWheel;
   struct SelectionWheelSlot;
-  class Object3D;
   class BoundingBox;
+  struct Frustum;
 
   class RenderPass : public ITickable
   {
   public:
+    RenderPass() = default;
     RenderPass(Scene* scene);
+    virtual void init(Scene* scene);
     virtual void update() = 0;
   protected:
     Scene* m_scene = nullptr;
@@ -42,17 +43,17 @@ namespace fury
       size_t basev = 0;
     };
   public:
-    GeometryPass(Scene* scene, int shadow_map_texture);
+    GeometryPass();
+    void set_shadow_map_texture(int shadow_map_texture) { m_shadow_map_texture = shadow_map_texture; }
     void update() override;
+    void update_mesh_data(EntityId entity);
     void tick(float) override;
+    uint32_t get_num_culled_objects() const { return m_num_culled_objects; }
   private:
     void allocate_memory_for_buffers();
     void split_objects();
-    void render_scene();
+    void render_entities(const std::vector<EntityId>& entities, const Frustum& frustum);
     void render_selected_objects();
-    void on_new_scene_object(Object3D* obj);
-    void handle_object_change(const ObjectChangeInfo& info);
-    void update_lights_data();
   private:
     // share all buffers data with shadow pass to avoid same data duplication
     friend class ShadowsPass;
@@ -61,61 +62,33 @@ namespace fury
     VertexBufferObject m_vbo_indices;
     VertexBufferObject m_vbo_arrays;
     ElementBufferObject m_ebo;
-    SSBO m_lights_data_ssbo;
-    std::map<const Object3D*, std::vector<MeshRenderOffsets>> m_render_offsets;
-    std::vector<const Object3D*> m_objects_indices_rendering_mode;
-    std::vector<const Object3D*> m_objects_arrays_rendering_mode;
-    int m_shadow_map_texture;
+    std::map<EntityId, std::vector<MeshRenderOffsets>> m_render_offsets;
+    std::vector<EntityId> m_objects_indices_rendering_mode;
+    std::vector<EntityId> m_objects_arrays_rendering_mode;
+    std::vector<EntityId> m_objects_without_lighting;
+    uint32_t m_shadow_map_texture = 0;
+    uint32_t m_num_culled_objects = 0;
   };
 
   class ShadowsPass : public RenderPass
   {
   public:
-    ShadowsPass(Scene* scene, GeometryPass* gp);
+    ShadowsPass() = default;
+    void set_geometry_pass_ref(GeometryPass* gp) { m_gp = gp; }
     void update() override;
     void tick(float) override;
   private:
-    GeometryPass* m_gp;
-  };
-
-  // points + geometry shader
-  class NormalsPass : public RenderPass
-  {
-    struct ObjectRenderOffsets
-    {
-      // vertex count for current model
-      size_t vcount = 0;
-      // offset in vbo (in vertices count)
-      size_t vbo_offset_vtx_count = 0;
-      // object index in m_model_matrices vector
-      size_t internal_idx = 0;
-    };
-  public:
-    NormalsPass(Scene* scene);
-    void update() override;
-    void tick(float) override;
-  private:
-    void handle_visible_normals_toggle(Object3D* obj, bool is_visible);
-    void handle_object_change(const ObjectChangeInfo& info);
-  private:
-    VertexArrayObject m_vao;
-    VertexBufferObject m_vbo;
-    SSBO m_model_matrices_ssbo;
-    std::set<const Object3D*> m_objects_with_visible_normals;
-    std::vector<glm::mat4> m_model_matrices;
-    std::vector<GLsizei> m_voffsets;
-    std::vector<GLsizei> m_vcounts;
-    std::map<const Object3D*, ObjectRenderOffsets> m_object_offsets;
+    GeometryPass* m_gp = nullptr;
   };
 
   class SelectionWheelPass : public RenderPass
   {
   public:
-    SelectionWheelPass(Scene* scene, ItemSelectionWheel* wheel);
+    SelectionWheelPass() = default;
+    void init(Scene* scene) override;
     void update() override;
     void tick(float) override;
   private:
-    ItemSelectionWheel* m_wheel = nullptr;
     // fop all wheel geometry
     VertexArrayObject m_vao;
     VertexBufferObject m_vbo;
@@ -129,6 +102,7 @@ namespace fury
   class InfiniteGridPass : public RenderPass
   {
   public:
+    InfiniteGridPass() = default;
     InfiniteGridPass(Scene* scene);
     void update() override {}
     void tick(float) override;
@@ -136,47 +110,42 @@ namespace fury
     VertexArrayObject m_vao;
   };
 
-  // TODO: move normals pass here
-  class DebugPass : public Singleton<DebugPass>
+  class DebugPass : public RenderPass
   {
   public:
-    void update();
+    DebugPass() = default;
+    void init(Scene* scene) override;
+    void update() override;
+    void update_normals();
     void tick(float);
     void add_line(const glm::vec3& a, const glm::vec3& b, const glm::vec4& color = glm::vec4(1, 1, 1, 1));
-    void add_bbox(const BoundingBox& bbox, const glm::mat4& transform);
     void clear();
     void clear_lines();
-    void clear_bboxes();
   private:
-    DebugPass();
-    friend class Singleton<DebugPass>;
-  private:
-    void handle_visible_bbox_toggle(Object3D* obj, bool is_visible);
-    void handle_scene_visible_bbox_toggle(bool is_visible);
-    void update_bbox_data();
-    void update_lines_data();
-    void remove_bbox_data(Object3D* obj);
-  private:
-    struct LineVertex
+    struct DebugVertex
     {
       glm::vec3 pos;
       glm::vec4 color;
     };
+    struct AABBBoundsGPU
+    {
+      glm::vec4 minp;
+      glm::vec4 maxp;
+    };
+  private:
     // Lines
-    VertexArrayObject m_vao;
-    VertexBufferObject m_vbo;
-    std::vector<LineVertex> m_lines;
-    bool m_dirty_lines_data = true;
+    VertexArrayObject m_lines_vao;
+    VertexBufferObject m_lines_vbo;
+    std::vector<DebugVertex> m_lines_vertices;
     // AABBs
-    std::optional<glm::mat4> m_scene_bbox_matrix;
-    std::vector<uint32_t> m_objects_with_visible_bboxes;
-    std::vector<glm::mat4> m_bbox_instance_matrices;
-    VertexArrayObject m_vao_bbox;
-    VertexBufferObject m_vbo_bbox;
-    VertexBufferObject m_vbo_instance_bbox;
-    ElementBufferObject m_ebo_bbox;
-    bool m_dirty_bbox_data = true;
+    VertexArrayObject m_bbox_vao;
+    SSBO m_bbox_min_max_points_ssbo;
     // Normals
+    VertexArrayObject m_normals_vao;
+    VertexBufferObject m_normals_vbo;
+    std::vector<GLsizei> m_normals_voffsets;
+    std::vector<GLsizei> m_normals_vcounts;
+    SSBO m_normals_transform_indices_ssbo;
   };
 
 } // namespace fury

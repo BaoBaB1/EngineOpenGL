@@ -1,5 +1,9 @@
 #include "Utils.hpp"
 #include "core/Logger.hpp"
+#include "core/ecs/components/DrawableComponent.hpp"
+
+#include <glm/gtc/matrix_transform.hpp>
+#include <limits>
 
 #ifdef _WIN32
   #include <Windows.h>
@@ -44,6 +48,18 @@ namespace fury
     {
       static std::filesystem::path root_path = find_root_dir();
       return root_path;
+    }
+
+    const std::filesystem::path& get_assets_folder()
+    {
+      const static std::filesystem::path assets_folder = utils::get_project_root_dir() / "assets";
+      return assets_folder;
+    }
+
+    const std::filesystem::path& get_textures_folder()
+    {
+      const static std::filesystem::path textures_folder = utils::get_assets_folder() / "textures";
+      return textures_folder;
     }
 
     std::filesystem::path get_exe_path()
@@ -123,5 +139,56 @@ namespace fury
       }
       return str;
     }
+
+    BoundingBox calculate_bbox(const std::vector<MeshNode>& mesh_nodes)
+    {
+      glm::vec3 min(std::numeric_limits<float>::max()), max(std::numeric_limits<float>::min());
+      for (const MeshNode& mesh_node : mesh_nodes)
+      {
+        if (!mesh_node.mesh.asset->get_bbox().is_valid())
+        {
+          mesh_node.mesh.asset->calculate_bbox();
+        }
+        min = glm::min(min, mesh_node.mesh.asset->get_bbox().min());
+        max = glm::max(max, mesh_node.mesh.asset->get_bbox().max());
+      }
+      return BoundingBox(min, max);
+    }
+
+    BoundingBox calculate_world_space_bbox(const BoundingBox& local_bbox, const glm::mat4& transform,
+                                           glm::mat4* calculated_transform)
+    {
+      // Jim Arvo's variation of fast bbox recompute
+      const glm::vec3& min = local_bbox.min();
+      const glm::vec3& max = local_bbox.max();
+      const glm::vec3 center = local_bbox.center();
+      const glm::vec3 half_extents = (max - min) * 0.5f;
+      const glm::mat3 mm = { glm::abs(transform[0]), glm::abs(transform[1]), glm::abs(transform[2]) };
+      const glm::vec3 center_world = transform * glm::vec4(center, 1);
+      const glm::vec3 extents_world = (mm * half_extents) * 2.f;
+      if (calculated_transform)
+      {
+        glm::mat4 out_mat(1.f);
+        out_mat = glm::translate(out_mat, center_world) * glm::scale(out_mat, extents_world);
+        //  OBB
+        //  out_mat = transform * (glm::translate(out_mat, center) * glm::scale(out_mat, extents));
+        *calculated_transform = out_mat;
+      }
+      return BoundingBox(center_world - (extents_world * 0.5f), center_world + (extents_world * 0.5f));
+    }
+
+    void get_meshes_metadata(const std::vector<MeshNode>& mesh_nodes, size_t& nvertices, size_t& nfaces)
+    {
+      nvertices = nfaces = 0;
+      for (const auto& node : mesh_nodes)
+      {
+        if (node.mesh) [[likely]]
+        {
+          nvertices += node.mesh.asset->get_vertices().size();
+          nfaces += node.mesh.asset->get_faces().size();
+        }
+      }
+    }
+
   } // namespace utils
 } // namespace fury

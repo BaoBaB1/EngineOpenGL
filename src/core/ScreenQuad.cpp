@@ -43,14 +43,12 @@ namespace fury
 
   void ScreenQuad::tick(float)
   {
-    // set GL_FILL mode because next we are rendering texture
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glDisable(GL_DEPTH_TEST);
-    Shader& shader = ShaderStorage::get(ShaderStorage::ShaderType::SCREEN_QUAD);
+    Shader* shader = ShaderStorage::get(ShaderStorage::ShaderType::SCREEN_QUAD);
     BindGuard shader_bg(shader);
     BindGuard bg(m_vao);
-    shader.set_int("screenTexture", 0);
-    shader.set_bool("isSingleChannel", m_is_single_channel);
+    shader->set_int("screenTexture", 0);
+    shader->set_bool("isSingleChannel", m_is_single_channel);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_tex_id);
     glDrawArrays(GL_TRIANGLES, 0, 6);

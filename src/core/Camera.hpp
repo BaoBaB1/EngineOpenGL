@@ -1,16 +1,17 @@
 #pragma once
 
-#include "ge/Ray.hpp"
-#include "core/Entity.hpp"
-#include "core/ITickable.hpp"
+#include "Ray.hpp"
+#include "Serialization.hpp"
+#include "ecs/components/TransformComponent.hpp"
 #include "Frustum.hpp"
-#include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <array>
 
 namespace fury
 {
-  class Camera : public Entity
+  class Scene;
+
+  class Camera
   {
   public:
     enum ProjectionMode : uint8_t
@@ -19,8 +20,6 @@ namespace fury
       ORTHOGRAPHIC
     };
   public:
-    FURY_REGISTER_DERIVED_CLASS(Camera, Entity)
-    Camera();
     const glm::vec3& get_position() const;
     const glm::vec3& get_target() const { return m_target; }
     const glm::vec3& get_up() const { return m_up; }
@@ -31,11 +30,12 @@ namespace fury
     float get_aspect() const { return m_screen_size.x / m_screen_size.y; }
     float get_znear() const { return m_near_far.x; }
     float get_zfar() const { return m_near_far.y; }
+    ecs::TransformComponent& get_transform_component() { return m_transform; }
+    const ecs::TransformComponent& get_transform_component() const { return m_transform; }
     bool is_freezed() const { return m_freezed; }
     Ray cast_ray(uint32_t x, uint32_t y) const;
     glm::vec2 get_screen_size() const { return m_screen_size; }
-    const glm::mat4& get_view_matrix() const;
-    glm::mat4& get_view_matrix();
+    glm::mat4 get_view_matrix() const;
     glm::mat4& get_projection_matrix() { return m_projection_mat[m_mode]; }
     const glm::mat4& get_projection_matrix() const { return m_projection_mat[m_mode]; }
     ProjectionMode get_projection_mode() const { return m_mode; }
@@ -60,25 +60,28 @@ namespace fury
       FURY_SERIALIZABLE_FIELD(7, &Camera::m_target),
       FURY_SERIALIZABLE_FIELD(8, &Camera::m_projection_mat),
       FURY_SERIALIZABLE_FIELD(9, &Camera::m_screen_size),
-      FURY_SERIALIZABLE_FIELD(10, &Camera::m_mode)
+      FURY_SERIALIZABLE_FIELD(10, &Camera::m_mode),
+      FURY_SERIALIZABLE_FIELD(12, &Camera::m_up),
+      FURY_SERIALIZABLE_FIELD(13, &Camera::m_right),
+      FURY_SERIALIZABLE_FIELD(14, &Camera::m_near_far),
+      FURY_SERIALIZABLE_FIELD(15, &Camera::m_transform)
     )
     // clang-format on
   private:
+    ecs::TransformComponent m_transform;
     std::array<glm::mat4, 2> m_projection_mat = {};
-    mutable glm::mat4 m_cached_viewmatrix;
-    glm::vec3 m_up;
-    glm::vec3 m_right;
+    mutable glm::vec3 m_up = glm::vec3(0, 1, 0);
+    mutable glm::vec3 m_right;
     glm::vec3 m_target;
     glm::vec2 m_screen_size;
     glm::vec2 m_near_far = { 0.1f, 1000.f };
-    float m_pitch; // how much we are looking up or down
-    float m_yaw;   // magnitute of looking left or right
-    float m_speed; // speed from ctor
-    float m_sensivity;
+    float m_pitch = 0.f; // how much we are looking up or down
+    float m_yaw = -90.f;   // magnitute of looking left or right
+    float m_speed = 5.f;
+    float m_sensivity = 0.2f;
     float m_fovy = 45.f;
     ProjectionMode m_mode = ProjectionMode::PERSPECTIVE;
-    bool m_freezed;
-    mutable bool m_dirty = true;
+    bool m_freezed = false;
   };
 
 }; // namespace fury
